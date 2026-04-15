@@ -1,0 +1,152 @@
+Great question — this is exactly where your thesis gets teeth.
+I’ll group the failure metrics by what kind of failure insight they give, especially for false positives (FP) and false negatives (FN) in recidivism.
+
+---
+
+## 1️⃣ Confusion-matrix–based failure metrics (core)
+
+These directly quantify how the model fails.
+
+* False Positive Rate (FPR)
+  → Of people who did *not* reoffend, how many were wrongly predicted as high-risk?
+  *(Critical in recidivism: unnecessary detention, parole denial.)*
+
+* False Negative Rate (FNR)
+  → Of people who *did* reoffend, how many were predicted as low-risk?
+  *(Public safety risk.)*
+
+* Precision (PPV)
+  → When the model predicts “high-risk,” how often is it actually correct?
+  *(Low precision = many false positives.)*
+
+* Recall (Sensitivity / TPR)
+  → How many actual reoffenders did the model catch?
+  *(Low recall = many false negatives.)*
+
+* Specificity (TNR)
+  → How well the model correctly identifies non-reoffenders?
+  *(Low specificity = high FP problem.)*
+
+👉 These let you name the failure type, not just overall accuracy.
+
+---
+
+## 2️⃣ Threshold-based failure analysis
+
+False positives/negatives depend on the decision threshold, not just the model.
+
+* ROC Curve (TPR vs FPR)
+  → Shows how FP/FN trade off as the threshold changes.
+
+* Precision–Recall Curve
+  → Especially useful when classes are imbalanced (common in recidivism).
+
+* Cost-sensitive analysis
+  → Assign higher cost to FP (wrongly incarcerating someone) or FN (public safety risk).
+
+📌 This lets you argue:
+
+> “This model isn’t *bad* — it fails because of how thresholds interact with policy goals.”
+
+---
+
+## 3️⃣ Group-conditional failure metrics (fairness-aware failures)
+
+Very important for COMPAS.
+
+* Group-wise FPR / FNR
+  → Compare FP/FN rates across race, gender, age groups.
+
+* Error rate disparity
+  → Difference in FP or FN rates between protected groups.
+
+* Conditional confusion matrices
+  → Separate confusion matrices per demographic group.
+
+This lets you identify who the model fails on, not just how often.
+
+---
+
+## 4️⃣ Explanation-based failure metrics (why failures happen)
+
+This is where SHAP + GAM shine.
+
+### SHAP-based
+
+* SHAP value distributions for FP vs FN cases
+  → Which features push wrong decisions?
+
+* SHAP interaction values
+  → Feature combinations causing failures (e.g., age × prior offenses).
+
+* Global vs local SHAP mismatch
+  → Feature important globally but misleading locally → failure mode.
+
+### GAM-based
+
+* Partial dependence failure zones
+  → Regions where risk score jumps unexpectedly.
+
+* Non-monotonic effects
+  → When increasing a feature *should* increase risk but doesn’t.
+
+These explain mechanisms of failure, not just outcomes.
+
+---
+
+## 5️⃣ Instance-level failure analysis
+
+Zoom in on *individual mistakes*.
+
+* Hard examples
+  → Points consistently misclassified across models.
+
+* Disagreement analysis
+  → Instances where LR, RF, and GBM disagree strongly.
+
+* Confidence vs correctness
+  → High-confidence wrong predictions = dangerous failures.
+
+This is powerful for qualitative discussion and case studies.
+
+---
+
+## 6️⃣ Stability & robustness failures
+
+Shows fragility.
+
+* Prediction instability
+  → Small feature changes → label flips.
+
+* SHAP value instability
+  → Explanations change drastically with resampling.
+
+* Cross-validation variance of FP/FN rates
+  → Model unreliable across splits.
+
+---
+
+## 7️⃣ What makes this thesis-worthy
+
+Instead of saying:
+
+> “Model A has higher accuracy than Model B”
+
+You’ll be saying:
+
+> “Model A systematically produces false positives for young defendants with moderate priors due to feature interaction effects, while Model B fails mainly through false negatives caused by threshold sensitivity.”
+
+That’s failure analysis, not benchmarking.
+
+---
+
+### TL;DR — Your core failure metrics stack
+
+If you want a clean, defensible setup:
+
+1. FP, FN, FPR, FNR (overall + per group)
+2. Threshold sensitivity (ROC / PR)
+3. SHAP explanations for FP vs FN
+4. GAM shape analysis for failure regions
+5. Case studies of high-impact failures
+

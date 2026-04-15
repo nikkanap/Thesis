@@ -1,0 +1,36 @@
+Machine Learning Algorithms To Be Used:
+1. Logistic Regression (Linear Model)
+2. Random Forest (Bagging ensemble)
+3. LogiBoost (Gradient Boosting) (Boosting ensemble)
+4. MLP (Neural Netwo
+
+Dataset:
+COMPAS Recidivism Dataset
+(approx. 60,000 rows)
+
+
+Step 1 — Train multiple model classes
+- Logistic Regression
+- Random Forest
+- Neural Network
+
+Step 2 — Vary representation
+- Raw features
+- Binned
+- Interaction-enhanced
+
+Step 3 — Extract structural failure regions
+- Conditional error rates
+- Subgroup discovery
+- Interaction SHAP patterns
+
+Step 4 — Compare instability
+Which subgroups are high-error across models?
+Which only appear in some?
+How much overlap exists?
+
+Step 5 — Quantify fragility
+Jaccard similarity of error subgroups
+Stability across seeds
+Structural drift metrics
+
