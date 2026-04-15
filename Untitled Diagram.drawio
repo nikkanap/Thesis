@@ -1,0 +1,61 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="FdxR_867vmy-M8CJKVdZ" name="Page-1">
+    <mxGraphModel dx="2393" dy="1414" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="O2VDd46PjrIMnq7YB8xU-1" parent="1" style="text;whiteSpace=wrap;html=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&#xa;  &#xa;    &#xa;      &#xa;        &#xa;        &#xa;&#xa;        &#xa;        &#xa;          &#xa;        &#xa;&#xa;        &#xa;        &#xa;          &#xa;        &#xa;&#xa;        &#xa;        &#xa;          &#xa;        &#xa;&#xa;        &#xa;        &#xa;          &#xa;        &#xa;&#xa;        &#xa;        &#xa;          &#xa;        &#xa;&#xa;        &#xa;        &#xa;          &#xa;        &#xa;&#xa;        &#xa;          &#xa;        &#xa;&#xa;        &#xa;          &#xa;        &#xa;&#xa;        &#xa;          &#xa;        &#xa;&#xa;      &#xa;    &#xa;  &#xa;" vertex="1">
+          <mxGeometry height="770" width="293" x="-91" y="-63" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontSize=12;align=center;verticalAlign=top;spacingTop=8;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b&gt;Dataset&lt;/b&gt;&lt;br&gt;&lt;br&gt;COMPAS Recidivism Dataset&lt;br&gt;(HuggingFace - iModels)&lt;br&gt;&lt;br&gt;Predefined Train/Test Split" vertex="1">
+          <mxGeometry height="140" width="200" x="300" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontSize=12;align=center;verticalAlign=top;spacingTop=8;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b&gt;Data Processing&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Convert to DataFrame&lt;br&gt;• Separate X and y&lt;br&gt;• Feature Standardization&lt;br&gt;• Fixed Test Set" vertex="1">
+          <mxGeometry height="135" width="200" x="300" y="295" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontSize=12;align=center;verticalAlign=top;spacingTop=8;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b&gt;Model Training&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;div&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="310" width="220" x="580" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontSize=12;align=center;verticalAlign=top;spacingTop=8;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b&gt;Evaluation &amp;amp; Analysis&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;br&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="260" width="300" x="880" y="145" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontSize=12;align=center;verticalAlign=top;spacingTop=8;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b&gt;Final Analysis&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Model Comparison&lt;br&gt;• Instability vs Performance&lt;br&gt;• Instability vs Reliability&lt;br&gt;• Pattern Identification" vertex="1">
+          <mxGeometry height="115" width="170" x="1240" y="217.5" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-6" edge="1" parent="1" source="48VNK7agiT8zLg1T0oM4-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=light-dark(#000000,#FFFFFF);" target="48VNK7agiT8zLg1T0oM4-2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-7" edge="1" parent="1" source="48VNK7agiT8zLg1T0oM4-2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=light-dark(#000000,#FFFFFF);" target="48VNK7agiT8zLg1T0oM4-3" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-8" edge="1" parent="1" source="48VNK7agiT8zLg1T0oM4-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=light-dark(#000000,#FFFFFF);" target="48VNK7agiT8zLg1T0oM4-4" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-9" edge="1" parent="1" source="48VNK7agiT8zLg1T0oM4-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;endFill=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=light-dark(#000000,#FFFFFF);" target="48VNK7agiT8zLg1T0oM4-5" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-10" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b&gt;Models:&lt;br&gt;&lt;/b&gt;• Logistic Regression&lt;br&gt;• Random Forest&lt;br&gt;• XGBoost&lt;br&gt;• Linear SVM" vertex="1">
+          <mxGeometry height="90" width="140" x="620" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-11" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b style=&quot;&quot;&gt;Dataset Instability:&lt;br&gt;&lt;/b&gt;&lt;span style=&quot;&quot;&gt;• Bootstrap Sampling (1000x)&lt;/span&gt;&lt;div style=&quot;&quot;&gt;• Save test predictions in &amp;lt;model_name&amp;gt;_bs_pred.csv&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="170" x="605" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-13" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;div style=&quot;&quot;&gt;&lt;b&gt;Stochastic Instability:&lt;br&gt;&lt;/b&gt;• Random Seeds (10 Runs)&lt;/div&gt;&lt;div style=&quot;&quot;&gt;Save test predictions in &amp;lt;model_name&amp;gt;_stoc_pred.csv&lt;/div&gt;" vertex="1">
+          <mxGeometry height="70" width="170" x="605" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-15" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b style=&quot;&quot;&gt;Instability:&lt;/b&gt;&lt;br style=&quot;&quot;&gt;&lt;span style=&quot;&quot;&gt;• MAPE&lt;/span&gt;&lt;br style=&quot;&quot;&gt;&lt;span style=&quot;&quot;&gt;• Stability Interval&lt;/span&gt;&lt;br style=&quot;&quot;&gt;&lt;span style=&quot;&quot;&gt;• CII&lt;/span&gt;&lt;br style=&quot;&quot;&gt;&lt;span style=&quot;&quot;&gt;• Top-K Jaccard&lt;/span&gt;" vertex="1">
+          <mxGeometry height="90" width="120" x="900" y="185" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-16" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b style=&quot;&quot;&gt;Performance:&lt;br&gt;&lt;/b&gt;&lt;span style=&quot;&quot;&gt;• PR-AUC (SD)&lt;/span&gt;&lt;br style=&quot;&quot;&gt;&lt;span style=&quot;&quot;&gt;• Brier Score (SD)&lt;/span&gt;" vertex="1">
+          <mxGeometry height="90" width="120" x="1040" y="185" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-17" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b style=&quot;&quot;&gt;Reliability:&lt;br&gt;&lt;/b&gt;&lt;span style=&quot;&quot;&gt;• MRIP&lt;/span&gt;" vertex="1">
+          <mxGeometry height="90" width="120" x="900" y="295" as="geometry" />
+        </mxCell>
+        <mxCell id="48VNK7agiT8zLg1T0oM4-18" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;fontColor=light-dark(#000000,#FFFFFF);strokeColor=default;" value="&lt;b style=&quot;&quot;&gt;SHAP Analysis:&lt;br&gt;&lt;/b&gt;&lt;span style=&quot;&quot;&gt;• Feature Importance&lt;/span&gt;&lt;br style=&quot;&quot;&gt;&lt;span style=&quot;&quot;&gt;• Variability&lt;/span&gt;" vertex="1">
+          <mxGeometry height="90" width="120" x="1040" y="295" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
