@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net">
+  <diagram name="Thesis Methodology">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+
+        <!-- Dataset -->
+        <mxCell id="dataset" value="Dataset&#xa;&#xa;COMPAS Recidivism Dataset&#xa;(HuggingFace - iModels)&#xa;&#xa;Predefined Train/Test Split"
+        style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;"
+        vertex="1" parent="1">
+          <mxGeometry x="40" y="200" width="180" height="120" as="geometry"/>
+        </mxCell>
+
+        <!-- Data Processing -->
+        <mxCell id="processing" value="Data Processing&#xa;&#xa;- Convert to DataFrame&#xa;- Separate X and y&#xa;- Feature Standardization&#xa;- Fixed Test Set"
+        style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;"
+        vertex="1" parent="1">
+          <mxGeometry x="260" y="180" width="220" height="160" as="geometry"/>
+        </mxCell>
+
+        <!-- Model Training -->
+        <mxCell id="training" value="Model Training&#xa;&#xa;Models:&#xa;- Logistic Regression&#xa;- Random Forest&#xa;- XGBoost&#xa;- Linear SVM&#xa;&#xa;Dataset Instability:&#xa;- Bootstrap Sampling (1000x)&#xa;&#xa;Stochastic Instability:&#xa;- Random Seeds (Multiple Runs)"
+        style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;"
+        vertex="1" parent="1">
+          <mxGeometry x="520" y="150" width="260" height="220" as="geometry"/>
+        </mxCell>
+
+        <!-- Evaluation -->
+        <mxCell id="evaluation" value="Evaluation & Analysis&#xa;&#xa;Instability:&#xa;- MAPE&#xa;- Stability Interval&#xa;- CII&#xa;- Top-K Jaccard&#xa;&#xa;Performance:&#xa;- PR-AUC (SD)&#xa;- Brier Score (SD)&#xa;&#xa;Reliability:&#xa;- MRIP&#xa;&#xa;SHAP Analysis:&#xa;- Feature Importance&#xa;- Variability"
+        style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;"
+        vertex="1" parent="1">
+          <mxGeometry x="820" y="140" width="280" height="240" as="geometry"/>
+        </mxCell>
+
+        <!-- Final Analysis -->
+        <mxCell id="final" value="Final Analysis&#xa;&#xa;- Model Comparison&#xa;- Instability vs Performance&#xa;- Instability vs Reliability&#xa;- Pattern Identification"
+        style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=12;"
+        vertex="1" parent="1">
+          <mxGeometry x="1150" y="200" width="220" height="140" as="geometry"/>
+        </mxCell>
+
+        <!-- Arrows -->
+        <mxCell id="e1" style="endArrow=block;" edge="1" parent="1" source="dataset" target="processing">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e2" style="endArrow=block;" edge="1" parent="1" source="processing" target="training">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e3" style="endArrow=block;" edge="1" parent="1" source="training" target="evaluation">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+        <mxCell id="e4" style="endArrow=block;" edge="1" parent="1" source="evaluation" target="final">
+          <mxGeometry relative="1" as="geometry"/>
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

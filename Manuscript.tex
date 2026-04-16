@@ -11,6 +11,8 @@
 \usepackage{array}
 \usepackage{float}
 \usepackage{longtable}
+\usepackage{amsmath}
+\usepackage{amssymb}
 
 % title, author, n date info
 \title{\bfseries An Empirical Analysis of Instability in Binary Classification Models for Recidivism Prediction}
@@ -146,20 +148,69 @@ To evaluate instability in each model, this study will use multiple metrics that
 
 Metrics to be used for measuring the variability in predicted risk scores or probabilities for each individual will include the following: \\
 \textbf{Mean Absolute Prediction Error (MAPE):} This will be used to quantify the average absolute difference in predicted probabilities for each individual across runs~\cite{riley2023stability}. Higher MAPE values will indicate greater variability in predicted risk scores, suggesting higher instability. \\
+
+\begin{align}
+  \text{MAPE}_d=\frac{1}{R}\sum_{r=1}^{R}|\hat{P}_{d}^{(r)}-\bar{P}_d| \\
+  \overline{\text{MAPE}}=\frac{1}{D}\sum_{d=1}^{D}\text{MAPE}_d
+\end{align} 
+
 \textbf{95\% Stability Interval:} This will visualize the range within which predicted probabilities for each individual are expected to fall across repeated runs~\cite{riley2023stability}. Wider intervals will indicate greater instability in probability scores.\\
+
+\begin{align}
+  \text{SI}_{95\%,d} =
+  \left[
+  Q_{0.025}\big(\{\hat{p}_d^{(r)}\}_{r=1}^{R}\big),
+  \;
+  Q_{0.975}\big(\{\hat{p}_d^{(r)}\}_{r=1}^{R}\big)
+  \right]
+\end{align}  
 
 The study will also evaluate whether the same individuals are consistently identified as high-risk across different model runs. This study will primarily use the Top-K Jaccard Similarity, which will measure the overlap between the sets of individuals identified as highest risk (e.g., top 10\%) across different runs~\cite{lopez2022instability}. A lower Jaccard similarity will indicate greater inconsistency in identifying high-risk individuals.\\
 
+\begin{align}
+  j(X_r^K,X_s^K)=\frac{|X_r^K \cap X_s^K|}{|X_r^K \cup X_s^K|} \\
+  J=\frac{1}{\binom{R}{2}}\sum_{r<s}j(X_r^K,X_s^K)
+\end{align}
+
 The metric used to capture how often an individual's predicted class label changes across repeated model runs will be the Classification Instability Index (CII), as it measures the frequency with which an individual's predicted classification (e.g., high-risk vs low-risk) changes across runs~\cite{riley2023stability}. Higher CII values will indicate greater instability in classification outcomes.\\
+
+\begin{align}
+  \text{flips}_d = \sum_{r<s} \mathbf{1}\big(y_d^{(r)} \ne y_d^{(s)}\big) \\
+  \binom{R}{2}=\frac{N(N-1)}{2}
+  \text{CII}_d=\frac{flips_d}{\binom{R}{2}} \\
+\end{align}
 
 In addition to instability metrics, the models will be evaluated based on their predictive performance, as stability alone is insufficient without acceptable model performance. The following metrics will be used to measure the model's performance: \\
 \textbf{Standard Deviation of PR-AUC:} This will measure variability in model performance for the positive class across runs~\cite{lopez2022instability}. A higher standard deviation will indicate greater instability in performance.
+\begin{align}
+  \text{Prec}_t=\frac{TP_t}{TP_t+FP_t} \\
+  \text{Rec}_t=\frac{TP_t}{TP_t+FN_t} \\
+  \text{PR-AUC}_r=\sum_{t=1}^{T}(\text{Rec}_t-\text{Rec}_{t-1})\cdot\text{Prec}_t \\
+  SD\text{(PR-AUC)}=\sqrt{\frac{1}{R-1}\sum_{r=1}^{R}(\text{PR-AUC}_r-\overline{\text{PR-AUC}})^2}
+\end{align}
 
 \textbf{Brier Score and Variability:} This will assess the accuracy of predicted probabilities~\cite{rufibach2010use}. The standard deviation of Brier scores across runs will also be computed to evaluate instability in probability accuracy. Higher variability will suggest inconsistency in the quality of probabilistic predictions, including potential variation in calibration.
+\begin{align}
+  \text{BS}_r = \frac{1}{D} \sum_{d=1}^{D} \left( \hat{p}_d^{(r)} - y_d \right)^2 \\
+  \overline{\text{BS}}=\frac{1}{R}\sum_{r=1}^{R}\text{BS}_r \\
+  SD(\text{BS}) = \sqrt{ \frac{1}{R - 1} \sum_{r=1}^{R} \left( \text{BS}_r - \overline{\text{BS}} \right)^2 }
+\end{align}
 
 However, aggregated performance metrics alone do not reflect the reliability of individual predictions, which is critical in risk-sensitive applications. Thus, this study will also incorporate a reliability metric to assess the consistency and trustworthiness of model outputs. In particular, model reliability for individual prediction (MRIP) will be used, which quantifies the likelihood that a model's prediction error remains within an acceptable range for a given input~\cite{zhang2024reliability}. This approach will provide a more granular measure of prediction reliability compared to traditional aggregate metrics and will be especially relevant in high-stakes decision-making contexts.
+\begin{align}
+  \mathcal{R}(x_d) =
+  P\left(
+  \left| y_d^* - \hat{p}(x_d^*) \right| \le \epsilon
+  \;\middle|\;
+  x_d^* \in B(x_d)
+  \right) \\
+  B(x_d) = \{ x_d^* \mid \| x_d^* - x_d \| \le \delta \}
+\end{align}
 
 Lastly, to further understand the sources of instability, SHAP (SHapley Additive exPlanations) analysis will be used to identify features whose contributions to predictions vary most across runs~\cite{ponce2024practical}. Changes in feature importance across runs may indicate factors associated with instability in model predictions.
+\begin{align}
+  f(x) = \mathbb{E}[f(x)] + \sum_{j=1}^{J} \phi_j
+\end{align}
 
 \subsection{Tools and Implementation} 
 \tab%
