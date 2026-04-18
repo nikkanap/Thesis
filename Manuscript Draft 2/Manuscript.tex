@@ -1,0 +1,439 @@
+\hbadness=100000
+\documentclass[12pt]{article}
+\usepackage[left=1in, right=0.5in, top=1in, bottom=1in]{geometry}
+\usepackage{tabto}
+\usepackage{booktabs}
+\usepackage[table]{xcolor}
+\usepackage{tabularx}
+\usepackage{makecell}
+\usepackage{array}
+\usepackage{float}
+\usepackage{longtable}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{lmodern}
+
+% TITLE PAGE DETAILS
+\title{\bfseries An Empirical Analysis of Instability in Classification Models for Recidivism Prediction}
+\author{\bfseries 
+  Nikka Angela E. Naputo\\
+  CMSC 199.1 Research in Computer Science I\\
+  Division of Natural Sciences and Mathematics\\
+  University of the Philippines Tacloban College\\
+  {\small nenaputo@up.edu.ph}
+}
+\date{\today}
+
+% ----START THE DOCUMENT----
+\begin{document}
+\sloppy % Prevent text from extending to other columns
+
+% ----DISPLAY TITLE----
+\maketitle 
+\newpage 
+
+% ----DISPLAY TABLE OF CONTENTS----
+\tableofcontents 
+\newpage
+
+% ----1. INTRODUCTION----
+\section{Introduction} 
+\tab% add tab
+There is importance in assessing recidivism risk as it helps identify what risk factors should be addressed in order to prevent offender recidivism~\cite{bonta2007risk, duwe2017out} Machine learning (ML) models have been developed specifically for recidivism prediction due to its scalability, efficiency, and ability in detecting complex patterns and relationships that are often unnoticed by humans. Such models include the COMPAS~\cite{northpointe2015practitioner} and MnSTARR~\cite{duwe2014development} algorithms, while other modern ML approaches are also being explored such as tree-based models, support vector machines, gradient-boosted trees, and neural networks~\cite{duwe2017out}.\\
+
+These models are used increasingly in actual sentencing decisions, such as COMPAS, which has influenced the sentencing of court cases like Loomis v State in 2013~\cite{loomis2016} and the Samsa v State in 2014~\cite{samsa2014}. As a result, concerns regarding fairness in these model arose. In 2016, Propublica published a report claiming their analysis on the racial fairness of COMPAS found it to be more likely to misclassify Black defendants as higher risk than White defendants, while also misclassifying White defendants as lower risk than Black defendants~\cite{propublica2016analysis}. Though the report garnered criticism for its use of fairness metrics instead of analyzing COMPAS with regards to how likely a defendant was to recidivize, which they claimed made its predictions fair~\cite{dieterich2016compas, corbett2017algorithmic, flores2016false}, it incited an influx of ML recidivism prediction research focusing on different aspects such as measuring model performance~\cite{tollenaar2013method, travaini2022machine}, fairness~\cite{dressel2018accuracy, tolan2019machine, wadsworth2018achieving} of these models and ML methods.\\
+
+A less explored aspect of recidivism literature is predictive consistency, where risk scores generated for the same offender are varied due to different, yet equally justifiable, technical choices made during model development~\cite{greene2022forks}. Green lists down multiple \"forking paths\" that cause predictive inconsistency, one of which is due to model instability where multiple models with the same structure produce different predictions on the same individual~\cite{greene2022forks}. A model that is considered unstable undermines its reliability as its predictions cannot be fully trusted~\cite{riley2023stability}, and this becomes particularly critical in risk-sensitive situations where inconsistent predictions could lead to catastrophic outcomes such as harm to humans, major economic loss~\cite{zhang2024reliability}, or in the case of assessing recidivism risk, unfair legal consequences for defendants~\cite{greene2022forks}. Model instability can be caused by factors such as small perturbations in the training data or nondeterministic factors in the learning process~\cite{riley2023stability, lopez2022instability}. For clarity, this paper distinguishes two types of instability: dataset instability, which arises from small perturbations in the training data, and stochastic instability, which is caused by nondeterministic factors that affect the model during training.\\
+
+Though prior studies on recidivism prediction using ML models often examined these models' performance and fairness, comparatively little attention has been given in exploring their instability as existing literature either did a broad conceptual analysis on the factors that cause overall predictive inconsistency~\cite{greene2022forks}, or studied the instability with actuarial tools used in recidivism prediction~\cite{helmus2015stability}, not ML models. Moreover, as these models are being used in sentencing decisions, their predictions carry profound and potentially detrimental impact on an individual's legal status and personal freedom~\cite{van2022predicting}.  \\
+
+Therefore, examining the instability of ML models in recidivism prediction is essential, as it addresses significant concerns regarding a model's prediction reliability and the risk inconsistent and potentially inequitable legal outcomes and sentencing decisions, as well as filling a clear gap in the current literature.\\
+\newpage
+
+% ----1.1 BACKGROUND OF THE STUDY
+\subsection{Background of the Study}
+\subsubsection{Machine Learning}
+\tab%
+Machine Learning (ML) is a branch of artificial intelligence that focuses on algorithms capable of learning patterns from data without explicit programming~\cite{duwe2017out}. ML models are commonly categorized into two types based on their learning approach. Supervised learning models are trained using labelled data with known outcomes and are used to generate predictions. In contrast, unsupervised learning models are developed using unlabelled data and aim to identify patterns, structures, or relationships within the dataset~\cite{badillo2020introduction}.\\
+
+Supervised learning has been applied across multiple domains such as healthcare, finance, marketing, engineering, and criminal justice due to its ability to model complex relationships and efficiently process large volumes of data~\cite{duwe2017out,ozkan2017predicting}. In the context of criminal justice, supervised ML models are used in risk assessment to support decision-making processes, such as prioritizing limited resources toward higher-risk offenders and informing interventions for those assessed as lower risk. 
+
+\subsubsection{Recidivism Risk Assessment} 
+\tab%
+Recidivism risk assessment is the use of statistical or algorithmic tools to predict the likelihood an individual will re-engage in criminal behavior after being punished or released~\cite{ozkan2017predicting}. These instruments serve as tools that help judges, administrators, and correctional officers make informed decisions regarding pretrial detention, sentencing, and inmate placement~\cite{corbett2017algorithmic}.\\
+
+\textbf{There are four generations of risk assessment tools:}
+\begin{enumerate}
+  \item \textbf{First Generation (Pre-1950s):} Offender risk assessment was primarily based on subjective, professional judgements made by correctional staff~\cite{duwe2017out,ozkan2017predicting}. However, these assessments were often vulnerable to individual bias and inconsistency.
+  \item \textbf{Second Generation (Late 1920s-1970s):} This era saw the introduction of objective actuarial methods which focused on static factors such as criminal history~\cite{duwe2017out}. 
+  \item \textbf{Third Generation:} Recognizing the limitations of the second generation risk assessment tools, these tools began incorporating dynamic risk factors (criminogenic needs), which are factors that change over time and  serve as targets for intervention, such as employment status or substance abuse, alongside static factors~\cite{duwe2017out}. 
+  \item \textbf{Fourth Generation:} These are the modern recidivism risk assessment tools that continuously assess offenders throughout their involvement in the justice system, tracking changes over time and considering both risk and protective factors to guide the decisions of criminal justice practitioners~\cite{duwe2017out}.
+\end{enumerate}
+
+The evolution of these tools reflects a shift toward more data-driven and dynamic approaches to risk assessment, which has paved the way for the integration of ML techniques in recidivism prediction.
+
+\subsubsection{Machine Learning in Recidivism Prediction}
+\tab%
+Since the 1990s, ML-based recidivism risk assessment tools have been developed to predict the likelihood of reoffending. Examples include the Correctional Offender Management Profiling for Alternative Sanctions (COMPAS), developed by Northpointe in 1998 using statistical and ML methods~\cite{northpointe2015practitioner}, and the Minnesota Screening Tool Assessing Recidivism Risk (MnSTARR), developed by Duwe in 2014 which utilizes multiple logistic regression modeling due to its interpretability that allows researchers to discern exactly how much each variable contributes to a final prediction~\cite{duwe2014development}.\\
+
+These tools are used to support criminal justice decisions such as sentencing, pretrial detention, and offender supervision. In some cases, judicial decisions have been influenced by the outputs of these models. For example, in the case of Eric Loomis in 2013, the COMPAS assessment included in his Pre-Sentence Investigation (PSI) labeled him as “high risk” for recidivism, which was considered during sentencing~\cite{loomis2016}. Similarly, in the case of Jordan Samsa in 2014, the court considered components of the COMPAS report, such as criminogenic needs, in determining sentencing outcomes~\cite{samsa2014,liu2019beyond}.\\
+
+Beyond proprietary tools, general supervised ML models such as logistic regression, random forests, gradient boosting methods, and support vector machines have also been explored for recidivism prediction~\cite{duwe2017out,ozkan2017predicting,ngo2018traditional}, highlighting the increasing reliance on data-driven approaches in the domain.
+
+\subsubsection{Concerns in ML-based Risk Assessment}
+\tab%
+With the increasing use of ML models in criminal justice decision-making, several concerns have been raised regarding their application.\\
+
+One major concern involves the fairness of these models. In 2016, ProPublica published an analysis of the COMPAS risk assessment tool, reporting that it was more likely to misclassify Black defendants as higher risk and White defendants as lower risk~\cite{propublica2016analysis}. In response, Northpointe and other researchers argued that when evaluated in terms of calibration, or the alignment between predicted risk and actual outcomes, COMPAS performed comparably across racial groups~\cite{dieterich2016compas, corbett2017algorithmic, flores2016false}. This debate prompted a substantial body of research examining both the predictive performance~\cite{tollenaar2013method, travaini2022machine} and fairness~\cite{dressel2018accuracy, tolan2019machine, wadsworth2018achieving} of ML models in recidivism prediction.\\
+
+Another concern, though less extensively explored, relates to prediction consistency. Predictive inconsistency refers to the variability in risk scores assigned to the same individual due to different, yet equally justifiable, technical decisions made during model development~\cite{greene2022forks}. Greene et al.describe multiple ``forking paths'' in the modeling pipeline that can lead to such variability, including model instability, where models with the same structure may produce different predictions for the same individual~\cite{greene2022forks}.
+
+\subsubsection{Instability in Machine Learning}
+\tab%
+Instability in ML refers to the sensitivity of a model's predictions to small changes in its training conditions~\cite{sun2015stability}. The most commonly discussed form of instability is dataset instability, which refers to the variability in a model's predictions due to small perturbations in the training data, such as resampling from the original dataset, removing individual data points, or introducing noisy data~\cite{riley2023stability,hardt2016train}. Another form of instability is stochastic instability, which arises from non-deterministic factors in the training process, such as random initialization and data ordering during learning~\cite{lopez2022instability}. This randomness, typically controlled through the model's random seed, can cause models to produce different predictions across runs.\\
+
+An unstable model undermines reliability, as its predictions may not be consistent or dependable~\cite{riley2023stability}. This becomes particularly critical in risk-sensitive contexts, where inconsistent predictions may lead to harmful or high-cost outcomes~\cite{zhang2024reliability}. In the domain of criminal justice, the use of unstable models for recidivism risk assessment may result in inconsistent and potentially inequitable legal outcomes for defendants~\cite{greene2022forks}.
+
+
+% ----2. RELATED WORKS----
+\section{Related Works}
+\tab%
+Early work in recidivism prediction has primarily focused on evaluating the predictive performance of different modeling approaches, particularly comparing traditional statistical models with modern machine learning techniques.\\
+
+Some comparative studies have empirically evaluated the predictive performance of both traditional statistical models and modern ML techniques in the context of recidivism prediction. Systematic reviews such as Travaini et al.~\cite{travaini2022machine} provide a comprehensive overview of the growing application of ML techniques in recidivism prediction. Their study analyzed multiple empirical works employing various datasets and models, including logistic regression, random forests, neural networks, and ensemble approaches, to evaluate predictive performance using metrics such as accuracy and AUC\. Their findings indicate that most ML models achieve relatively strong predictive performance, with average results suggesting reliable classification of recidivism outcomes across studies. However, the review also emphasizes that no single model consistently outperforms others, as performance is influenced by dataset characteristics, feature selection, and preprocessing techniques. Additionally, Travaini et al\. highlight the increasing importance of transparency and fairness, noting that concerns regarding bias and interpretability have led to growing interest in explainable and ethically grounded ML approaches in criminal justice. Tollenaar and van der Heijden~\cite{tollenaar2013method} conducted a large-scale comparison of classical statistical methods, particularly logistic regression and linear discriminant analysis, against a wide range of ML and data mining approaches, including decision trees, boosting methods, and support vector machines. Their models were trained on criminal conviction data to predict general, violent, and sexual recidivism, and were evaluated using multiple performance metrics such as AUC, accuracy, and calibration. Despite the theoretical advantages of ML methods in capturing nonlinear relationships and complex interactions, their results showed that classical models performed comparably, and in some cases even outperformed the more complex methods, particularly for general and violent recidivism. Differences in predictive performance across models were generally small, leading to the conclusion that no single method consistently dominates across all prediction tasks and that simpler models remain competitive in practice. Similarly, Duwe and Kim~\cite{duwe2017out} compared 12 supervised learning algorithms, including logistic regression, random forests, support vector machines, neural networks, and boosting techniques, using a large dataset of offenders released from prison. Their evaluation considered multiple dimensions of predictive validity, such as discrimination, calibration, and accuracy, across different scenarios varying in sample size, base rates, and predictor sets. While some ML methods, particularly boosting-based approaches like LogitBoost, achieved slightly higher predictive performance, the overall differences between models were relatively modest, and no algorithm consistently outperformed others across all conditions. Importantly, their findings reinforce the idea that model performance is context-dependent, and that even advanced ML techniques do not guarantee substantial improvements over traditional approaches such as logistic regression.\\ 
+
+Taken together, these studies highlight that although more complex ML models are capable of capturing nonlinearities and high-dimensional interactions, their practical advantage in recidivism prediction is often limited, with simpler statistical models continuing to provide competitive and robust performance. This raises important questions regarding the practical benefits of increasing model complexity in recidivism prediction. 
+
+Moreover, the studies have consistently shown that no single model universally outperforms others. This observation is reinforced other studies such as Ngo et al.~\cite{ngo2018traditional}'s, who conducted a comparative study between traditional regression methods and ML techniques, specifically evaluating logistic regression, random forests, neural networks, and an ensemble approach in predicting serious inmate misconduct. Their analysis focused on multiple performance metrics, including accuracy, sensitivity, and specificity. The results demonstrated that different models excel under different evaluation criteria, for instance, ensemble methods performed best in maximizing sensitivity, while neural networks achieved higher overall accuracy, and both random forests and neural networks performed well in terms of specificity. These findings highlight that model superiority is conditional on the chosen performance metric, rather than inherent to any single modeling approach. Similarly, Kovalchuk et al.~\cite{kovalchuk2023prediction} applied ML models, particularly decision trees, to identify key factors influencing the propensity for criminal recidivism using data from penitentiary populations. Their study emphasized the role of specific predictors, such as prior convictions, in determining recidivism risk, and demonstrated that ML models can effectively support decision-making processes. However, rather than identifying a universally superior model, their findings suggest that model effectiveness depends on the structure of the data and the specific prediction objective, reinforcing the variability of model performance across contexts. In addition, broader analyses such as Ozkan~\cite{ozkan2017predicting} consistently report mixed and context-dependent results when comparing ML and traditional approaches, further supporting the conclusion that no single algorithm consistently outperforms others across all datasets and evaluation settings.\\
+
+Collectively, these findings suggest that model performance is highly dependent on dataset characteristics, evaluation metrics, and experimental design. As such, selecting a predictive model is not simply a matter of choosing the most advanced algorithm, but rather depends on the specific context in which it is applied. However, evaluating models solely based on predictive performance provides only a partial understanding of their behavior.\\
+
+Beyond predictive accuracy, researchers have increasingly examined the fairness and ethical implications of using machine learning models in criminal justice settings.\\
+
+Studies such as Dressel and Farid~\cite{dressel2018accuracy} examined the accuracy and fairness of algorithmic risk assessment tools by directly comparing them to human judgment. Using data from COMPAS and a large sample of defendants, they conducted an experiment where non-experts were asked to predict recidivism based on limited features such as age and prior criminal history. Their results showed that human predictions achieved nearly the same accuracy as COMPAS, with both performing at around 65\-67\% accuracy and similar AUC scores. Moreover, both human and algorithmic predictions exhibited comparable patterns of racial disparity, particularly in terms of false positive and false negative rates across Black and White defendants. The study also demonstrated that a simple linear model using only a few features could match the performance of COMPAS, despite the latter using over 100 variables. These findings suggest that increased model complexity does not necessarily translate to improved predictive performance or fairness, raising questions about the added value of proprietary risk assessment tools. Similarly, Tolan et al.~\cite{tolan2019machine} evaluated the predictive performance and fairness of ML models in comparison to structured human risk assessments within a juvenile justice context. Using a dataset of Catalonian youth offenders, they compared multiple ML models against the SAVRY framework, a structured professional judgment tool used by experts. Their results showed that ML models achieved slightly higher predictive performance, with AUC values improving when more features were included. However, this improvement came at the cost of fairness, as the models exhibited disparities across demographic groups, particularly with respect to sex and nationality. For instance, certain groups such as foreign nationals were more likely to be incorrectly classified as high risk, even when they did not recidivate. The study highlights a fundamental trade-off between predictive performance and fairness, demonstrating that optimizing for accuracy can introduce or amplify biases present in the data. 
+
+The ProPublica investigation~\cite{propublica2016analysis} raised concerns regarding racial bias in COMPAS by conducting an empirical analysis of over 10,000 defendants from Broward County, Florida. Their study compared COMPAS risk predictions with actual recidivism outcomes over a two-year period and found that, while overall accuracy was moderate (around 61\%), the errors were distributed unevenly across racial groups. Specifically, Black defendants were significantly more likely to be falsely classified as high risk despite not reoffending, while White defendants were more likely to be incorrectly labeled as low risk despite recidivating. Even after controlling for factors such as prior offenses, age, and gender, Black defendants were still more likely to receive higher risk scores. These findings suggest that algorithmic predictions may systematically disadvantage certain demographic groups, raising critical concerns about fairness in risk assessment tools. The investigation ultimately sparked widespread debate on the ethical implications of using ML in criminal justice decision-making. The ProPublica report led to further debate and subsequent rebuttals such as Dieterich et al.~\cite{dieterich2016compas}, which reanalyzed the same Broward County dataset and challenged the claim of racial bias. Their study argued that ProPublica relied on incorrect classification statistics, particularly focusing on false positive and false negative rates without accounting for differing base rates of recidivism across racial groups. By instead evaluating metrics such as predictive parity and AUC, they found that COMPAS exhibited similar predictive accuracy for Black and White defendants, indicating what they termed ``accuracy equity''. Their results showed that differences in error rates could arise naturally from underlying differences in group distributions, rather than from algorithmic bias. Consequently, they concluded that fairness assessments depend heavily on the choice of evaluation metric, and that alternative definitions can lead to different interpretations of bias. Similarly, Corbett-Davies et al.~\cite{corbett2017algorithmic} examined fairness in algorithmic decision-making by framing it as a constrained optimization problem that balances predictive performance and fairness objectives. Using data from Broward County, they demonstrated that different formal definitions of fairness—such as statistical parity, predictive equality, and calibration—cannot be simultaneously satisfied, especially when base rates differ across groups. Their analysis showed that enforcing certain fairness constraints often requires group-specific decision thresholds, which may reduce overall public safety or predictive accuracy. Conversely, optimizing solely for accuracy can result in substantial disparities across demographic groups. These findings highlight an inherent trade-off between fairness and utility, suggesting that fairness is not a single objective but depends on how it is formally defined and operationalized. In addition, Flores et al.~\cite{flores2016false} provided a critical response to the ProPublica analysis, arguing that its conclusions were based on methodological and statistical shortcomings. They emphasized that ProPublica did not follow established standards for testing predictive bias and instead relied on inappropriate comparisons of group-level error rates. Using alternative analytical approaches, including AUC comparisons and regression-based methods, they found no consistent evidence of racial bias in the predictive performance of COMPAS. The authors also highlighted that actuarial risk assessment instruments have been widely shown to outperform unstructured human judgment in predicting recidivism. Their findings reinforce the argument that conclusions about bias are highly sensitive to the evaluation framework and statistical methodology employed.\\
+
+Other works, such as Wadsworth et al.~\cite{wadsworth2018achieving}, explored methods to improve fairness through ML techniques such as adversarial learning. Their study proposed an adversarially trained neural network designed to predict recidivism while simultaneously minimizing the ability to infer protected attributes such as race from the model\'s outputs. The approach introduces a secondary model (an adversary) that penalizes the main predictor when demographic information can be extracted, thereby encouraging fairer predictions. Using the COMPAS dataset, their results showed that the adversarial model significantly reduced disparities in false positive and false negative rates, moving closer to satisfying fairness metrics such as demographic parity and equality of odds. Importantly, this improvement in fairness was achieved while maintaining, and in some cases slightly improving, predictive performance compared to baseline models. These findings demonstrate that fairness can be actively incorporated into model training, although trade-offs across different fairness definitions may still persist.\\
+
+Despite these advances, most existing work has focused on evaluating models in terms of aggregate performance and group-level fairness, often overlooking how predictions behave at the individual level. This limitation has led to the emergence of new perspectives that examine the consistency of model predictions.\\
+
+One emerging perspective that addresses this limitation is the concept of predictive inconsistency, as discussed by Greene et al.~\cite{greene2022forks}. This refers to the phenomenon where equally justifiable modeling decisions can produce different predicted risk scores for the same individual. This perspective highlights that variability in predictions does not solely arise from model randomness, but also from discretionary choices made throughout the data science pipeline, including data selection, preprocessing, and model design. In high-stakes domains such as criminal justice, such inconsistencies raise concerns regarding the reliability and legitimacy of algorithmic risk assessment tools. While Greene et al. provide a conceptual foundation, there remains a need for empirical methods that quantify prediction variability under controlled conditions.\\
+
+More recent empirical studies, such as Riley and Collins~\cite{riley2023stability}, proposed a comprehensive framework for evaluating instability in clinical prediction models across multiple levels. Their approach uses bootstrap resampling to repeatedly reconstruct models from the same dataset, allowing the assessment of how predictions vary under small perturbations in the training data. The study defines several levels of instability, including variability in overall estimated risk, changes in the distribution of predictions, subgroup-level instability, and instability at the individual prediction level. To quantify these effects, they introduced measures such as the mean absolute prediction error (MAPE), which captures the deviation between predictions from bootstrap models and the original model. Their findings show that substantial variability can exist even when aggregate performance metrics remain stable, particularly in small sample sizes or high-dimensional settings. Notably, instability at the individual level was found to be especially pronounced, where predictions for the same individual could vary significantly across models. These results highlight that instability is a pervasive issue that can impact clinical decision-making, emphasizing the need to evaluate prediction variability beyond traditional performance metrics.\\ 
+
+In addition to variability arising from resampling, instability may also emerge when models are exposed to changes in data distributions. Subbaswamy et al.~\cite{subbaswamy2021evaluating} examined model stability in the context of dataset shift, focusing on how predictive performance changes when the data distribution differs between training and deployment environments. Their study proposed a framework that evaluates robustness by estimating worst-case performance under structured distributional shifts, without requiring additional datasets. Specifically, they model shifts by allowing certain parts of the data distribution to vary (mutable variables) while keeping others fixed (immutable variables), enabling the analysis of realistic changes such as shifts in population characteristics or decision processes. Using this approach, they identify subpopulations where model performance deteriorates, effectively capturing scenarios in which a model may become unsafe to use. Their experiments on a clinical prediction task showed that model accuracy can significantly degrade under certain shifts, even when performance on the original dataset remains strong. These findings highlight that evaluating models solely on held-out data is insufficient, emphasizing the need to assess stability under potential dataset variations.\\
+
+Beyond dataset-related sources of variability, instability can also arise from the stochastic nature of model training itself. Lopez-Martinez et al.~\cite{lopez2022instability} further examined instability in clinical risk prediction models, particularly focusing on deep learning approaches used for risk stratification. Using electronic health record (EHR) data, they conducted repeated training runs of identical models with different random seeds and showed that model predictions can vary significantly at the individual level despite similar aggregate performance metrics such as ROC-AUC and PR-AUC. To quantify this variability, they introduced metrics such as the Top-K Jaccard similarity, which measures the consistency of high-risk individuals selected across model runs, and rank correlation measures to assess stability in prediction ordering. Their results demonstrate that deep learning models tend to exhibit greater instability compared to simpler models such as logistic regression, particularly in scenarios involving resource allocation where only top-risk individuals are considered. Additionally, the study showed that instability can lead to inconsistent decision-making and variability in subgroup representation, raising concerns about fairness and reliability in deployment settings. They also explored mitigation strategies such as model ensembling, which improved stability while maintaining predictive performance. Overall, their findings reinforce that instability is not only a theoretical concern but has practical implications for real-world decision-making systems.\\ 
+
+These empirical findings align with broader theoretical work on algorithmic stability. Hardt et al.~\cite{hardt2016train} examined the stability of stochastic gradient descent (SGD) and its relationship to generalization performance. Their work showed that learning algorithms are stable when small changes in the training dataset—such as replacing a single data point—lead to only minor changes in the learned model\'s predictions. They further demonstrated that SGD achieves this form of uniform stability under certain conditions, particularly when training time and step sizes are properly controlled. As a result, models trained with SGD tend to generalize well because their outputs do not vary significantly under small perturbations. These findings establish a theoretical link between stability and generalization, reinforcing the idea that prediction variability is an inherent property of learning algorithms. Research on instability in ML provides a relevant foundation for examining prediction variability.\\
+
+These theoretical perspectives are further complemented by broader work on model instability and underspecification. Sun~\cite{sun2015stability} explored the concept of algorithmic stability by defining it as the consistency of a model\'s predictions under small perturbations in the training data. The study introduced measures such as decision boundary instability (DBI) and classification instability (CIS), which quantify how much learned models and their outputs vary when trained on slightly different samples. Through both theoretical analysis and empirical experiments, Sun demonstrated that models with similar predictive accuracy can exhibit significantly different levels of stability, highlighting that accuracy alone is insufficient to evaluate model behavior. The findings emphasize that unstable models may undermine reproducibility and user trust, especially in applications where consistent predictions are critical. D\'Amour et al.~\cite{d2022underspecification} introduced the concept of underspecification in machine learning pipelines, referring to situations where multiple models achieve equivalent performance on standard evaluation metrics but behave differently in real-world settings. They argue that the standard ML pipeline, particularly reliance on iid validation, fails to constrain how models arrive at their predictions, allowing many distinct solutions to coexist. As a result, models that appear equally accurate during testing can rely on different signals, including spurious correlations, leading to unpredictable behavior during deployment. Through empirical case studies across domains such as computer vision, healthcare, and NLP, they demonstrate that small changes in training conditions (e.g., random seeds) can produce models with significantly different robustness, fairness, and generalization properties. Their findings show that instability can arise even without dataset shift, purely from ambiguity in the learning process itself. Overall, the study highlights that high test performance alone is insufficient for model credibility, emphasizing the need for additional evaluation methods such as stress testing to ensure reliable real-world behavior.\\
+
+While stability focuses on variability in predictions, a closely related concern is the reliability of individual predictions. The importance of reliability in predictive systems has been highlighted by Zhang and Bose~\cite{zhang2024reliability}, who introduced the Model Reliability for Individual Prediction (MRIP), a quantitative framework that measures the reliability of a model\'s prediction at the individual level rather than relying on aggregate metrics. Specifically, MRIP evaluates the probability that a model\'s prediction remains within an acceptable error range under small perturbations of the input, thereby capturing local uncertainty and variability in predictions. Their findings emphasize that aggregate performance metrics such as MSE or accuracy are insufficient for high-stakes applications, as models with strong overall performance may still produce large errors for specific individuals. Similarly, Biddle~\cite{biddle2022predicting} examined the epistemic risks inherent in ML systems, particularly in the context of recidivism prediction. Drawing from philosophy of science, the study argues that predictive models are inherently value-laden, as their design involves trade-offs between different types of errors and uncertainties that can disproportionately impact individuals. In high-stakes domains such as criminal justice, these epistemic risks translate into real-world consequences, where unreliable predictions may lead to unjust or harmful decisions. Together, these works highlight that beyond accuracy and fairness, understanding and quantifying the reliability of individual predictions is crucial for the responsible deployment of ML systems.\\
+
+Despite the growing body of work on instability and reliability in machine learning, their application to recidivism prediction remains limited.\\ 
+
+Given the increasing use of ML in high-stakes decision-making, understanding model instability is critical, particularly in domains such as criminal justice where predictions may directly influence individual outcomes. Regulatory discussions such as Van Dijck~\cite{van2022predicting} emphasize the growing need for transparency, accountability, and reliability in AI-based recidivism risk assessment systems. In particular, the proposed Artificial Intelligence Act classifies such systems as high-risk, requiring strict standards for data quality, model performance, and human oversight. These requirements reflect broader concerns that predictive models may introduce biases, lack interpretability, and produce outputs that are difficult to contest in legal contexts. Moreover, the absence of a single, universally accepted framework for evaluating predictive performance highlights the complexity of assessing these systems in practice. As such, while regulatory efforts underscore the importance of trustworthy AI, they also reveal the need for deeper empirical analysis of how ML models behave under varying conditions, including instability arising from data and stochastic factors.\\
+
+In the context of recidivism prediction, however, instability has received minimal attention. One notable study by Helmus and Thornton~\cite{helmus2015stability} examined the stability of actuarial risk assessment tools by analyzing the predictive consistency of individual items across multiple samples. Their findings showed that while most items were generally predictive, roughly half exhibited variability in predictive accuracy across different populations, indicating that risk estimates are not entirely stable. This variability was often observed in the magnitude rather than the direction of prediction, suggesting that risk factors may behave differently depending on contextual and sample-specific conditions. However, this line of work focuses on traditional actuarial instruments such as Static-99R and Static-2002R, and does not extend to modern ML-based approaches.\\
+
+While existing studies in recidivism prediction have extensively examined performance and fairness, there remains a lack of empirical analysis on how predictions vary under dataset perturbations and stochastic training conditions.\\
+
+This study addresses this gap by empirically analyzing the instability of classification models used in recidivism prediction. Unlike prior work, which focuses on performance and fairness, this study evaluates how predictions vary under dataset perturbations and stochastic training conditions, while also examining the relationship between instability, performance, and reliability.\\
+
+
+% ----3. STATEMENT OF THE PROBLEM----
+\section{Statement of the Problem} 
+\tab%
+Machine learning models are increasingly used in recidivism prediction to support decision-making processes within the criminal justice system, particularly in assessing an individual’s risk of reoffending. While numerous studies have focused on evaluating the predictive performance and fairness of these models, comparatively limited attention has been given to their stability and consistency. Instability in machine learning, which refers to the variability of predictions under small changes in training data or stochastic processes, may result in different predictions for the same individual across model runs or modeling conditions. This phenomenon is closely related to the concept of predictive inconsistency, where equally valid modeling choices can yield divergent outcomes. In high-stakes domains such as criminal justice, such inconsistencies raise concerns regarding the reliability and trustworthiness of algorithmic risk assessments, as they may influence decisions that affect an individual’s legal outcomes and access to opportunities.\\
+
+Although prior research has explored instability in traditional actuarial risk assessment tools, there remains a lack of empirical studies examining instability in machine learning-based recidivism prediction models. In particular, it is unclear to what extent these models exhibit instability when subjected to variations in training data and stochastic training processes. Furthermore, the manner in which instability manifests across different evaluation dimensions, such as predicted probabilities, ranking of individuals, classification outcomes, and overall model performance and reliability, remains underexplored. It is also not well understood how instability varies across different model types or which input features contribute most to unstable predictions.\\
+
+This study addresses these gaps by empirically analyzing the instability of classification models used in recidivism prediction. Specifically, it examines how model predictions vary under perturbations in the training data and stochastic training conditions, evaluates instability alongside performance and reliability metrics, and identifies the key factors that contribute to variability in predictions.
+
+\section{Objectives of the Study} 
+\subsection{General Objective} Evaluate the predictiver performance, reliability, and instability of classification models used in recidivism prediction.
+\subsection{Specific Objectives}
+\begin{enumerate}
+  \item Generate bootstrapped samples from the training dataset and retrain the models to assess dataset instability.
+  \item Retrain models on the same dataset with different random seeds to assess stochastic instability.
+  \item Evaluate each model for each type of instability using metrics for performance, reliability, instability, and feature contributions using the prediction values obtained. 
+  \item Analyze how results obtained from metrics evaluating each type of instability and model structure influences overall model instability. 
+\end{enumerate}
+
+\section{Scope and Limitations} 
+\tab%
+This study defines and focuses on two forms of instability, namely dataset instability and stochastic instability. Instability is evaluated empirically through model retraining under controlled perturbations, such as  bootstrapped sampling of the training dataset and variation in stochastic initialization through changes in its random seed. The analysis measures prediction performance, reliability, and instability across multiple dimensions such as prediction probabilities, classification labels, and highest risk.\\
+
+The study is limited to classification models, as these provide a controlled and interpretable setting for analyzing prediction variability. More complex models, such as multi-class or deep learning architectures, are excluded to maintain clarity and consistency in the analysis. The models considered include logistic regression, random forests, support vector machines, and boosting-based approaches.\\
+
+The dataset used in this study is limited to the COMPAS recidivism dataset due to its availability, preprocessing suitability, and sufficient sample size for repeated experimentation. As a result, the findings may not generalize to other datasets or domains with different characteristics.\\
+
+This study assumes that the dataset is properly preprocessed and that model configurations are correctly implemented. It does not account for external factors such as data quality issues, feature engineering variations, or real-world deployment conditions. Additionally, while multiple instability metrics are used, these serve as indirect measures of model reliability rather than a single unified reliability score.
+
+\section{Proposed Methodology}
+This section outlines the paper's planned methodology for analyzing the instability of ML models used in recidivism prediction beginning with the description of the dataset, followed by the ML models to be used. Next is the evaluation procedures, which includes instability metrics as well as performance and reliability metrics. The final the section describes the tools to be used and how they will be implemented throughout the study. 
+
+\subsection{Dataset} 
+The dataset to be used will be a version of the ProPublica COMPAS Recidivism Dataset that has been one-hot encoded and split into training and testing sets by iModels. The dataset is accessible on the HuggingFace website and can be directly imported into Python.
+
+\subsection{Modeling}
+\tab%
+The ML models to be used for training and evaluation are based on the following model types: statistical, tree-based, gradient-boosted trees, and support vector machine. The selection of a model for each of these will be based on how frequently they are explored or cited in recidivism prediction literature. Each model will be implemented using default or minimally adjusted hyperparameters provided by their respective libraries in order to establish a consistent baseline for comparison and ensure that the study focuses on instability arising from data perturbations and stochastic training behavior rather than from extensive hyperparameter tuning.
+
+The statistical model to be used is logistic regression, as it has been used in the development of several recidivism prediction tools and remains a widely used baseline model. The hyperparameters will be set to the default configuration in scikit-learn, including L2 regularization and the default solver settings. 
+
+The tree-based model to be used is Random Forest, which utilizes ensemble learning through bagging to improve predictive performance. The model will use the library's default settings for the number of trees and tree construction parameters.
+
+The gradient-boosted model to be used is XGBoost, which builds sequential trees to capture complex nonlinear relationships in the data. A set of predefined hyperparameters will be used to ensure stable and efficient training, specifically a maximum tree depth of 3, a learning rate of 0.1, and a fixed number of boosting rounds. These values were selected to balance model complexity and computational efficiency while maintaining consistency across repeated training runs. 
+
+Lastly, for the support vector machine model, Linear Support Vector Classification (LinearSVC) is used due to its efficiency and suitability for high-dimensional tabular data. However, since LinearSVC does not natively produce probability scores, it will be combined with a calibration method using \texttt{CalibratedClassifierCV} to obtain probabilistic outputs. This will allow the model to produce probability scores required for evaluation metrics such as probability instability, Brier Score, and reliability measures. With regards to its hyperparameters, the default penalty, loss, and regularization settings will be used, while \texttt{CalibratedClassifierCV} will apply its default calibration behavior to generate probability estimates.
+
+\subsection{Metrics for Instability}
+To evaluate instability in each model, this study will use multiple metrics that measure variability across different aspects of model behavior such as prediction probabilities, ranking of individuals, classification labels (recidivist or not recidivist), overall model performance, and model reliability. These metrics will be computed through multiple training runs and measured for both dataset instability and stochastic instability.\\
+
+Metrics to be used for measuring the variability in predicted risk scores or probabilities for each individual will include the following: \\
+\textbf{Mean Absolute Prediction Error (MAPE):} This will be used to quantify the average absolute difference in predicted probabilities for each individual across runs~\cite{riley2023stability}. Higher MAPE values will indicate greater variability in predicted risk scores, suggesting higher instability.\\
+
+\begin{align}
+  \text{MAPE}_d=\frac{1}{R}\sum_{r=1}^{R}|\hat{P}_{d}^{(r)}-\bar{P}_d| \\
+  \overline{\text{MAPE}}=\frac{1}{D}\sum_{d=1}^{D}\text{MAPE}_d
+\end{align} 
+
+\textbf{95\% Stability Interval:} This will visualize the range within which predicted probabilities for each individual are expected to fall across repeated runs~\cite{riley2023stability}. Wider intervals will indicate greater instability in probability scores.\\
+
+\begin{align}
+  \text{SI}_{95\%,d} =
+  \left[
+  Q_{0.025}\big(\{\hat{p}_d^{(r)}\}_{r=1}^{R}\big),
+  \;
+  Q_{0.975}\big(\{\hat{p}_d^{(r)}\}_{r=1}^{R}\big)
+  \right]
+\end{align}  
+
+The study will also evaluate whether the same individuals are consistently identified as high-risk across different model runs. This study will primarily use the Top-K Jaccard Similarity, which will measure the overlap between the sets of individuals identified as highest risk (e.g., top 10\%) across different runs~\cite{lopez2022instability}. A lower Jaccard similarity will indicate greater inconsistency in identifying high-risk individuals.\\
+
+\begin{align}
+  j(X_r^K,X_s^K)=\frac{|X_r^K \cap X_s^K|}{|X_r^K \cup X_s^K|} \\
+  J=\frac{1}{\binom{R}{2}}\sum_{r<s}j(X_r^K,X_s^K)
+\end{align}
+
+The metric used to capture how often an individual's predicted class label changes across repeated model runs will be the Classification Instability Index (CII), as it measures the frequency with which an individual's predicted classification (e.g., high-risk vs low-risk) changes across runs~\cite{riley2023stability}. Higher CII values will indicate greater instability in classification outcomes.\\
+
+\begin{align}
+  \text{flips}_d = \sum_{r<s} \mathbf{1}\big(y_d^{(r)} \ne y_d^{(s)}\big) \\
+  \binom{R}{2}=\frac{N(N-1)}{2}
+  \text{CII}_d=\frac{flips_d}{\binom{R}{2}} \\
+\end{align}
+
+In addition to instability metrics, the models will be evaluated based on their predictive performance, as stability alone is insufficient without acceptable model performance. The following metrics will be used to measure the model's performance: \\
+\textbf{Standard Deviation of PR-AUC:} This will measure variability in model performance for the positive class across runs~\cite{lopez2022instability}. A higher standard deviation will indicate greater instability in performance.
+\begin{align}
+  \text{Prec}_t=\frac{TP_t}{TP_t+FP_t} \\
+  \text{Rec}_t=\frac{TP_t}{TP_t+FN_t} \\
+  \text{PR-AUC}_r=\sum_{t=1}^{T}(\text{Rec}_t-\text{Rec}_{t-1})\cdot\text{Prec}_t \\
+  SD\text{(PR-AUC)}=\sqrt{\frac{1}{R-1}\sum_{r=1}^{R}(\text{PR-AUC}_r-\overline{\text{PR-AUC}})^2}
+\end{align}
+
+\textbf{Brier Score and Variability:} This will assess the accuracy of predicted probabilities~\cite{rufibach2010use}. The standard deviation of Brier scores across runs will also be computed to evaluate instability in probability accuracy. Higher variability will suggest inconsistency in the quality of probabilistic predictions, including potential variation in calibration.
+\begin{align}
+  \text{BS}_r = \frac{1}{D} \sum_{d=1}^{D} \left( \hat{p}_d^{(r)} - y_d \right)^2 \\
+  \overline{\text{BS}}=\frac{1}{R}\sum_{r=1}^{R}\text{BS}_r \\
+  SD(\text{BS}) = \sqrt{ \frac{1}{R - 1} \sum_{r=1}^{R} \left( \text{BS}_r - \overline{\text{BS}} \right)^2 }
+\end{align}
+
+However, aggregated performance metrics alone do not reflect the reliability of individual predictions, which is critical in risk-sensitive applications. Thus, this study will also incorporate a reliability metric to assess the consistency and trustworthiness of model outputs. In particular, model reliability for individual prediction (MRIP) will be used, which quantifies the likelihood that a model's prediction error remains within an acceptable range for a given input~\cite{zhang2024reliability}. This approach will provide a more granular measure of prediction reliability compared to traditional aggregate metrics and will be especially relevant in high-stakes decision-making contexts.
+\begin{align}
+  \mathcal{R}(x_d) =
+  P\left(
+  \left| y_d^* - \hat{p}(x_d^*) \right| \le \epsilon
+  \;\middle|\;
+  x_d^* \in B(x_d)
+  \right) \\
+  B(x_d) = \{ x_d^* \mid \| x_d^* - x_d \| \le \delta \}
+\end{align}
+
+Lastly, to further understand the sources of instability, SHAP (SHapley Additive exPlanations) analysis will be used to identify features whose contributions to predictions vary most across runs~\cite{ponce2024practical}. Changes in feature importance across runs may indicate factors associated with instability in model predictions.
+\begin{align}
+  f(x) = \mathbb{E}[f(x)] + \sum_{j=1}^{J} \phi_j
+\end{align}
+
+\subsection{Tools and Implementation} 
+\tab%
+\subsubsection{Tools}
+The study will use the programming language Python for the development of the program due to its simple syntax, and rich ecosystem of libraries and frameworks, many of which are designed for ML development. The following Python libraries will be used: \\
+
+\textbf{\texttt{datasets:}} Datasets provides one-line methods for importing any of the over nine hundred thousand public datasets available on the HuggingFace Datasets Hub. This library will be used to import the imodel's one-hot encoded version of the Propublica COMPAS Recidivism Dataset.
+
+\textbf{\texttt{pandas:}} Pandas provides data structure and data analysis tools that are easy to use, efficient, and high performing. The primary data structure to be used in the program will be the \texttt{DataFrame}, a two-dimensional table-like data structure consisting of rows and columns. This will be used for importing the training and test datasets, as well as storing and handling prediction outputs from csv files.
+
+\textbf{\texttt{numpy:}} Numpy provides high-performance multidimensional arrays and tools used for efficient array operations. This will be used in the study for array-based computations, including operations involving the evaluation of instability in the models.
+
+\textbf{\texttt{scikit-learn:}} Scikit-learn is an open-source library built for ML. It provides tools for data preprocessing, model training, and data analysis. This will serve as the primary library for implementing the models such as Logistic Regression, Random Forest, and LinearSVC, as well as evaluation metrics such as accuracy, precision recall curve, and brier score loss.
+
+\textbf{\texttt{xgboost:}} The XGBoost Python library was built for high-efficiency implementation of gradient boosting. Because scikit-learn does not provide the XGBoost model and its methods, the study will source it from the xgboost library.
+
+\textbf{\texttt{matplotlib:}} Matplotlib is a visualization library that is used to generate graphs and plots. In this study, it will be used to visualize each model's behavior such as their 95\% Instability Percentile and Classification Instability Distribution. 
+
+\textbf{\texttt{shap:}} The SHAP library provides tools for model interpretability through Shapley values. This will be used for implementing SHAP analysis on each of the prediction outcomes for dataset and stochastic instability to identify which features contribute most to instability and have the most variability in their SHAP values.
+
+\subsubsection{Implementation}
+The figure below presents the flow of the proposed methodology for analyzing the instability within ML models used in recidivism prediction. 
+
+\begin{enumerate}
+  \item \textbf{Dataset Importing and Processing:}
+  The dataset will be imported using the \texttt{datasets} library from HuggingFace. Since the source already contains separate training and test datasets, the program will directly load and store each split into their respective variables. This allows the study to maintain a fixed test dataset throughout all experiments while using the training dataset for repeated model training.
+
+  Because the selected version of the COMPAS Recidivism Dataset has already been one-hot encoded and prepared for ML use, only minimal preprocessing will be required. After importing the dataset, each split will be converted into a pandas DataFrame to make data handling, model training, and result storage easier to manage.
+
+  The target variable, which indicates whether an individual recidivated or not, will then be separated from the input features for both the training and test datasets. The resulting feature matrices and target vectors will be stored in separate variables for use in the succeeding training procedures.
+
+  To ensure compatibility with models that are sensitive to feature scale, such as Logistic Regression and LinearSVC, feature standardization will also be performed where appropriate. A scaler will be fit using only the training data and then applied to both the training and test feature sets. This ensures that information from the test dataset is not introduced into the training process. For consistency, the same fixed test set will be used throughout the dataset instability and stochastic instability experiments.
+
+  After preprocessing, the training and test datasets will be ready for repeated model training, prediction generation, and evaluation. This preparation step ensures that the data is consistently organized and suitable for comparing model behavior across multiple runs.
+
+  \item \textbf{Model Training For Dataset Instability:}
+  To evaluate dataset instability, the study will employ a bootstrap-based resampling approach following Riley and Collins~\cite{riley2023stability}, where multiple bootstrap samples of the training dataset will be generated and used to retrain each ML model using the same model configurations and hyperparameters, which will be held constant across all bootstrap iterations. The full model training pipeline, including preprocessing and model fitting, will be repeated for each bootstrap sample. This process will ensure that any observed variability is attributable solely to changes in the training data.
+
+  First, the original training dataset will be used to train each model once, establishing a baseline set of predictions. Next, 1000 bootstrapped training samples will be generated by sampling with replacement from the original training dataset. Each bootstrapped dataset will maintain the same size as the original training set but will contain slight variations in data composition due to the resampling process. These variations will simulate realistic perturbations in the data, such as missing or duplicated observations.
+
+  Each model will then be retrained independently on every bootstrapped sample. After training, predictions will be generated using a fixed test dataset that will remain unchanged throughout all experiments. This will ensure that differences in predictions across runs are solely due to variations in the training data and not influenced by changes in the evaluation set.
+
+  For every training run, the predicted probabilities for each instance in the test dataset will be recorded. These predictions will be stored in structured CSV files, where each column represents the predicted probabilities from a specific training run. This organized storage will enable direct comparison of predictions across multiple runs for each individual.
+
+  By repeating this process across all bootstrapped samples, the study will produce a distribution of predictions for each test instance. These distributions will serve as the basis for computing instability metrics in subsequent stages of the analysis.
+
+  It is noted, however, that stochastic variability may differ across models depending on their underlying training procedures. Models such as Random Forest and XGBoost incorporate inherent randomness, while models such as Logistic Regression and LinearSVC may exhibit limited stochastic variation under default deterministic settings.
+
+  \item \textbf{Model Training For Stochastic Instability:}
+  To evaluate stochastic instability, models will be trained multiple times on the same training dataset using different random seeds, while keeping the training data, model structure, and hyperparameters fixed. This will follow the approach of Lopez-Martinez et al.~\cite{lopez2022instability}.
+
+  First, each ML model will be trained for a total of 10 independent runs. For each training run, a different random seed will be assigned to control stochastic elements such as data ordering and internal sampling processes within the algorithms.
+
+  This variation in random seed will introduce controlled randomness into the training process, allowing the study to isolate the effects of stochasticity on model behavior. Despite using the same dataset and configuration, these stochastic factors may lead to differences in learned model parameters and, consequently, prediction outputs. It is noted, however, that stochastic variability may differ across models depending on their underlying training mechanisms. Models such as Random Forest and XGBoost incorporate inherent randomness during training, while models such as Logistic Regression and LinearSVC may exhibit limited stochastic variation under default deterministic settings.
+
+  After each training run, predictions will be generated using the same fixed test dataset to ensure consistency in evaluation. This will allow any observed differences in predictions to be attributed solely to stochastic variation rather than changes in the data. The predicted probabilities for each instance in the test dataset will be recorded for every run. 
+
+  Similar to the dataset instability procedure, all predictions will be stored in structured CSV files, where each column will correspond to a specific training run with a distinct random seed. This format will enable direct comparison of predictions across runs at the individual level.
+
+  By repeating this process across multiple random seeds, the study will generate a distribution of predictions for each test instance under stochastic conditions. These distributions will then be used to compute instability, performance variability, and reliability metrics in the subsequent analysis.
+
+  \item \textbf{Evaluating Model Instability, Performance, and Reliability:}
+  Following the repeated training procedures for both dataset and stochastic instability, the study will evaluate each model using a combination of instability, performance, and reliability metrics. These evaluations will be based on the predictions generated from multiple training runs and stored for each model.
+
+  To measure instability in predicted probabilities, the Mean Absolute Prediction Error (MAPE) will be computed for each test instance across all runs. This will quantify the average variation in predicted risk scores, where higher values indicate greater instability. In addition, 95\% Stability Intervals will be constructed by computing the percentile range of predictions for each instance, providing a visual representation of the spread and uncertainty in predicted probabilities.
+
+  To assess instability in classification outcomes, the Classification Instability Index (CII) will be calculated. This metric will measure how frequently an individual's predicted class label changes across different runs. Higher CII values will indicate greater inconsistency in classification decisions, which is critical in applications such as recidivism prediction where classification outcomes directly influence decision-making.
+
+  The study will also evaluate ranking instability using the Top-K Jaccard Similarity. For each run, the top K\% of individuals with the highest predicted risk scores will be identified, and the overlap between these sets across runs will be measured. Lower similarity values will indicate greater inconsistency in identifying high-risk individuals.
+
+  In addition to instability, model performance will be evaluated to ensure that stability is considered alongside predictive effectiveness. The Precision-Recall Area Under the Curve (PR-AUC) will be computed for each run, and its standard deviation across runs will be used to assess performance variability. Higher variability in PR-AUC will indicate instability in model performance.
+
+  To evaluate the accuracy of predicted probabilities, the Brier Score will be computed for each run, along with its standard deviation. This will provide insight into both the quality and consistency of probability scores, with higher variability indicating unstable calibration.
+
+  Furthermore, the study will incorporate a reliability metric to assess the trustworthiness of individual predictions. The Model Reliability for Individual Prediction (MRIP) will be used to estimate the likelihood that a model's prediction error remains within an acceptable range for each instance. This will provide a more granular evaluation of reliability compared to aggregate performance metrics.
+
+  All computed metrics will be summarized and compared across models and across both types of instability. Visualizations such as stability interval plots, classification instability distributions, and performance variability graphs will be generated to support interpretation. These analyses will enable the identification of patterns in instability behavior and provide a comprehensive assessment of how consistent, accurate, and reliable each model is under varying training conditions.
+
+  \item \textbf{SHapley Additive exPlanations:}
+  To further understand the sources of instability in model predictions, this study will employ SHapley Additive exPlanations (SHAP), a model interpretability technique that quantifies the contribution of each input feature to a model's prediction.
+
+  For each trained model, SHAP values will be computed using the fixed test dataset across multiple training runs for both dataset and stochastic instability experiments. These SHAP values will represent the contribution of each feature to the predicted outcome for every individual instance. By computing SHAP values across repeated runs, the study will capture how feature contributions vary under different training conditions.
+
+  The analysis will focus on two key aspects of SHAP values: their magnitude and their variability. The magnitude of SHAP values will indicate the overall importance of a feature in influencing predictions, while variability in SHAP values across runs will reflect the instability of that feature's contribution. Features that exhibit high variability in their SHAP values will indicate that their contributions to predictions vary across different training conditions in training data or stochastic factors.
+
+  To facilitate comparison, SHAP values will be aggregated across runs for each model. Summary statistics such as mean and standard deviation of SHAP values will be computed for each feature. This will allow the identification of features that are consistently important, as well as those whose contributions to predictions exhibit high variability across runs.
+
+  Visualizations such as SHAP summary plots and variability plots will be generated to illustrate the distribution and spread of SHAP values across runs. These visualizations will help highlight patterns in feature behavior, such as features that consistently drive predictions versus those whose contributions vary significantly.
+
+  By integrating SHAP analysis with instability metrics, the study will provide insight into the relationship between feature behavior and prediction variability. This will enable the identification of features that influence model predictions and exhibit variability in their contributions across runs, making them potential factors associated with instability, supporting a deeper understanding of how and why instability arises in different ML models.
+
+  \item \textbf{Identifying Patterns and Relationships:}
+  After computing instability, performance, reliability, and SHAP-based feature contribution metrics, the study will proceed to analyze patterns and relationships across the results to better understand how instability manifests in different models.
+
+  First, instability metrics will be compared across all models to determine which models exhibit higher levels of dataset and stochastic instability. This will include examining differences in probability variability (MAPE and stability intervals), classification inconsistency (CII), and ranking instability (Top-K Jaccard Similarity). These comparisons will allow the study to identify whether certain model types are more sensitive to data perturbations or stochastic factors.
+
+  Next, the relationship between instability and model performance will be analyzed by comparing instability metrics with performance measures such as PR-AUC and Brier Score. This step will evaluate whether models with higher instability also demonstrate greater variability in predictive performance or reduced probability accuracy. Through this comparison, the study will assess whether instability negatively impacts model effectiveness.
+
+  The study will also examine the relationship between instability and reliability by comparing instability metrics with MRIP values. This analysis will help determine whether increased prediction variability corresponds to lower reliability at the individual prediction level, which is critical in high-stakes applications such as recidivism prediction.
+
+  To further investigate the sources of instability, SHAP-based feature importance and variability will be analyzed. Features will be compared based on both their average SHAP magnitude and their variability across runs. This will allow the identification of features that are consistently important, as well as those that are both important and unstable. Features that exhibit high variability in their SHAP values will be examined as potential contributors to instability in model predictions.
+
+  Additionally, patterns in feature behavior will be analyzed across different models to determine whether certain features consistently exhibit variability in their contributions across runs regardless of model type, or whether the variability is model-specific. This will help reveal how model structure interacts with feature characteristics in influencing prediction variability.
+
+  Finally, the results from all analyses will be synthesized to provide a comprehensive understanding of how model characteristics and feature contributions influence both dataset and stochastic instability. This synthesis will support the study's objective of explaining not only the extent of instability in ML models for recidivism prediction, but also the underlying factors driving such instability.
+\end{enumerate}
+\newpage
+
+\section{Schedule of Activities} 
+\subsection{2026}
+
+\begin{longtable}{
+  |>{\raggedright\arraybackslash}p{1.7cm}
+  |>{\raggedright\arraybackslash}p{3cm}
+  |>{\raggedright\arraybackslash}p{5cm}
+  |*{9}{>{\centering\arraybackslash}p{0.1cm}}*{3}{>{\centering\arraybackslash}p{0.25cm}}|
+}
+\caption{Schedule of Activities (2026)}\label{tab:schedule}\\
+\hline
+\textbf{Objective} & \textbf{Target Activities} & \textbf{Target Accomplishments} & \multicolumn{12}{c|}{\textbf{Year 1 (Months)}} \\
+&  &  & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
+\hline
+\endfirsthead
+
+\hline
+\textbf{Objective} & \textbf{Target Activities} & \textbf{Target Accomplishments} & \multicolumn{12}{c|}{\textbf{Year 1 (Months)}} \\
+&  &  & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
+\hline
+\endhead
+Objective 1 
+& Generate bootstrapped samples from the training dataset and retrain the models to assess dataset instability. 
+& 
+(1) Generate bootstrapped samples from the dataset.\newline
+(2) Train each model once on the original dataset, then on all bootstrapped samples.\newline
+(3) Save the generated predictions from the fixed test dataset in a csv file.
+& \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} &  &  &  &  &  &  \\
+\hline
+Objective 2
+& Retrain models on the same dataset with different random seeds to assess stochastic instability. 
+& 
+(1) Train each model multiple times using different random seeds to change model behavior, while using the same dataset and model parameters. \newline
+(2) Save the generated predictions from the fixed test dataset in a csv file. 
+& \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} &  &  &  &  &  &  \\
+\hline
+Objective 3
+& Evaluate each model using multiple instability metrics, alongside performance and reliability measures, based on the results obtained from repeated training experiments. 
+& 
+(1) Measure each model's instability using instability metrics. \newline
+(2) Measure each model's performance using performance metrics. \newline
+(3) Measure each model's reliability using a reliability metric. \newline
+(4) Save all instability, performance, and reliability results and graphs for analysis.
+&  &  &  & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} &  &  &  \\
+\hline
+Objective 4 
+& Use SHAP analysis to identify which features exhibit variability in their contributions across runs. 
+& 
+(1) Compute SHAP values for each trained model using predictions generated from the fixed test dataset. \newline
+(2) Aggregate and compare SHAP values across repeated runs for each model. \newline
+(3) Analyze both the variability and magnitude of SHAP values across runs to identify features that are important, unstable, or both, and assess their contribution to model instability.
+&  &  &  & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} &  &  &  \\
+\hline
+Objective 5
+& Analyze how model characteristics and feature contributions influence dataset and stochastic instability across models. 
+& 
+(1) Compare results from the instability metrics across all models to identify which models exhibit higher dataset and stochastic instability. \newline
+(2) Compare results from the performance and reliability metrics to determine whether more unstable models also show lower predictive reliability. \newline
+(3) Analyze the relationship between SHAP-based feature importance and SHAP variability to identify features that are both important and unstable. \newline
+(4) Examine patterns in feature contributions across models to determine whether certain features consistently exhibit variability in their contributions across runs. \newline
+(5) Synthesize the results to explain how model characteristics and feature behavior influence overall model instability.
+&  &  &  &  &  & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} \\
+\hline
+\end{longtable}
+
+% REFERENCES 
+\newpage
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}

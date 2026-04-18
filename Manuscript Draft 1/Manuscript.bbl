@@ -64,11 +64,6 @@ G.~Duwe, ``The development, validity, and reliability of the minnesota
 ``State v. loomis, 881 n.w.2d 749 (wis. 2016),'' Wisconsin Supreme Court, 2016,
   case No. 2015AP000157-CR.
 
-\bibitem{biddle2022predicting}
-J.~B. Biddle, ``On predicting recidivism: Epistemic risk, tradeoffs, and values
-  in machine learning,'' \emph{Canadian Journal of Philosophy}, vol.~52, no.~3,
-  pp. 321--341, 2022.
-
 \bibitem{samsa2014}
 ``State v. samsa,'' Wisconsin Court of Appeals, District III, 2014, appeal No.
   2013AP2535-CR.
@@ -178,6 +173,11 @@ T.~Han, ``Recidivism forecasting using xgboost,'' National Institute of Justice
 B.~Kim and R.~F. Barber, ``Black-box tests for algorithmic stability,''
   \emph{Information and Inference: A Journal of the IMA}, vol.~12, no.~4, pp.
   2690--2719, 2023.
+
+\bibitem{biddle2022predicting}
+J.~B. Biddle, ``On predicting recidivism: Epistemic risk, tradeoffs, and values
+  in machine learning,'' \emph{Canadian Journal of Philosophy}, vol.~52, no.~3,
+  pp. 321--341, 2022.
 
 \bibitem{rufibach2010use}
 K.~Rufibach, ``Use of brier score to assess binary predictions,'' \emph{Journal

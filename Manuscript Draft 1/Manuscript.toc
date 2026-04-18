@@ -1,0 +1,17 @@
+\contentsline {section}{\numberline {1}Introduction}{3}{}%
+\contentsline {subsection}{\numberline {1.1}Background of the Study}{5}{}%
+\contentsline {section}{\numberline {2}Related Works}{6}{}%
+\contentsline {section}{\numberline {3}Statement of the Problem}{8}{}%
+\contentsline {section}{\numberline {4}Objectives of the Study}{8}{}%
+\contentsline {subsection}{\numberline {4.1}General Objective}{8}{}%
+\contentsline {subsection}{\numberline {4.2}Specific Objectives}{8}{}%
+\contentsline {section}{\numberline {5}Scope and Limitations}{9}{}%
+\contentsline {section}{\numberline {6}Proposed Methodology}{9}{}%
+\contentsline {subsection}{\numberline {6.1}Dataset}{9}{}%
+\contentsline {subsection}{\numberline {6.2}Modeling}{10}{}%
+\contentsline {subsection}{\numberline {6.3}Metrics for Instability}{10}{}%
+\contentsline {subsection}{\numberline {6.4}Tools and Implementation}{12}{}%
+\contentsline {subsubsection}{\numberline {6.4.1}Tools}{13}{}%
+\contentsline {subsubsection}{\numberline {6.4.2}Implementation}{13}{}%
+\contentsline {section}{\numberline {7}Schedule of Activities}{19}{}%
+\contentsline {subsection}{\numberline {7.1}2026}{19}{}%

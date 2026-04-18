@@ -1,9 +1,7 @@
 \hbadness=100000
-\documentclass{article}
-%\usepackage{fullpage}
+\documentclass[12pt]{article}
 \usepackage[left=1in, right=0.5in, top=1in, bottom=1in]{geometry}
 \usepackage{tabto}
-\usepackage{times}
 \usepackage{booktabs}
 \usepackage[table]{xcolor}
 \usepackage{tabularx}
@@ -13,53 +11,64 @@
 \usepackage{longtable}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage{lmodern}
 
-% title, author, n date info
-\title{\bfseries An Empirical Analysis of Instability in Binary Classification Models for Recidivism Prediction}
-\author{\bfseries Nikka Angela E. Naputo\\
-CMSC 199.1 Research in Computer Science I\\
-Division of Natural Sciences and Mathematics\\
-University of the Philippines Tacloban College\\
-{\small nenaputo@up.edu.ph}
+% TITLE PAGE DETAILS
+\title{\bfseries An Empirical Analysis of Instability in Classification Models for Recidivism Prediction}
+\author{\bfseries 
+  Nikka Angela E. Naputo\\
+  CMSC 199.1 Research in Computer Science I\\
+  Division of Natural Sciences and Mathematics\\
+  University of the Philippines Tacloban College\\
+  {\small nenaputo@up.edu.ph}
 }
 \date{\today}
 
-% beginning of doc
+% ----START THE DOCUMENT----
 \begin{document}
-\sloppy % make text not extend to the other columns
+\sloppy % Prevent text from extending to other columns
 
-% DISPLAY TITLE
+% ----DISPLAY TITLE----
 \maketitle 
+\newpage 
+
+% ----DISPLAY TABLE OF CONTENTS----
+\tableofcontents 
 \newpage
 
-\tableofcontents %display the table of contents
-\newpage % basically go to next page
-
-\section{Introduction} %✅
+% ----1. INTRODUCTION----
+\section{Introduction} 
 \tab% add tab
-Instability in machine learning (ML) refers to how varied a model's predictions are when it is retrained under small perturbations, such as training data or stochastic factors in the learning process~\cite{sun2015stability}. A model that has greater variability in its predictions indicates instability, and such sensitivity can produce inconsistent outputs that undermine their reliability. This is particularly critical in risk-sensitive situations as inconsistent predictions can lead to catastrophic outcomes such as harm to humans or major economic loss~\cite{zhang2024reliability}. Prior studies have shown that both small changes in training data and stochastic factors such as random seed initialization can lead to variations in predictions~\cite{riley2023stability, lopez2022instability}. For clarity, this paper distinguishes two types of instability: dataset instability, which arises from small changes in training data, and stochastic instability, which is caused by nondeterministic factors affecting the model during training. \\
+Instability in machine learning (ML) refers to how varied a model's predictions are, either when retrained under small perturbations such as training data or due to nondeterministic factors in the learning process~\cite{sun2015stability}. A model that has greater prediction variability indicates instability, which can undermine its reliability. This is particularly critical in risk-sensitive situations as inconsistent predictions can lead to catastrophic outcomes such as harm to humans or major economic loss~\cite{zhang2024reliability}. Prior studies have shown that both small changes in training data and stochastic factors such as random seed initialization can lead to variations in predictions~\cite{riley2023stability, lopez2022instability}. For clarity, this paper distinguishes two types of instability: dataset instability, which arises from small perturbations in the training data, and stochastic instability, which is caused by nondeterministic factors that affect the model during training. \\
 
 Recidivism refers to a person's relapse into criminal behavior after being released from a previous conviction. As assessing recidivism is critical, numerous assessment tools have been developed to predict offender behavior, evolving from subjective and professional judgments to actuarial methods by the 1970s and eventually to modern machine learning-based tools that allow for scalability and more complex pattern detection~\cite{bonta2007risk, duwe2017out}. Some of these models such as COMPAS~\cite{northpointe2015practitioner} and MnSTARR~\cite{duwe2014development} were developed using statistical and predictive modeling approaches to specifically predict recidivism risk. COMPAS is described as a statistically based risk assessment developed using empirical data~\cite{northpointe2015practitioner}, while MnSTARR was developed using logistic regression modeling~\cite{duwe2014development}. Other modern machine learning approaches have also been developed such as tree-based models, support vector machines, gradient-boosted trees, and neural networks~\cite{duwe2017out}.\\
 
-These models are being used in criminal justice, such as the Eric Loomis case in 2013, where Loomis was charged with two offenses: attempting to flee or elude a traffic officer and operating a motor vehicle without the owner's consent, and was sentenced to 11 years with COMPAS' risk scores influencing his sentencing~\cite{loomis2016, biddle2022predicting}. Another example is the Jordan Samsa case in 2014, where despite COMPAS concluding that Samsa was at low risk of reoffending, the court focused on his high ``Criminogenic Needs'' scores, which resulted in a maximum sentence of 10 years for his conviction of third-degree sexual assault~\cite{samsa2014}. The case of Loomis and Samsa shows how these ML models are not only theoretical but applied in official sentencing decisions. As such, any instability in these models could result in different risk assessments for the same individual, potentially leading to inconsistent or unfair legal outcomes. \\
+These models are not only theoretical but applied in official sentencing decisions. A prime example is the COMPAS algorithm, which has influenced the sentencing of some court cases such as the Loomis v State case in 2013~\cite{loomis2016} and the Samsa v State case in 2014~\cite{samsa2014}. Due to the rise in the use of ML models in real-life criminal justice, concerns had begun to arise regarding its fairness. In 2016, Propublica published a report detailing how they analyzed COMPAS for its fairness with regards to race and found that it was more likely to misclassify Black defendants as higher risk than White defendants, while misclassifying White defendants as low risk than Black defendants~\cite{propublica2016analysis}. Critiques of the report rebutted that when measured not on the separation of race but on the defendant's likelihood to recidivate, COMPAS performed fairly~\cite{dieterich2016compas, corbett2017algorithmic, flores2016false}. Due to the scandal, subsequent studies arose focusing on measuring the performance~\cite{tollenaar2013method, travaini2022machine} and fairness~\cite{dressel2018accuracy, tolan2019machine, wadsworth2018achieving} of ML models used to predict recidivism such as COMPAS and MnSTARR, as well as other ML methods such as random forest and SVMs.\\
 
-In 2016, Propublica published a report where they analyzed COMPAS and claimed that the model was more likely to misclassify Black defendants as higher risk than White defendants, while misclassifying White defendants as low risk than Black defendants~\cite{propublica2016analysis}. Critiques of the report stated that when measured not on the separation of race but on the defendant's likelihood to recidivate, the COMPAS model performed fairly~\cite{dieterich2016compas, corbett2017algorithmic, flores2016false}. The Propublica report led to increased concern regarding algorithmic bias and fairness in the use of ML models for recidivism prediction, with widespread public and academic debate surrounding the fairness of COMPAS. Subsequent studies arose focusing on measuring the performance~\cite{tollenaar2013method, travaini2022machine} and fairness of ML models used to predict recidivism~\cite{dressel2018accuracy, tolan2019machine, wadsworth2018achieving}.\\
+
+
+any instability that results to different risk assessments for the same defendant could lead to unfair legal outcomes.  and thus 
 
 Though prior studies on recidivism prediction using ML models often examined these models' performance and fairness, comparatively little attention has been given in exploring their instability in the same domain. This is particularly critical in the context of recidivism prediction, as a model's instability threatens its reliability~\cite{riley2023stability}. Though one study evaluated the instability of actuarial recidivism assessment tools~\cite{helmus2015stability}, these tools were not ML models. Moreover, as these models are being used in sentencing decisions, their predictions carry profound and potentially detrimental impact on an individual's legal status and personal freedom~\cite{van2022predicting}. Therefore, examining the instability of ML models in recidivism prediction is essential, as it addresses significant concerns regarding the reliability of their predictions and their major legal consequences for individuals, while also filling a clear gap in the current literature. \\
 
 \newpage
 \subsection{Background of the Study}
-\subsubsection*{Instability in Machine Learning} %✅
+\subsubsection*{Instability in Machine Learning} 
 \tab%
 Instability in machine learning refers to the sensitivity of a model's predictions to small changes in its training conditions~\cite{sun2015stability}. The most commonly discussed form of instability is dataset instability, which refers to the variability in a model's predictions due to small perturbations in the training data, such as resampling from the original dataset, removing individual data points, or introducing noisy data~\cite{riley2023stability,hardt2016train}. Another form of instability is stochastic instability, which arises due to nondeterministic factors in the training process, such as random starting points and data ordering during learning~\cite{lopez2022instability}. This randomness, which is typically controlled by the model's random seed, can cause models to produce different outcomes across runs.
 
-\subsubsection*{Machine Learning in Recidivism Prediction} %✅
+\subsubsection*{Machine Learning in Recidivism Prediction} 
 \tab%
 Machine learning is a branch of artificial intelligence that focuses on algorithms that learn patterns from data~\cite{duwe2017out}. Machine learning models are increasingly explored in recidivism prediction due to their ability to identify patterns in large datasets and model complex, nonlinear relationships between input features and true outcomes. They also help prioritize high-risk offenders, guide decision-making, and can be updated with new data over time~\cite{ozkan2017predicting, karimi2021enhancing}. However, fairness concerns regarding the use of these models for recidivism prediction still arise due to their potential to produce unequal outcomes across demographic groups, as well as the lack of transparency in how the more complex models generate predictions such as neural networks~\cite{dressel2018accuracy, tolan2019machine}. Most studies in this domain have primarily focused on evaluating model performance and fairness~\cite{travaini2022machine, tolan2019machine}.
 
-\subsubsection*{Models Used in Recidivism Prediction} %✅
+\subsubsection*{Models Used in Recidivism Prediction} 
 \tab%
-\textbf{Logistic Regression:} Logistic Regression (LR) is a statistical classification model that scores the probability of an outcome using a linear combination of input features. It was used in the development of the MnSTARR model~\cite{duwe2014development}, and is the most explored model in ML recidivism prediction studies~\cite{travaini2022machine}, often as a baseline model due to its simplicity and interpretability. There is a mix of results regarding its performance from various literature, as others claimed it outperformed other models~\cite{ngo2018traditional,karimi2021enhancing}, while others stated it performed either similarly or worse than the complex models, though at a modest gap~\cite{duwe2017out,kovalchuk2023prediction}.\\
+\textbf{Logistic Regression:} 
+% supervised ML algorithm
+% classification model that predicts a discrete or categorical outcome (in this case, pwede hiya binary classification)
+% linear that examines the relationships between 
+
+Logistic Regression (LR) is a statistical classification model that scores the probability of an outcome using a linear combination of input features. It was used in the development of the MnSTARR model~\cite{duwe2014development}, and is the most explored model in ML recidivism prediction studies~\cite{travaini2022machine}, often as a baseline model due to its simplicity and interpretability. There is a mix of results regarding its performance from various literature, as others claimed it outperformed other models~\cite{ngo2018traditional,karimi2021enhancing}, while others stated it performed either similarly or worse than the complex models, though at a modest gap~\cite{duwe2017out,kovalchuk2023prediction}.\\
 
 \textbf{Random Forest:} Random Forest (RF) is an ensemble learning method that constructs multiple decision trees and combines their predictions to improve accuracy and reduce overfitting. It is the second most popular model studied in the literature of recidivism prediction~\cite{travaini2022machine} due to its ability to handle complex nonlinear data relationships and filter out ``noisy'' data, making it a model with high potential for the domain~\cite{tollenaar2013method,duwe2017out}. Though some studies have found RF promising due to its high performance~\cite{duwe2017out,kovalchuk2023prediction}, others say that the model actually performs similarly or worse than LR and other models~\cite{ozkan2017predicting,ngo2018traditional}. \\
 
@@ -87,48 +96,40 @@ In the context of recidivism prediction, however, instability has received minim
 
 Given the increasing use of machine learning in high-stakes decision-making, including legal cases such as State v. Loomis~\cite{loomis2016} and State v. Samsa~\cite{samsa2014}, understanding model instability is critical. These cases demonstrate that predictive models are actively used in sentencing decisions, where inconsistent predictions may have significant consequences for individuals. Furthermore, regulatory discussions such as Van Dijck ~\cite{van2022predicting} highlight the growing need for transparency and reliability in AI systems used in criminal justice.
 
-This study addresses this gap by empirically analyzing the instability of binary classification models used in recidivism prediction. Unlike prior work, which focuses on performance and fairness, this study evaluates how predictions vary under dataset perturbations and stochastic training conditions, while also examining the relationship between instability, performance, and reliability.
+This study addresses this gap by empirically analyzing the instability of classification models used in recidivism prediction. Unlike prior work, which focuses on performance and fairness, this study evaluates how predictions vary under dataset perturbations and stochastic training conditions, while also examining the relationship between instability, performance, and reliability.
 
-\section{Statement of the Problem} %✅
+\section{Statement of the Problem} 
 \tab%
 Machine learning models are increasingly used in recidivism prediction to support decision-making in criminal justice systems, such as in pretrial detention, sentencing, and parole evaluation. While numerous studies have focused on evaluating the performance and fairness of these models, limited attention has been given to their stability. Instability in ML, which refers to the variability of predictions under small changes in training data or stochastic processes, may lead to inconsistent predictions for the same individual, which negatively affects the reliability of a model. In high-stakes contexts such as criminal justice, such inconsistencies can have serious implications, potentially affecting an individual's legal status and personal freedom. 
 
 Although prior research has examined instability in traditional actuarial tools, to the best of the researcher's knowledge, there remains a lack of empirical studies investigating instability in ML-based recidivism prediction models. In particular, it is unclear to what extent these models exhibit instability when subjected to variations in training data and stochastic elements during training. Furthermore, how instability manifests across different evaluation measures such as prediction probabilities, ranking of individuals, classification labels, and model performance and reliability remains underexplored. It is also not well understood how instability varies across different model types or which input features contribute most to unstable predictions.
 
-This study addresses these issues by analyzing the instability of binary classification ML models used in recidivism prediction by examining their behavior with perturbations in the training data and stochastic training conditions, evaluating each model using instability metrics alongside performance and reliability metrics, and identifying the key factors that contribute to variability in predictions.
+This study addresses these issues by analyzing the instability of  classification ML models used in recidivism prediction by examining their behavior with perturbations in the training data and stochastic training conditions, evaluating each model using instability metrics alongside performance and reliability metrics, and identifying the key factors that contribute to variability in predictions.
 
-\section{Objectives of the Study} %✅
-\subsection{General Objective} Analyze the instability of binary classification models used in recidivism prediction and examine their predictive performance and reliability.
+\section{Objectives of the Study} 
+\subsection{General Objective} Evaluate the predictiver performance, reliability, and instability of classification models used in recidivism prediction.
 \subsection{Specific Objectives}
 \begin{enumerate}
   \item Generate bootstrapped samples from the training dataset and retrain the models to assess dataset instability.
   \item Retrain models on the same dataset with different random seeds to assess stochastic instability.
-  \item Evaluate each model using multiple instability metrics, alongside performance and reliability measures, based on the results obtained from repeated training experiments.
-  \item Use SHAP analysis to identify which features may be associated with instability in model predictions
-  \item Analyze how model characteristics and feature contributions influence dataset and stochastic instability across models.
+  \item Evaluate each model for each type of instability using metrics for performance, reliability, instability, and feature contributions using the prediction values obtained. 
+  \item Analyze how results obtained from metrics evaluating each type of instability and model structure influences overall model instability. 
 \end{enumerate}
 
-\section{Scope and Limitations} %✅
+\section{Scope and Limitations} 
 \tab%
-This study focuses on two forms of instability, namely dataset instability and random seed instability, as defined in this paper. Instability is evaluated empirically through repeated model training under controlled perturbations, including bootstrapped sampling of the training data and variation in random seed initialization. The analysis measures instability across multiple dimensions, including probability-level variability, ranking consistency, classification changes, and performance variation.\\
+This study defines and focuses on two forms of instability, namely dataset instability and stochastic instability. Instability is evaluated empirically through model retraining under controlled perturbations, such as  bootstrapped sampling of the training dataset and variation in stochastic initialization through changes in its random seed. The analysis measures prediction performance, reliability, and instability across multiple dimensions such as prediction probabilities, classification labels, and highest risk.\\
 
-The study is limited to binary classification models, as these provide a controlled and interpretable setting for analyzing prediction variability. More complex models, such as multi-class or deep learning architectures, are excluded to maintain clarity and consistency in the analysis. The models considered include logistic regression, random forests, support vector machines, and boosting-based approaches.\\
+The study is limited to classification models, as these provide a controlled and interpretable setting for analyzing prediction variability. More complex models, such as multi-class or deep learning architectures, are excluded to maintain clarity and consistency in the analysis. The models considered include logistic regression, random forests, support vector machines, and boosting-based approaches.\\
 
 The dataset used in this study is limited to the COMPAS recidivism dataset due to its availability, preprocessing suitability, and sufficient sample size for repeated experimentation. As a result, the findings may not generalize to other datasets or domains with different characteristics.\\
 
 This study assumes that the dataset is properly preprocessed and that model configurations are correctly implemented. It does not account for external factors such as data quality issues, feature engineering variations, or real-world deployment conditions. Additionally, while multiple instability metrics are used, these serve as indirect measures of model reliability rather than a single unified reliability score.
 
-\section{Conceptual Framework} %polish the fuck outta this one
-%At least a brief conceptual grounding, like:
-%Instability → affects → reliability
-%Perturbations (data / seed) → cause → instability
-%Model type / features → influence → instability
-This study is based on the premise that small perturbations in training data and stochastic elements in model training can lead to instability in machine learning predictions. Instability is examined through multiple evaluation dimensions, including probability, ranking, classification, and performance variability. These forms of instability are influenced by model design and feature contributions, and may affect the overall reliability of predictions in recidivism risk assessment.
-
 \section{Proposed Methodology}
 This section outlines the paper's planned methodology for analyzing the instability of ML models used in recidivism prediction beginning with the description of the dataset, followed by the machine learning models to be used. Next is the evaluation procedures, which includes instability metrics as well as performance and reliability metrics. The final the section describes the tools to be used and how they will be implemented throughout the study. 
 
-\subsection{Dataset} %✅
+\subsection{Dataset} 
 The dataset to be used will be a version of the ProPublica COMPAS Recidivism Dataset that has been one-hot encoded and split into training and testing sets by iModels. The dataset is accessible on the HuggingFace website and can be directly imported into Python.
 
 \subsection{Modeling}
@@ -317,12 +318,9 @@ The figure below presents the flow of the proposed methodology for analyzing the
 
   Finally, the results from all analyses will be synthesized to provide a comprehensive understanding of how model characteristics and feature contributions influence both dataset and stochastic instability. This synthesis will support the study's objective of explaining not only the extent of instability in machine learning models for recidivism prediction, but also the underlying factors driving such instability.
 \end{enumerate}
-
-\section{Initial Experiment and Results (unfinished)}
-
 \newpage
 
-\section{Schedule of Activities} %✅
+\section{Schedule of Activities} 
 \subsection{2026}
 
 \begin{longtable}{
