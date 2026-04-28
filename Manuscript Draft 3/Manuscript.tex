@@ -326,62 +326,63 @@ Before presenting the metric formulations, the following notation will be used t
 These variables will be used consistently across the instability and performance metrics defined in this study.\\
 
 \textbf{Score Distribution-Level Instability} \\
-\tab \textbf{95\% Stability Interval (SI):} This will visualize the range within which predicted probabilities for each individual are expected to fall across repeated runs~\cite{riley2023stability}. Wider intervals will indicate greater instability in probability scores.
-
-\begin{align}
+\tab \textbf{95\% Stability Interval (SI):} This will visualize the range within which predicted probabilities for each individual are expected to fall across repeated runs~\cite{riley2023stability}. Wider intervals will indicate greater instability in probability scores. The range of the interval is described through the following formula: \\
+\[
   \text{SI}_{95\%,d} =
   \left[
   Q_{0.025}\big(\{\hat{p}_d^{(r)}\}_{r=1}^{R}\big),
   \;
   Q_{0.975}\big(\{\hat{p}_d^{(r)}\}_{r=1}^{R}\big)
   \right]
-\end{align}  
+\]  
 
 where \( Q_{0.025} \) and \( Q_{0.975} \) denote the 2.5th and 97.5th percentiles of the predicted probabilities \( \hat{p}_d^{(r)} \) across all runs \( r = 1, \dots, R \).\\
 
 \textbf{Score-Level Instability} \\
-\tab \textbf{Mean Absolute Prediction Error (MAPE):} This metric is used to quantify the average absolute difference in predicted probabilities for each individual across runs~\cite{riley2023stability}. Higher MAPE values will indicate greater variability in predicted risk scores, suggesting higher instability.
+\tab \textbf{Mean Absolute Prediction Error (MAPE):} This metric is used to quantify the average absolute difference in predicted probabilities for each individual across runs~\cite{riley2023stability}. Higher MAPE values will indicate greater variability in predicted risk scores, suggesting higher instability.\\
 
-\begin{align}
-  \text{MAPE}_d=\frac{1}{R}\sum_{r=1}^{R}|\hat{p}_{d}^{(r)}-\bar{p}_d| \\
-  \overline{\text{MAPE}}=\frac{1}{D}\sum_{d=1}^{D}\text{MAPE}_d
-\end{align} 
+The each MAPE value per defendant \[ d \] is calculated using the formula:
+\[ \text{MAPE}_d=\frac{1}{R}\sum_{r=1}^{R}|\hat{p}_{d}^{(r)}-\bar{p}_d| \]
+
+and the average MAPE for a model is calculated using the formula:
+\[ \overline{\text{MAPE}}=\frac{1}{D}\sum_{d=1}^{D}\text{MAPE}_d \]
 
 where \( \hat{p}_d^{(r)} \) is the predicted probability for individual \( d \) in run \( r \), \( \bar{p}_d \) is the mean predicted probability for individual \( d \) across all runs, \( R \) is the total number of runs, and \( D \) is the total number of individuals.\\
 
 \textbf{Label-Level Instability} \\
 \tab \textbf{Classification Instability Index (CII):} This metric is used to capture how often an individual's predicted class label changes across repeated model runs. It measures the frequency with which an individual's predicted classification (e.g., high-risk vs low-risk) changes across runs~\cite{riley2023stability}. Higher CII values will indicate greater instability in classification outcomes.
 
-\begin{align}
-  \text{flips}_d &= \sum_{r<s} \mathbf{1}\big(y_d^{(r)} \ne y_d^{(s)}\big) \\
-  \binom{R}{2} &= \frac{R(R-1)}{2} \\
-  \text{CII}_d &= \frac{\text{flips}_d}{\binom{R}{2}}
-\end{align}
+The following formula is used to calculate the CII per defendant \[ d \]:
+\[ \text{CII}_d = \frac{\text{flips}_d}{\binom{R}{2}} \]
 
-where \( y_d^{(r)} \) is the predicted class label for individual \( d \) in run \( r \), \( \mathbf{1}(\cdot) \) is the indicator function that equals 1 when the condition is true and 0 otherwise, and \( \binom{R}{2} \) is the total number of unique pairs of runs.\\
+where the no. of label flips per defendant \[\text{flips}_d\] is calculated using:
+\[ \text{flips}_d = \sum_{r<s} \mathbf{1}\big(y_d^{(r)} \ne y_d^{(s)}\big) \]
+where \( y_d^{(r)} \) is the predicted class label for individual \( d \) in run \( r \), \( \mathbf{1}(\cdot) \) is the indicator function that equals 1 when the condition is true and 0 otherwise. \\
+
+Moreover, the total number of unique runs \[ \binom{R}{2} \] is calculated using:
+\[ \binom{R}{2} = \frac{R(R-1)}{2} \] 
 
 \textbf{Ranking-Level Instability} \\
 \tab \textbf{Top-\(K\) Jaccard Similarity:} Evaluates whether the same individuals are consistently identified as high-risk across different model runs. It measures the overlap between the sets of individuals identified as highest risk (e.g., top 10\%) across different runs~\cite{lopez2022instability}. A lower Jaccard similarity will indicate greater inconsistency in identifying high-risk individuals.\\
 
 In this study, $K$ is defined as the top 10\% of individuals with the highest predicted risk scores. This threshold is fixed across all models and experimental conditions to ensure consistent comparison of ranking instability.
 
-\begin{align}
-  j(X_r^K,X_s^K)=\frac{|X_r^K \cap X_s^K|}{|X_r^K \cup X_s^K|} \\
-  J=\frac{1}{\binom{R}{2}}\sum_{r<s}j(X_r^K,X_s^K)
-\end{align}
+To get the Top-K Jaccard for a model, the following formula is used:
+\[ j(X_r^K,X_s^K)=\frac{|X_r^K \cap X_s^K|}{|X_r^K \cup X_s^K|} \]
 
-where \( X_r^K \) and \( X_s^K \) represent the sets of top-\(K\) highest-risk individuals identified in runs \( r \) and \( s \), respectively, and \( J \) is the average Jaccard similarity computed across all pairs of runs \( (r,s) \) such that \( r < s \).\\
+wherein the jaccard of each top-K pair is calculated using the formula:
+\[ J=\frac{1}{\binom{R}{2}}\sum_{r<s}j(X_r^K,X_s^K) \]
+
+\( X_r^K \) and \( X_s^K \) represent the sets of top-\(K\) highest-risk individuals identified in runs \( r \) and \( s \), respectively, and \( J \) is the average Jaccard similarity computed across all pairs of runs \( (r,s) \) such that \( r < s \).\\
 
 In addition to instability metrics, the models will be evaluated based on their predictive performance, as stability alone is insufficient without acceptable model performance. The following metrics will be used to measure the model's performance: \\
 
 \textbf{Performance (Probability Accuracy)} \\
 \tab \textbf{Brier Score (BS):} This will assess the accuracy of predicted probabilities~\cite{rufibach2010use}. The standard deviation of Brier scores across runs will also be computed to evaluate instability in probability accuracy. Higher variability will suggest inconsistency in the quality of probabilistic predictions, including potential variation in calibration.
 
-\begin{align}
-  \text{BS}_r = \frac{1}{D} \sum_{d=1}^{D} \left( \hat{p}_d^{(r)} - y_d \right)^2 \\
-  \overline{\text{BS}}=\frac{1}{R}\sum_{r=1}^{R}\text{BS}_r \\
-  SD(\text{BS}) = \sqrt{ \frac{1}{R - 1} \sum_{r=1}^{R} \left( \text{BS}_r - \overline{\text{BS}} \right)^2 }
-\end{align}
+\[ \text{BS}_r = \frac{1}{D} \sum_{d=1}^{D} \left( \hat{p}_d^{(r)} - y_d \right)^2 \]
+\[ \overline{\text{BS}}=\frac{1}{R}\sum_{r=1}^{R}\text{BS}_r \]
+\[ SD(\text{BS}) = \sqrt{ \frac{1}{R - 1} \sum_{r=1}^{R} \left( \text{BS}_r - \overline{\text{BS}} \right)^2 } \]
 
 where \( \hat{p}_d^{(r)} \) is the predicted probability for individual \( d \) in run \( r \), \( y_d \in \{0,1\} \) is the true outcome, \( D \) is the number of individuals, and \( R \) is the number of runs.\\
 
@@ -391,35 +392,30 @@ where \( \hat{p}_d^{(r)} \) is the predicted probability for individual \( d \) 
 \textbf{Performance (Discrimination Ability)} \\
 \tab \textbf{ROC-AUC:} This metric evaluates the model\'s ability to distinguish between positive and negative classes across all classification thresholds. Higher ROC-AUC values indicate better discriminative performance.
 
-\begin{align}
-\text{TPR}(t) &= \frac{TP_t}{TP_t + FN_t} \\
-\text{FPR}(t) &= \frac{FP_t}{FP_t + TN_t} \\
-\text{ROC-AUC}_r &= \sum_{t=1}^{T} (\text{FPR}_t - \text{FPR}_{t-1}) \cdot \text{TPR}_t
-\end{align}
+\[ \text{TPR}(t) = \frac{TP_t}{TP_t + FN_t} \]
+\[ \text{FPR}(t) = \frac{FP_t}{FP_t + TN_t} \]
+\[ \text{ROC-AUC}_r = \sum_{t=1}^{T} (\text{FPR}_t - \text{FPR}_{t-1}) \cdot \text{TPR}_t \]
 
 where ROC-AUC is computed using a discrete approximation of the area under the ROC curve across thresholds.\\
 
 \textbf{Performance-Level Instability} \\
 \tab \textbf{Standard Deviation of ROC-AUC:} This metric measures variability in ROC-AUC across repeated runs. Higher standard deviation indicates greater instability in model performance.
 
-\begin{align}
-SD(\text{ROC-AUC})=\sqrt{\frac{1}{R-1}\sum_{r=1}^{R}(\text{ROC-AUC}_r-\overline{\text{ROC-AUC}})^2}
-\end{align}
+\[ SD(\text{ROC-AUC})=\sqrt{\frac{1}{R-1}\sum_{r=1}^{R}(\text{ROC-AUC}_r-\overline{\text{ROC-AUC}})^2} \]
 
 However, aggregated performance metrics alone do not reflect the reliability of individual predictions, which is critical in risk-sensitive applications. Thus, this study will also incorporate a reliability metric to assess the consistency and trustworthiness of model outputs. \\
 
 \textbf{Reliability} \\
 \tab \textbf{Model Reliability for Individual Prediction (MRIP):} Quantifies the likelihood that a model's prediction error remains within an acceptable range for a given input~\cite{zhang2024reliability}, which measures the deviation between the true binary outcome and the predicted probability. This approach will provide a more granular measure of prediction reliability compared to traditional aggregate metrics and will be especially relevant in high-stakes decision-making contexts.
 
-\begin{align}
-\mathcal{R}(x_d) &=
+\[
+\mathcal{R}(x_d) =
   P\left(
     \left| y_d^* - \hat{p}(x_d^*) \right| \le \epsilon
     \;\middle|\;
     x_d^* \in B(x_d)
-  \right) \\
-B(x_d) &= \left\{ x_d^* \mid \| x_d^* - x_d \| \le \delta \right\}
-\end{align}
+  \right) \]
+\[ B(x_d) = \left\{ x_d^* \mid \| x_d^* - x_d \| \le \delta \right\} \]
 
 To operationalize MRIP, the following parameters will be defined:
 
@@ -428,28 +424,15 @@ To operationalize MRIP, the following parameters will be defined:
     \item $\delta = 0.05$, representing the maximum perturbation radius
 \end{itemize}
 
-Perturbations $x_d^*$ will be generated by adding Gaussian noise to the input features:
-
-\[
-x_d^* = x_d + \mathcal{N}(0, \sigma^2)
-\]
-
+Perturbations $x_d^*$ will be generated by adding Gaussian noise to the input features: \[ x_d^* = x_d + \mathcal{N}(0, \sigma^2) \] 
 where $\sigma = 0.05 \cdot \text{std}(x)$, and values are clipped to remain within valid feature ranges.\\
 
-For each instance $x_d$, 50 perturbed samples will be generated, and MRIP will be estimated as the proportion of perturbed samples for which the prediction error satisfies:
-
-\[
-|y_d - \hat{p}(x_d^*)| \le \epsilon
-\]
-
-where \( x_d \) is the original input for individual \( d \), \( x_d^* \) is a perturbed version within the neighborhood \( B(x_d) \), \( y_d^* \in \{0,1\} \) is the corresponding true outcome, \( \hat{p}(x_d^*) \) is the predicted probability, \( \epsilon \) is the acceptable error tolerance, and \( \delta \) controls the size of the neighborhood.\\
+For each instance $x_d$, 50 perturbed samples will be generated, and MRIP will be estimated as the proportion of perturbed samples for which the prediction error satisfies: \[ |y_d - \hat{p}(x_d^*)| \le \epsilon \] where \( x_d \) is the original input for individual \( d \), \( x_d^* \) is a perturbed version within the neighborhood \( B(x_d) \), \( y_d^* \in \{0,1\} \) is the corresponding true outcome, \( \hat{p}(x_d^*) \) is the predicted probability, \( \epsilon \) is the acceptable error tolerance, and \( \delta \) controls the size of the neighborhood.\\
 
 \textbf{Feature Contribution / Source of Instability} \\
 \tab \textbf{SHAP Analysis:} This method is used to further understand the sources of instability by identifying the features whose contributions to predictions vary most across runs~\cite{ponce2024practical}.
 
-\begin{align}
-  f(x) = \mathbb{E}[f(x)] + \sum_{j=1}^{J} \phi_j(x)
-\end{align}
+\[ f(x) = \mathbb{E}[f(x)] + \sum_{j=1}^{J} \phi_j(x) \]
 
 where \( \mathbb{E}[f(x)] \) is the expected model output over the dataset, and \( \phi_j(x) \) represents the contribution of feature \( j \) to the prediction for input \( x \).
 
