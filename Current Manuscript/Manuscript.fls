@@ -1,6 +1,6 @@
-PWD /home/nikka/Github/Thesis/Manuscript Draft 2
+PWD /home/nikka/Github/Thesis/Manuscript Draft 3
 INPUT /home/nikka/.miktex/texmfs/data/miktex/data/le/pdftex/pdflatex.fmt
-INPUT /home/nikka/Github/Thesis/Manuscript Draft 2/Manuscript.tex
+INPUT /home/nikka/Github/Thesis/Manuscript Draft 3/Manuscript.tex
 OUTPUT Manuscript.log
 INPUT /home/nikka/.miktex/texmfs/install/tex/latex/base/article.cls
 INPUT /home/nikka/.miktex/texmfs/install/tex/latex/base/article.cls
@@ -121,6 +121,8 @@ INPUT /home/nikka/.miktex/texmfs/install/tex/latex/graphics/trig.sty
 INPUT /home/nikka/.miktex/texmfs/install/tex/latex/graphics-cfg/graphics.cfg
 INPUT /home/nikka/.miktex/texmfs/install/tex/latex/graphics-cfg/graphics.cfg
 INPUT /home/nikka/.miktex/texmfs/install/tex/latex/graphics-cfg/graphics.cfg
+INPUT /home/nikka/.miktex/texmfs/install/tex/latex/tools/multicol.sty
+INPUT /home/nikka/.miktex/texmfs/install/tex/latex/tools/multicol.sty
 INPUT /usr/local/share/miktex-texmf/tex/latex/lm/ot1lmr.fd
 INPUT /usr/local/share/miktex-texmf/tex/latex/lm/ot1lmr.fd
 INPUT /usr/local/share/miktex-texmf/tex/latex/lm/ot1lmr.fd

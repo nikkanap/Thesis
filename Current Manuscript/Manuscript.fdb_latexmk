@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex Manuscript"] 1777278531.39422 "Manuscript.aux" "Manuscript.bbl" "Manuscript" 1777278819.90243 0
-  "./references.bib" 1777272488.68083 13685 a28ef8bd425acb6571c3cad8c4d96753 ""
+["bibtex Manuscript"] 1777526183.80575 "Manuscript.aux" "Manuscript.bbl" "Manuscript" 1777530769.55431 0
+  "./references.bib" 1777278858.1931 13685 a28ef8bd425acb6571c3cad8c4d96753 ""
   "/usr/local/share/miktex-texmf/bibtex/bst/bibtex/unsrt.bst" 1770968501.31529 18030 1376b4b231b50c66211e47e42eda2875 ""
-  "Manuscript.aux" 1777278819.02079 8926 a554880c4a4395b2977ed0111c78b916 "pdflatex"
+  "Manuscript.aux" 1777530768.62976 8925 c253b959804bb11283de6c86a32d7f05 "pdflatex"
   (generated)
   "Manuscript.bbl"
   "Manuscript.blg"
   (rewritten before read)
-["pdflatex"] 1777278817.49703 "/home/nikka/Github/Thesis/Manuscript Draft 2/Manuscript.tex" "Manuscript.pdf" "Manuscript" 1777278819.90273 0
+["pdflatex"] 1777530767.014 "/home/nikka/Github/Thesis/Manuscript Draft 3/Manuscript.tex" "Manuscript.pdf" "Manuscript" 1777530769.5548 0
   "/home/nikka/.miktex/texmfs/data/fonts/map/pdftex/pdftex.map" 1776609628.22286 124346 55158e4ffab625ef9c37e66c4ee22ffe ""
   "/home/nikka/.miktex/texmfs/data/miktex/data/le/pdftex/pdflatex.fmt" 1774852763.1599 10132984 65e6b518be989dd853ec6c19b11cb0af ""
   "/home/nikka/.miktex/texmfs/install/fonts/tfm/public/amsfonts/symbols/msam10.tfm" 1776255928.18706 916 f87d7c45f9c908e672703b83b72241a3 ""
@@ -67,9 +67,10 @@
   "/home/nikka/.miktex/texmfs/install/tex/latex/tabto-ltx/tabto.sty" 1774857642.14515 7571 bbe73377bcd3b71daa9dc07c784655b3 ""
   "/home/nikka/.miktex/texmfs/install/tex/latex/tools/array.sty" 1775441778.55135 15651 9d7c62df82cb29a555c00550babfe364 ""
   "/home/nikka/.miktex/texmfs/install/tex/latex/tools/longtable.sty" 1775441778.55282 16014 dfa4b4d4e04a78a3f05a90c19711737a ""
+  "/home/nikka/.miktex/texmfs/install/tex/latex/tools/multicol.sty" 1775441778.5512 33142 efe8f4750fc02524935e7423b4bdef69 ""
   "/home/nikka/.miktex/texmfs/install/tex/latex/tools/tabularx.sty" 1775441778.55232 7243 a2c17f18e2c9b702b84fad03d5f9c78b ""
   "/home/nikka/.miktex/texmfs/install/tex/latex/xcolor/xcolor.sty" 1775441770.15404 55384 b454dec21c2d9f45ec0b793f0995b992 ""
-  "/home/nikka/Github/Thesis/Manuscript Draft 2/Manuscript.tex" 1777278816.54452 84107 43f7678ce0854579d803de7649aa2f49 ""
+  "/home/nikka/Github/Thesis/Manuscript Draft 3/Manuscript.tex" 1777530765.8078 81567 e133d3dbda89a1d5b2321cea990d6d9d ""
   "/usr/local/share/miktex-texmf/fonts/enc/dvips/lm/lm-mathex.enc" 1770968552.89719 3486 c7eadf5dcc57b3b2d11736679f6636ba ""
   "/usr/local/share/miktex-texmf/fonts/enc/dvips/lm/lm-mathit.enc" 1770968552.89723 2405 5dcf2c1b967ee25cc46c58cd52244aed ""
   "/usr/local/share/miktex-texmf/fonts/enc/dvips/lm/lm-mathsy.enc" 1770968552.89726 2840 216e6e45ad352e2456e1149f28885bee ""
@@ -127,12 +128,12 @@
   "/usr/local/share/miktex-texmf/tex/latex/lm/ot1lmtt.fd" 1770968553.44816 2713 c40650b5e64f743884fe5c8bc940e517 ""
   "/usr/local/share/miktex-texmf/tex/latex/lm/ts1lmr.fd" 1770968553.44923 1914 884882d7ebb0fd65cea93fca77ff6f5a ""
   "/usr/local/share/miktex-texmf/tex/latex/url/url.sty" 1770968572.89878 12796 8edb7d69a20b857904dd0ea757c14ec9 ""
-  "Manuscript.aux" 1777278819.02079 8926 a554880c4a4395b2977ed0111c78b916 "pdflatex"
-  "Manuscript.bbl" 1777278531.54034 8430 387a972608dd13345a4e6e660beb3789 "bibtex Manuscript"
-  "Manuscript.out" 1777278819.02279 3746 d865bf8ef8368a663ae8f4887cfd30ad "pdflatex"
-  "Manuscript.tex" 1777278816.54452 84107 43f7678ce0854579d803de7649aa2f49 ""
-  "Manuscript.toc" 1777278819.03179 1922 ec67c7bffb80372410e4cf97882b26c8 "pdflatex"
-  "proposed_methodology.png" 1776607715.9252 200306 4ad7142128328e0761f703bfed956f81 ""
+  "Manuscript.aux" 1777530768.62976 8925 c253b959804bb11283de6c86a32d7f05 "pdflatex"
+  "Manuscript.bbl" 1777526184.0548 8430 387a972608dd13345a4e6e660beb3789 "bibtex Manuscript"
+  "Manuscript.out" 1777530768.63176 3751 e7183050a992cc6f450d4a69db853e5a "pdflatex"
+  "Manuscript.tex" 1777530765.8078 81567 e133d3dbda89a1d5b2321cea990d6d9d ""
+  "Manuscript.toc" 1777530768.64176 1921 959d83e39fbf3c36f8d80b8c60169735 "pdflatex"
+  "proposed_methodology.png" 1777344708.69612 225270 f860cfccab76882bbb394ec3f7fecf92 ""
   (generated)
   "Manuscript.aux"
   "Manuscript.log"
