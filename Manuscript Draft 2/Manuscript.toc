@@ -15,8 +15,8 @@
 \contentsline {section}{\numberline {7}Proposed Methodology}{17}{section.7}%
 \contentsline {subsection}{\numberline {7.1}Dataset}{17}{subsection.7.1}%
 \contentsline {subsection}{\numberline {7.2}Machine Learning Models and Configurations}{18}{subsection.7.2}%
-\contentsline {subsection}{\numberline {7.3}Metrics for Instability}{22}{subsection.7.3}%
+\contentsline {subsection}{\numberline {7.3}Metrics for Instability}{21}{subsection.7.3}%
 \contentsline {subsection}{\numberline {7.4}Tools}{26}{subsection.7.4}%
 \contentsline {subsection}{\numberline {7.5}Implementation}{27}{subsection.7.5}%
-\contentsline {section}{\numberline {8}Schedule of Activities}{33}{section.8}%
-\contentsline {subsection}{\numberline {8.1}2026}{33}{subsection.8.1}%
+\contentsline {section}{\numberline {8}Schedule of Activities}{32}{section.8}%
+\contentsline {subsection}{\numberline {8.1}2026}{32}{subsection.8.1}%

@@ -14,6 +14,7 @@
 \usepackage{amssymb}
 \usepackage{lmodern}
 \usepackage{graphicx}
+\usepackage{multicol}
 
 % TITLE PAGE DETAILS
 \title{\bfseries An Empirical Analysis of Instability in Classification Models for Recidivism Risk Prediction}
@@ -268,26 +269,29 @@ is\_recid & BINARY & 1 if the defendant actually recidivated after the last COMP
 
 Each model will be implemented using the following fixed and explicitly defined hyperparameters to ensure reproducibility across all experimental runs. The configurations are selected to reflect commonly used baseline settings while avoiding extensive tuning, allowing the study to isolate instability arising from data perturbations and stochastic training behavior.
 
-\subsubsection*{1. Logistic Regression}
-\begin{itemize}
+\begin{multicols}{2}
+  \subsubsection*{1. Logistic Regression}
+  \begin{itemize}
     \item penalty = L2
     \item solver = lbfgs
     \item max\_iter = 1000
     \item C = 1.0
     \item random\_state = $s$
-\end{itemize}
-
-\subsubsection*{2. Random Forest}
-\begin{itemize}
+  \end{itemize}
+\columnbreak
+  \subsubsection*{2. Random Forest}
+  \begin{itemize}
     \item n\_estimators = 100
     \item max\_depth = None
     \item bootstrap = True
     \item max\_features = sqrt
     \item random\_state = $s$
-\end{itemize}
+  \end{itemize}
+\end{multicols}
 
+\begin{multicols}{2}
 \subsubsection*{3. XGBoost}
-\begin{itemize}
+  \begin{itemize}
     \item objective = binary:logistic
     \item max\_depth = 3
     \item learning\_rate = 0.1
@@ -295,25 +299,28 @@ Each model will be implemented using the following fixed and explicitly defined 
     \item subsample = 0.8
     \item colsample\_bytree = 0.8
     \item random\_state = $s$
-\end{itemize}
+  \end{itemize} 
 
-\subsubsection*{4. LinearSVC}
-\begin{itemize}
+  \columnbreak
+  
+  \subsubsection*{4. LinearSVC}
+  \begin{itemize}
     \item C = 1.0
     \item loss = squared\_hinge
     \item max\_iter = 1000
     \item random\_state = $s$
-\end{itemize}
-
-To obtain probability estimates, the model will be wrapped using:
-\begin{itemize}
+  \end{itemize}
+  
+  To obtain probability estimates, the model will be wrapped using:
+  \begin{itemize}
     \item CalibratedClassifierCV
     \begin{itemize}
-        \item method = sigmoid
-        \item cv = 5
+      \item method = sigmoid
+      \item cv = 5
     \end{itemize}
-\end{itemize}
-
+  \end{itemize}
+\end{multicols}
+  
 \subsection{Metrics for Instability}
 To evaluate instability in each model, multiple metrics will be used to measure variability across different aspects of model behavior such as prediction scores, labels, and ranking, as well as model performance, reliability, and feature contributions. These metrics will be computed through multiple training runs and measured for both dataset instability and stochastic instability.\\
 
