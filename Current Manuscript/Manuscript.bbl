@@ -59,6 +59,13 @@ Anthony~W Flores, Kristin Bechtel, and Christopher~T Lowenkamp.
   criminals. and it's biased against blacks.
 \newblock {\em Fed. Probation}, 80:38, 2016.
 
+\bibitem{greene2022forks}
+Travis Greene, Galit Shmueli, Jan Fell, Ching-Fu Lin, and Han-Wei Liu.
+\newblock Forks over knives: Predictive inconsistency in criminal justice
+  algorithmic risk assessment tools.
+\newblock {\em Journal of the Royal Statistical Society Series A: Statistics in
+  Society}, 185(Supplement\_2):S692--S723, 2022.
+
 \bibitem{travaini2022machine}
 Guido~Vittorio Travaini, Federico Pacchioni, Silvia Bellumore, Marta Bosia, and
   Francesco De~Micco.
@@ -93,13 +100,6 @@ Fawn~T Ngo, Ramakrishna Govindu, and Anurag Agarwal.
   exploration of the prospects of the techniques.
 \newblock {\em International Journal of Criminal Justice Sciences}, 13(2),
   2018.
-
-\bibitem{greene2022forks}
-Travis Greene, Galit Shmueli, Jan Fell, Ching-Fu Lin, and Han-Wei Liu.
-\newblock Forks over knives: Predictive inconsistency in criminal justice
-  algorithmic risk assessment tools.
-\newblock {\em Journal of the Royal Statistical Society Series A: Statistics in
-  Society}, 185(Supplement\_2):S692--S723, 2022.
 
 \bibitem{riley2023stability}
 Richard~D Riley and Gary~S Collins.
@@ -209,5 +209,11 @@ Ana~Victoria Ponce-Bobadilla, Vanessa Schmitt, Corinna~S Maier, Sven Mensing,
 \newblock Practical guide to shap analysis: Explaining supervised machine
   learning model predictions in drug development.
 \newblock {\em Clinical and translational science}, 17(11):e70056, 2024.
+
+\bibitem{efron2000bootstrap}
+Bradley Efron.
+\newblock The bootstrap and modern statistics.
+\newblock {\em Journal of the American Statistical Association},
+  95(452):1293--1296, 2000.
 
 \end{thebibliography}
