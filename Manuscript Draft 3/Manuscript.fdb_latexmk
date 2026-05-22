@@ -1,13 +1,13 @@
 # Fdb version 4
-["bibtex Manuscript"] 1779435618.4493 "Manuscript.aux" "Manuscript.bbl" "Manuscript" 1779436605.62022 0
+["bibtex Manuscript"] 1779435618.4493 "Manuscript.aux" "Manuscript.bbl" "Manuscript" 1779436838.76668 0
   "./references.bib" 1778770394.1859 13951 26954f39aa95f296811f15bdad778c7f ""
   "/usr/local/share/miktex-texmf/bibtex/bst/bibtex/unsrt.bst" 1770968501.31529 18030 1376b4b231b50c66211e47e42eda2875 ""
-  "Manuscript.aux" 1779436604.74071 9689 a7ffbe07ec50535cea584bf8235028c5 "pdflatex"
+  "Manuscript.aux" 1779436838.22593 9689 a7ffbe07ec50535cea584bf8235028c5 "pdflatex"
   (generated)
   "Manuscript.bbl"
   "Manuscript.blg"
   (rewritten before read)
-["pdflatex"] 1779436602.29227 "/home/nikka/Github/Thesis/Manuscript Draft 3/Manuscript.tex" "Manuscript.pdf" "Manuscript" 1779436605.62053 0
+["pdflatex"] 1779436837.04206 "/home/nikka/Github/Thesis/Manuscript Draft 3/Manuscript.tex" "Manuscript.pdf" "Manuscript" 1779436838.76685 0
   "/home/nikka/.miktex/texmfs/data/fonts/map/pdftex/pdftex.map" 1778772644.94706 124346 55158e4ffab625ef9c37e66c4ee22ffe ""
   "/home/nikka/.miktex/texmfs/data/miktex/data/le/pdftex/pdflatex.fmt" 1774852763.1599 10132984 65e6b518be989dd853ec6c19b11cb0af ""
   "/home/nikka/.miktex/texmfs/install/fonts/tfm/public/amsfonts/symbols/msam10.tfm" 1776255928.18706 916 f87d7c45f9c908e672703b83b72241a3 ""
@@ -74,7 +74,7 @@
   "/home/nikka/.miktex/texmfs/install/tex/latex/tools/multicol.sty" 1775441778.5512 33142 efe8f4750fc02524935e7423b4bdef69 ""
   "/home/nikka/.miktex/texmfs/install/tex/latex/tools/tabularx.sty" 1775441778.55232 7243 a2c17f18e2c9b702b84fad03d5f9c78b ""
   "/home/nikka/.miktex/texmfs/install/tex/latex/xcolor/xcolor.sty" 1775441770.15404 55384 b454dec21c2d9f45ec0b793f0995b992 ""
-  "/home/nikka/Github/Thesis/Manuscript Draft 3/Manuscript.tex" 1779436601.60585 91194 bd5943d9837cbd13bd3255fc28c57ba2 ""
+  "/home/nikka/Github/Thesis/Manuscript Draft 3/Manuscript.tex" 1779436836.4745 91249 b5bbbb7a440c4c3472663696c76dfad5 ""
   "/usr/local/share/miktex-texmf/fonts/enc/dvips/lm/lm-mathex.enc" 1770968552.89719 3486 c7eadf5dcc57b3b2d11736679f6636ba ""
   "/usr/local/share/miktex-texmf/fonts/enc/dvips/lm/lm-mathit.enc" 1770968552.89723 2405 5dcf2c1b967ee25cc46c58cd52244aed ""
   "/usr/local/share/miktex-texmf/fonts/enc/dvips/lm/lm-mathsy.enc" 1770968552.89726 2840 216e6e45ad352e2456e1149f28885bee ""
@@ -135,11 +135,11 @@
   "LR_ROC_20.png" 1778772370.22964 31199 4617b3e1cdcf6ffae8335d8df96af7f1 ""
   "LR_distribution_plot.png" 1778772339.09609 17086 a8f4d86a21902cd8f945a38d4ba30244 ""
   "LR_percentile.png" 1778772351.12083 50668 4813e40fcb63ee121e61cd532c925df0 ""
-  "Manuscript.aux" 1779436604.74071 9689 a7ffbe07ec50535cea584bf8235028c5 "pdflatex"
+  "Manuscript.aux" 1779436838.22593 9689 a7ffbe07ec50535cea584bf8235028c5 "pdflatex"
   "Manuscript.bbl" 1779435618.69665 8615 8e04a25a62b9e56e4b27b6844baaa8a1 "bibtex Manuscript"
-  "Manuscript.out" 1779436604.74171 3893 2edf71cfa7676a1c87695e83c474cb12 "pdflatex"
-  "Manuscript.tex" 1779436601.60585 91194 bd5943d9837cbd13bd3255fc28c57ba2 ""
-  "Manuscript.toc" 1779436604.75171 1997 6b442ad2d5589e4f81c7e28a0aff5f70 "pdflatex"
+  "Manuscript.out" 1779436838.22693 3893 2edf71cfa7676a1c87695e83c474cb12 "pdflatex"
+  "Manuscript.tex" 1779436836.4745 91249 b5bbbb7a440c4c3472663696c76dfad5 ""
+  "Manuscript.toc" 1779436838.23193 1997 6b442ad2d5589e4f81c7e28a0aff5f70 "pdflatex"
   "RF_ROC_20.png" 1778772382.50379 32295 89542b108a1cd6339ee092d05078ee66 ""
   "RF_distribution_plot.png" 1778772339.12821 16760 1abeb437a587a6992088961b5729d239 ""
   "RF_percentile.png" 1778772351.14896 51943 7da78db7a8d523d7462d3ea7f6c9b8c2 ""
