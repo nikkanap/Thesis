@@ -1,0 +1,219 @@
+\begin{thebibliography}{10}
+
+\bibitem{bonta2007risk}
+James Bonta and Donald~A Andrews.
+\newblock Risk-need-responsivity model for offender assessment and
+  rehabilitation.
+\newblock {\em Rehabilitation}, 6(1):1--22, 2007.
+
+\bibitem{duwe2017out}
+Grant Duwe and KiDeuk Kim.
+\newblock Out with the old and in with the new? an empirical comparison of
+  supervised learning algorithms to predict recidivism.
+\newblock {\em Criminal Justice Policy Review}, 28(6):570--600, 2017.
+
+\bibitem{northpointe2015practitioner}
+I~Northpointe.
+\newblock Practitioner’s guide to compas core, 2015.
+
+\bibitem{duwe2014development}
+Grant Duwe.
+\newblock The development, validity, and reliability of the minnesota screening
+  tool assessing recidivism risk (mnstarr).
+\newblock {\em Criminal Justice Policy Review}, 25(5):579--613, 2014.
+
+\bibitem{loomis2016}
+State v. loomis, 881 n.w.2d 749 (wis. 2016).
+\newblock Wisconsin Supreme Court, 2016.
+\newblock Case No. 2015AP000157-CR.
+
+\bibitem{samsa2014}
+State v. samsa.
+\newblock Wisconsin Court of Appeals, District III, 2014.
+\newblock Appeal No. 2013AP2535-CR.
+
+\bibitem{propublica2016analysis}
+J.~Larson, S.~Mattu, L.~Kirchner, and J.~Angwin.
+\newblock How we analyzed the compas recidivism algorithm.
+\newblock
+  \url{https://www.propublica.org/article/how-we-analyzed-the-compas-recidivism-algorithm},
+  May 2016.
+\newblock ProPublica, Accessed: 2026-04-04.
+
+\bibitem{dieterich2016compas}
+William Dieterich, Christina Mendoza, and Tim Brennan.
+\newblock Compas risk scales: Demonstrating accuracy equity and predictive
+  parity.
+\newblock {\em Northpointe Inc}, 7(4):1--36, 2016.
+
+\bibitem{corbett2017algorithmic}
+Sam Corbett-Davies, Emma Pierson, Avi Feller, Sharad Goel, and Aziz Huq.
+\newblock Algorithmic decision making and the cost of fairness.
+\newblock In {\em Proceedings of the 23rd acm sigkdd international conference
+  on knowledge discovery and data mining}, pages 797--806, 2017.
+
+\bibitem{flores2016false}
+Anthony~W Flores, Kristin Bechtel, and Christopher~T Lowenkamp.
+\newblock False positives, false negatives, and false analyses: A rejoinder to
+  machine bias: There's software used across the country to predict future
+  criminals. and it's biased against blacks.
+\newblock {\em Fed. Probation}, 80:38, 2016.
+
+\bibitem{greene2022forks}
+Travis Greene, Galit Shmueli, Jan Fell, Ching-Fu Lin, and Han-Wei Liu.
+\newblock Forks over knives: Predictive inconsistency in criminal justice
+  algorithmic risk assessment tools.
+\newblock {\em Journal of the Royal Statistical Society Series A: Statistics in
+  Society}, 185(Supplement\_2):S692--S723, 2022.
+
+\bibitem{travaini2022machine}
+Guido~Vittorio Travaini, Federico Pacchioni, Silvia Bellumore, Marta Bosia, and
+  Francesco De~Micco.
+\newblock Machine learning and criminal justice: A systematic review of
+  advanced methodology for recidivism risk prediction.
+\newblock {\em International journal of environmental research and public
+  health}, 19(17):10594, 2022.
+
+\bibitem{tollenaar2013method}
+Nikolaj Tollenaar and Peter~GM van~der Heijden.
+\newblock Which method predicts recidivism best?: a comparison of statistical,
+  machine learning and data mining predictive models.
+\newblock {\em Journal of the Royal Statistical Society Series A: Statistics in
+  Society}, 176(2):565--584, 2013.
+
+\bibitem{tolan2019machine}
+Song{\"u}l Tolan, Marius Miron, Emilia G{\'o}mez, and Carlos Castillo.
+\newblock Why machine learning may lead to unfairness: Evidence from risk
+  assessment for juvenile justice in catalonia.
+\newblock In {\em Proceedings of the seventeenth international conference on
+  artificial intelligence and law}, pages 83--92, 2019.
+
+\bibitem{dressel2018accuracy}
+Julia Dressel and Hany Farid.
+\newblock The accuracy, fairness, and limits of predicting recidivism.
+\newblock {\em Science advances}, 4(1):eaao5580, 2018.
+
+\bibitem{ngo2018traditional}
+Fawn~T Ngo, Ramakrishna Govindu, and Anurag Agarwal.
+\newblock Traditional regression methods versus the utility of machine learning
+  techniques in forecasting inmate misconduct in the united states: An
+  exploration of the prospects of the techniques.
+\newblock {\em International Journal of Criminal Justice Sciences}, 13(2),
+  2018.
+
+\bibitem{riley2023stability}
+Richard~D Riley and Gary~S Collins.
+\newblock Stability of clinical prediction models developed using statistical
+  or machine learning methods.
+\newblock {\em Biometrical Journal}, 65(8):2200302, 2023.
+
+\bibitem{zhang2024reliability}
+Xiaoge Zhang and Indranil Bose.
+\newblock Reliability estimation for individual predictions in machine learning
+  systems: A model reliability-based approach.
+\newblock {\em Decision Support Systems}, 186:114305, 2024.
+
+\bibitem{lopez2022instability}
+Daniel Lopez-Martinez, Alex Yakubovich, Martin Seneviratne, Adam~D Lelkes,
+  Akshit Tyagi, Jonas Kemp, Ethan Steinberg, N~Lance Downing, Ron~C Li, Keith~E
+  Morse, et~al.
+\newblock Instability in clinical risk stratification models using deep
+  learning.
+\newblock In {\em Machine Learning for Health}, pages 552--565. PMLR, 2022.
+
+\bibitem{helmus2015stability}
+Leslie-Maaike Helmus and David Thornton.
+\newblock Stability and predictive and incremental accuracy of the individual
+  items of static-99r and static-2002r in predicting sexual recidivism: A
+  meta-analysis.
+\newblock {\em Criminal Justice and Behavior}, 42(9):917--937, 2015.
+
+\bibitem{van2022predicting}
+Gijs Van~Dijck.
+\newblock Predicting recidivism risk meets ai act.
+\newblock {\em European Journal on Criminal Policy and Research},
+  28(3):407--423, 2022.
+
+\bibitem{ozkan2017predicting}
+Turgut Ozkan.
+\newblock Predicting recidivism through machine learning.
+\newblock 2017.
+
+\bibitem{badillo2020introduction}
+Solveig Badillo, Balazs Banfai, Fabian Birzele, Iakov~I Davydov, Lucy
+  Hutchinson, Tony Kam-Thong, Juliane Siebourg-Polster, Bernhard Steiert, and
+  Jitao~David Zhang.
+\newblock An introduction to machine learning.
+\newblock {\em Clinical pharmacology \& therapeutics}, 107(4):871--885, 2020.
+
+\bibitem{liu2019beyond}
+Han-Wei Liu, Ching-Fu Lin, and Yu-Jie Chen.
+\newblock Beyond state v loomis: Artificial intelligence, government
+  algorithmization and accountability.
+\newblock {\em International journal of law and information technology},
+  27(2):122--141, 2019.
+
+\bibitem{kovalchuk2023prediction}
+Olha Kovalchuk, Mikolaj Karpinski, Serhiy Banakh, Mykhailo Kasianchuk, Ruslan
+  Shevchuk, and Nataliya Zagorodna.
+\newblock Prediction machine learning models on propensity convicts to criminal
+  recidivism.
+\newblock {\em Information}, 14(3):161, 2023.
+
+\bibitem{won2019recidivism}
+Ha-Ram Won, Jae-Seung Shim, and Hyunchul Ahn.
+\newblock A recidivism prediction model based on xgboost considering asymmetric
+  error costs.
+\newblock {\em Journal of Intelligence and Information Systems},
+  25(1):127--137, 2019.
+
+\bibitem{rajendran2021predicting}
+Suraj Rajendran and Prathic Sundararajan.
+\newblock Predicting criminal recidivism using specialized feature engineering
+  and xgboost.
+\newblock {\em CrimRxiv}, 2021.
+
+\bibitem{han2022xgboost}
+Timothy Han.
+\newblock Recidivism forecasting using xgboost.
+\newblock Technical Report 305033, National Institute of Justice (NIJ)
+  Recidivism Forecasting Challenge, July 2022.
+\newblock Winning Paper, National Criminal Justice Reference Service.
+
+\bibitem{sun2015stability}
+Wei Sun.
+\newblock {\em Stability of machine learning algorithms}.
+\newblock PhD thesis, Purdue University, 2015.
+
+\bibitem{hardt2016train}
+Moritz Hardt, Ben Recht, and Yoram Singer.
+\newblock Train faster, generalize better: Stability of stochastic gradient
+  descent.
+\newblock In {\em International conference on machine learning}, pages
+  1225--1234. PMLR, 2016.
+
+\bibitem{biddle2022predicting}
+Justin~B Biddle.
+\newblock On predicting recidivism: Epistemic risk, tradeoffs, and values in
+  machine learning.
+\newblock {\em Canadian Journal of Philosophy}, 52(3):321--341, 2022.
+
+\bibitem{rufibach2010use}
+Kaspar Rufibach.
+\newblock Use of brier score to assess binary predictions.
+\newblock {\em Journal of clinical epidemiology}, 63(8):938--939, 2010.
+
+\bibitem{ponce2024practical}
+Ana~Victoria Ponce-Bobadilla, Vanessa Schmitt, Corinna~S Maier, Sven Mensing,
+  and Sven Stodtmann.
+\newblock Practical guide to shap analysis: Explaining supervised machine
+  learning model predictions in drug development.
+\newblock {\em Clinical and translational science}, 17(11):e70056, 2024.
+
+\bibitem{efron2000bootstrap}
+Bradley Efron.
+\newblock The bootstrap and modern statistics.
+\newblock {\em Journal of the American Statistical Association},
+  95(452):1293--1296, 2000.
+
+\end{thebibliography}
