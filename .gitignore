@@ -207,9 +207,6 @@ marimo/_lsp/
 __marimo__/
 
 # ===== THESIS FILES =====
-Manuscript Draft */Manuscript.*
-!Manuscript Draft */Manuscript.tex
-!Manuscript Draft */Manuscript.pdf
-Current Manuscript/Manuscript.*
-!Current Manuscript/Manuscript.tex
-!Current Manuscript/Manuscript.pdf
+*/Manuscript.*
+!*/Manuscript.tex
+!*/Manuscript.pdf
