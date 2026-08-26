@@ -3,14 +3,25 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, precision_recall_curve, auc, brier_score_loss
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, f1_score, precision_recall_curve, roc_auc_score, roc_curve, auc, brier_score_loss
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from top_k_jaccard import topk_jaccard
 from CII import compute_cii
 
+models = ['LR', 'RF', 'XGB', 'MLP', 'LSVM']
+
+# helper functions
+"""
+def save_to_csv(i, ):
+    csv_file_path = f'predictions/XGB_Predictions_{f'Validation' if idx == 0 else f'Test'}_{k}.csv'
+    if i > 0:
+        predictions_df = pd.read_csv(csv_file_path)
+        predictions_df[f'bootstrapped_{i}'] = y_pred_proba
+    predictions_df.to_csv(csv_file_path, index=False)
+"""    
+    
 # For visualization purposes
-def make_scatter():    
-    models = ['LR', 'RF', 'XGB', 'MLP']
+def generate_scatter():    
     for model in models:
         data = pd.read_csv(f'predictions/{model}_Predictions.csv')
         x_values = data['original_pred'].to_numpy()
@@ -56,26 +67,28 @@ def generate_f1(y_test, y_pred):
     print(f"f1 score: {round(f1,2)}")
 
 # PART OF METRICS (Review tho)
-def compute_pr_auc(y_test, y_prob):
+def compute_roc_auc(y_test, y_prob):
     precision, recall, _ = precision_recall_curve(y_test, y_prob)
     return auc(recall, precision)
 
-def pr_auc_sd(y_test):
+
+
+def roc_auc_sd(y_test):
     models = ['LR', 'RF', 'XGB', 'MLP']
     
     print("SD of PR-AUC")
     for model in models:
         df = pd.read_csv(f'predictions/{model}_Predictions.csv')
-        pr_aucs = []
+        roc_aucs = []
 
         for col in df.columns:
             y_pred_proba = df[col].values
-            pr_auc = compute_pr_auc(y_test, y_pred_proba)
-            pr_aucs.append(pr_auc)
+            roc_auc = compute_roc_auc(y_test, y_pred_proba)
+            roc_aucs.append(roc_auc)
         
-        pr_auc_sd = np.std(pr_aucs)
-        print(f"{model}\t{pr_auc_sd:.4f}")   
-        #return np.std(pr_aucs), pr_aucs
+        roc_auc_sd = np.std(roc_aucs)
+        print(f"{model}\t{roc_auc_sd:.4f}")   
+        #return np.std(roc_aucs), roc_aucs
     
     """
     directory = 'images/ROC_curve/'

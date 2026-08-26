@@ -1,35 +1,42 @@
 import pandas as pd
+import matplotlib.pyplot as plt
 import metrics as m
 
-from sklearn.neural_network import MLPClassifier
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.svm import LinearSVC
 
-def MLP_Model(data):
+def LinearSVC_Model(data):
     [
         X_train, y_train,
         X_val, y_val,
-        X_test, y_test,
+        X_test, y_test,        
         k, i,
         random_seed
     ] = data
-    model = MLPClassifier(
-        hidden_layer_sizes=(64, 32),
-        max_iter=1000,
+    model = LinearSVC(
         random_state=random_seed
     )
+    calibrated_svc = CalibratedClassifierCV(
+        model,
+        method='sigmoid',
+        cv=3,
+    )
+    calibrated_svc.fit(X_train, y_train)
     model.fit(X_train, y_train)
-    
+
     X = [X_val, X_test] 
     y = [y_val, y_test]
-
+    
     for idx in range(len(X)):
         # get the predictions using X_test and save it in y_pred
-        y_pred_proba = model.predict_proba(X_test)[:,1]
-
+        y_pred_proba = calibrated_svc.predict_proba(X[idx])[:,1] #[:,1] is to get only positive values
+        #y_pred = model.predict(X_test)
+        
         predictions_df = pd.DataFrame({
             f'bootstrapped_{i}' : y_pred_proba
         })
 
-        csv_file_path = f'predictions/MLP_Predictions_{f'Validation' if idx == 0 else f'Test'}_{k}.csv'
+        csv_file_path = f'predictions/LSVC_Predictions_{f'Validation' if idx == 0 else f'Test'}_{k}.csv'
         if i > 0:
             predictions_df = pd.read_csv(csv_file_path)
             predictions_df[f'bootstrapped_{i}'] = y_pred_proba
@@ -39,5 +46,7 @@ def MLP_Model(data):
             y[idx], 
             y_pred_proba, 
             i, 
-            'MLP'
+            'LSVC'
         )
+
+        #implement further metrics here 
