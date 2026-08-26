@@ -208,13 +208,5 @@ __marimo__/
 
 # ===== THESIS FILES =====
 */Manuscript.*
-*/Manuscript.aux
-*/Manuscript.bbl
-*/Manuscript.fls
-*/Manuscript.fdb_latexmk
-*/Manuscript.out
-*/Manuscript.synctex.gz
-*/Manuscript.toc
-
 !*/Manuscript.tex
 !*/Manuscript.pdf
