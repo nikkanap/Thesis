@@ -1,18 +1,9 @@
-import pandas as pd
-import matplotlib.pyplot as plt
-import metrics as m
-
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
 
-def LinearSVC_Model(data):
-    [
-        X_train, y_train,
-        X_val, y_val,
-        X_test, y_test,        
-        k, i,
-        random_seed
-    ] = data
+import generate_prediction_csv
+
+def LinearSVC_Model(X, y, fold_id, random_seed, b=None):
     model = LinearSVC(
         random_state=random_seed
     )
@@ -21,32 +12,24 @@ def LinearSVC_Model(data):
         method='sigmoid',
         cv=3,
     )
-    calibrated_svc.fit(X_train, y_train)
-    model.fit(X_train, y_train)
+    calibrated_svc.fit(X[0], y[0])
+    model.fit(X[0], y[0])
 
-    X = [X_val, X_test] 
-    y = [y_val, y_test]
-    
-    for idx in range(len(X)):
-        # get the predictions using X_test and save it in y_pred
-        y_pred_proba = calibrated_svc.predict_proba(X[idx])[:,1] #[:,1] is to get only positive values
-        #y_pred = model.predict(X_test)
+    instability_type = 'Stochastic' if b == None else 'Dataset'
+    attribute_name = 'Random_Seed' if b == None else 'Bootstrap'
+    idx = random_seed if b == None else b
+
+    for X_idx in range(1, 3):
+        test_type = 'Validation' if X_idx == 0 else 'Test'
+        csv_file_path = f'predictions/{instability_type}/MLP_Predictions_{test_type}_{fold_id}.csv'
+         
+        # get the predictions and save it in y_pred_proba
+        y_pred_proba = calibrated_svc.predict_proba(X[idx])[:,1] 
         
-        predictions_df = pd.DataFrame({
-            f'bootstrapped_{i}' : y_pred_proba
-        })
-
-        csv_file_path = f'predictions/LSVC_Predictions_{f'Validation' if idx == 0 else f'Test'}_{k}.csv'
-        if i > 0:
-            predictions_df = pd.read_csv(csv_file_path)
-            predictions_df[f'bootstrapped_{i}'] = y_pred_proba
-        predictions_df.to_csv(csv_file_path, index=False)
-
-        m.generate_PR_AUC(
-            y[idx], 
-            y_pred_proba, 
-            i, 
-            'LSVC'
+        # generate the predictions in a csv
+        generate_prediction_csv(
+            y_pred_proba,
+            idx,
+            csv_file_path,
+            attribute_name
         )
-
-        #implement further metrics here 

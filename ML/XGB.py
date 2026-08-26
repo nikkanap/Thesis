@@ -1,21 +1,7 @@
-import pandas as pd
-import metrics as m
-
 import xgboost as xgb
+import generate_prediction_csv
 
-def XGBoost_Model(data):
-    [
-        X_train, y_train,
-        X_val, y_val,
-        X_test, y_test,
-        k, i,
-        random_seed
-    ] = data
-    
-    xgb_train = xgb.DMatrix(X_train, y_train, enable_categorical=False)
-    xgb_val = xgb.DMatrix(X_val, y_val, enable_categorical=False)
-    xgb_test = xgb.DMatrix(X_test, y_test, enable_categorical=False)
-
+def XGBoost_Model(X, y, fold_id, random_seed, b=None):
     params = {
         'objective' : 'binary:logistic',
         'max_depth': 3,
@@ -26,30 +12,27 @@ def XGBoost_Model(data):
     
     model = xgb.train(
         params=params,
-        dtrain=xgb_train,
+        dtrain=X[0],
         num_boost_round=n,
     )
     
-    X = [xgb_val, xgb_test] 
-    y = [y_val, y_test]
+    instability_type = 'Stochastic' if b == None else 'Dataset'
+    attribute_name = 'Random_Seed' if b == None else 'Bootstrap'
+    idx = random_seed if b == None else b
     
-    for idx in range(len(X)):
-        # get the predictions using X_test and save it in y_pred
-        y_pred_proba = model.predict(X[idx])
-
-        predictions_df = pd.DataFrame({
-            f'bootstrapped_{i}' : y_pred_proba
-        })
-
-        csv_file_path = f'predictions/XGB_Predictions_{f'Validation' if idx == 0 else f'Test'}_{k}.csv'
-        if i > 0:
-            predictions_df = pd.read_csv(csv_file_path)
-            predictions_df[f'bootstrapped_{i}'] = y_pred_proba
-        predictions_df.to_csv(csv_file_path, index=False)
-
-        m.generate_PR_AUC(
-            y[idx], 
-            y_pred_proba, 
-            i, 
-            'XGB'
+    for X_idx in range(1, 3):
+        test_type = 'Validation' if X_idx == 0 else 'Test'
+        csv_file_path = f'predictions/{instability_type}/XGB_Predictions_{test_type}_{fold_id}.csv'
+        
+        # get the predictions and save it in y_pred_proba
+        y_pred_proba = model.predict(X[X_idx])[:,1]
+        
+        # generate the predictions in a csv
+        generate_prediction_csv(
+            y_pred_proba,
+            idx,
+            csv_file_path,
+            attribute_name
         )
+
+        
