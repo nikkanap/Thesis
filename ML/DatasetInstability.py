@@ -5,13 +5,17 @@ from RF import RF_Classifier
 from XGB import XGBoost_Model
 from MLP import MLP_Model
 from LSVC import LinearSVC_Model
-from ML.init_database import init_dataset
+from init_database import init_dataset
+from create_dir import create_directory, create_nested_directory
 
+import xgboost as xgb
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
 # init the dataset to train & test vars
 [X_train, y_train, X_test, y_test] = init_dataset()
+create_directory('predictions')
+create_nested_directory('predictions/Dataset')
 
 # set default random seed
 random_seed = 42    
@@ -20,10 +24,10 @@ random_seed = 42
 k_fold = KFold(n_splits=10, shuffle=True, random_state=random_seed)
     
 for fold_id, (train_idx, test_idx) in enumerate(k_fold.split(X_train)):
-    X_pool = X_train[train_idx]
+    X_pool = X_train.iloc[train_idx]
     y_pool = y_train[train_idx]
     
-    X_val = X_train[test_idx]
+    X_val = X_train.iloc[test_idx]
     y_val = y_train[test_idx]
 
     # bootstrapping for 10 rows la anay
@@ -44,8 +48,13 @@ for fold_id, (train_idx, test_idx) in enumerate(k_fold.split(X_train)):
         y = [y_boot, y_val, y_test]
         
         # Train RF and XGBoost models
-        RF_Classifier(X, y, fold_id, random_seed, b)
-        XGBoost_Model(X, y, fold_id, random_seed, b)
+        RF_Classifier(X, y, test_idx, fold_id, random_seed, b)# convert data for xgboost
+        
+        xgb_train = xgb.DMatrix(X[0], y[0], enable_categorical=False)
+        xgb_val = xgb.DMatrix(X[1], y[1], enable_categorical=False)
+        xgb_test = xgb.DMatrix(X[2], y[2], enable_categorical=False)
+        X_xgb = [xgb_train, xgb_val, xgb_test]
+        XGBoost_Model(X_xgb, y, test_idx, fold_id, random_seed, b)
         
         # fit the training data and transform the test data
         scaler = StandardScaler()
@@ -55,10 +64,10 @@ for fold_id, (train_idx, test_idx) in enumerate(k_fold.split(X_train)):
         X_scaled = [X_boot_scaled, X_val_transf, X_test_transf]
         
         # Train LR, MLP, and LinearSVC models
-        LR_Model(X_scaled, y, fold_id, random_seed, b)
-        MLP_Model(X_scaled, y, fold_id, random_seed, b)
-        LinearSVC_Model(X_scaled, y, fold_id, random_seed, b)
-        
+        LR_Model(X_scaled, y, test_idx, fold_id, random_seed, b)
+        MLP_Model(X_scaled, y, test_idx, fold_id, random_seed, b)
+        LinearSVC_Model(X_scaled, y, test_idx, fold_id, random_seed, b)
+    
 """
 # displaying as a scatter plot
 make_scatter()
