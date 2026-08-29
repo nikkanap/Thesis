@@ -1,9 +1,10 @@
 
 from sklearn.linear_model import LogisticRegression
 
-import generate_prediction_csv
+from generate_prediction_csv import generate_prediction_csv
 
-def LR_Model(X, y, fold_id, random_seed, b=None):
+def LR_Model(X, y, X_val_ids, fold_id, random_seed, b=None):
+    print('Model: Logistic Regression')
     model = LogisticRegression(
         max_iter=1000,
         random_state=random_seed
@@ -15,7 +16,7 @@ def LR_Model(X, y, fold_id, random_seed, b=None):
     idx = random_seed if b == None else b
     
     for X_idx in range(1, 3):
-        test_type = 'Validation' if X_idx == 0 else 'Test'
+        test_type = 'Validation' if X_idx == 1 else 'Test'
         csv_file_path = f'predictions/{instability_type}/LR_Predictions_{test_type}_{fold_id}.csv'
         
         # get the predictions and save it in y_pred_proba
@@ -24,6 +25,7 @@ def LR_Model(X, y, fold_id, random_seed, b=None):
         # generate the predictions in a csv
         generate_prediction_csv(
             y_pred_proba,
+            X_val_ids,
             idx,
             csv_file_path,
             attribute_name

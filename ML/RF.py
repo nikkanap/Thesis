@@ -1,8 +1,9 @@
 from sklearn.ensemble import RandomForestClassifier
 
-import generate_prediction_csv
+from generate_prediction_csv import generate_prediction_csv
 
-def RF_Classifier(X, y, fold_id, random_seed, b=None):
+def RF_Classifier(X, y, X_val_ids, fold_id, random_seed, b=None):
+    print('Model: Random Forest')
     classifier = RandomForestClassifier(
         n_estimators=100, 
         random_state=random_seed
@@ -14,7 +15,7 @@ def RF_Classifier(X, y, fold_id, random_seed, b=None):
     idx = random_seed if b == None else b
 
     for X_idx in range(1, 3):
-        test_type = 'Validation' if X_idx == 0 else 'Test'
+        test_type = 'Validation' if X_idx == 1 else 'Test'
         csv_file_path = f'predictions/{instability_type}/RF_Predictions_{test_type}_{fold_id}.csv'
                 
         # get the predictions and save it in y_pred_proba
@@ -23,6 +24,7 @@ def RF_Classifier(X, y, fold_id, random_seed, b=None):
         # generate the predictions in a csv
         generate_prediction_csv(
             y_pred_proba,
+            X_val_ids,
             idx,
             csv_file_path,
             attribute_name
