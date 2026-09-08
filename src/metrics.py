@@ -13,98 +13,28 @@ from create_dir import create_nested_directory
 # list of models being tested
 models = ['LR', 'RF', 'XGB', 'LinearSVC' 'MLP']
 
-# ===== HELPER FUNCTIONS =====
-# saves results from all k_folds per model in one csv file
-def save_to_csv_all_folds(metric_result, metric_directory, metric_name, instability_type, model_name, test_name, fold_id):
-    csv_file_path = f'metrics/{instability_type}/{metric_directory}/{metric_name}_{model_name}_{test_name}.csv'
-    create_nested_directory(f'metrics/{instability_type}/{metric_name}')
-    
-    if os.path.isfile(csv_file_path):
-        predictions_with_id_df = pd.read_csv(csv_file_path)
-        predictions_with_id_df[f'fold_{fold_id}'] = metric_result
-    else:
-        predictions_with_id_df = pd.DataFrame({
-            f'fold_{fold_id}': metric_result
-        })
-    predictions_with_id_df.to_csv(csv_file_path, index=False)
-
-# saves results from all runs in a k_fold per model csv file
-def save_to_csv_by_fold(metric_result, metric_directory, metric_name, instability_type, model_name, test_name, fold_id, defendant_ids=None):
-    csv_file_path = f'metrics/{instability_type}/{metric_directory}/{metric_name}_{model_name}_{test_name}_{fold_id}.csv'
-    create_nested_directory(f'metrics/{instability_type}/{metric_name}')
-    
-    if os.path.isfile(csv_file_path):
-        predictions_with_id_df = pd.read_csv(csv_file_path)
-        predictions_with_id_df[metric_name] = metric_result
-    else:
-        predictions_with_id_df = pd.DataFrame({
-            **({f'defendant_id': defendant_ids} if defendant_ids != None else {}),
-            metric_name: metric_result
-        })
-    predictions_with_id_df.to_csv(csv_file_path, index=False)
-
-# saves individual results per run, also in a k_fold per model csv file
-def save_to_csv_by_run(metric_result, metric_directory, metric_name, instability_type, model_name, test_name, fold_id, col, defendant_ids=None):
-    csv_file_path = f'metrics/{instability_type}/{metric_directory}/{metric_name}_{model_name}_{test_name}_{fold_id}.csv'
-    create_nested_directory(f'metrics/{instability_type}/{metric_name}')
-    
-    if os.path.isfile(csv_file_path):
-        predictions_with_id_df = pd.read_csv(csv_file_path)
-        predictions_with_id_df[col] = metric_result
-    else:
-        predictions_with_id_df = pd.DataFrame({
-            **({f'defendant_id': defendant_ids} if defendant_ids != None else {}),
-            col: metric_result
-        })
-    predictions_with_id_df.to_csv(csv_file_path, index=False)
-
-# For visualization purposes
-'''
-def generate_scatter():    
-    for model in models:
-        data = pd.read_csv(f'metrics/{model}_Predictions.csv')
-        x_values = data['original_pred'].to_numpy()
-    
-        for j in range(1, 10):
-            y_values = data[f'bootstrapped_{j}'].to_numpy()
-            
-            plt.scatter(x_values, y_values, color='blue', label=f'BS_f{j}')
-            plt.xlabel('Original Predictions')
-            plt.ylabel('BS Predictions')
-            plt.title(f'Original vs Boostrapped {j} Predictions')
-            plt.legend()
-            
-            directory = f'images/scatter/{model}/'
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            
-            plt.savefig(f'{directory}{model}_BS_{j}.png')
-            plt.close()
-'''
-
 # ===== PART OF METRICS ===== 
-def roc_auc_and_std(instability_type, test_name, y):
+def roc_auc_and_std(instability_type, tests, y):
     print('Computing ROC-AUC and STD...')
     
-    for model in models:
-        roc_aucs = []
-        
-        for fold_id in range(10):
-            predictions_with_id_df = pd.read_csv(f'predictions/{instability_type}/{model}_Predictions_{test_name}_{fold_id}.csv')
-            predictions = predictions_with_id_df.drop(columns=['defendant_id']).to_numpy()
-            defendant_ids = predictions_with_id_df['defendant_id']
-                            
-            for col in predictions.columns:
-                y_pred_proba = predictions[col].values
-                roc_auc = roc_auc_score(y, y_pred_proba)
-                save_to_csv_by_run(roc_auc_mean, 'roc_auc_mean', instability_type, model, test_name, fold_id, col, defendant_ids)
-                roc_aucs.append(roc_auc)
-        
-        roc_auc_mean = np.mean(roc_aucs)
-        save_to_csv_by_fold(roc_auc_mean, 'roc_auc_mean', instability_type, model, test_name, fold_id, defendant_ids)
-        
-        roc_auc_sd = np.std(roc_aucs)
-        save_to_csv_by_fold(roc_auc_sd, 'roc_auc_std', instability_type, model, test_name, fold_id, defendant_ids)
+    for i in range(2):
+        for model in models:
+            roc_aucs = []
+            
+            for fold_id in range(10):
+                [ predictions, defendant_ids ] = get_predictions(instability_type, model, tests[i], fold_id, True)
+                                
+                for col in predictions.columns:
+                    y_pred_proba = predictions[col].values
+                    roc_auc = roc_auc_score(y, y_pred_proba)
+                    save_to_csv_by_run(roc_auc_mean, 'roc_auc_mean', instability_type, model, tests[i], fold_id, col, defendant_ids)
+                    roc_aucs.append(roc_auc)
+            
+            roc_auc_mean = np.mean(roc_aucs)
+            save_to_csv_by_fold(roc_auc_mean, 'roc_auc_mean', instability_type, model, tests[i], fold_id, defendant_ids)
+            
+            roc_auc_sd = np.std(roc_aucs)
+            save_to_csv_by_fold(roc_auc_sd, 'roc_auc_std', instability_type, model, tests[i], fold_id, defendant_ids)
     
 # Performance metric
 # Gets the brier score
@@ -114,12 +44,7 @@ def brier_score(y, instability_type, tests, folds):
         
         for model in models:
             for fold_id in folds:
-                predictions_with_id_df = pd.read_csv(
-                    f'predictions/{instability_type}/'
-                    f'{model}_Predictions_{tests[i]}_{fold_id}.csv'
-                )
-                predictions = predictions_with_id_df.drop(columns=['defendant_id']).to_numpy()
-                defendant_ids = predictions_with_id_df['defendant_id']
+                [ predictions, defendant_ids ] = get_predictions(instability_type, model, tests[i], fold_id, True)
                 brier_scores = []
 
                 for col in predictions.columns:
@@ -146,14 +71,10 @@ def ninety_five_instability_percentile(instability_type, tests, folds):
         
         for model in models:
             for fold_id in folds:
-                predictions_with_id_df = pd.read_csv(
-                    f'predictions/{instability_type}/'
-                    f'{model}_Predictions_{tests[i]}_{fold_id}.csv'
-                )
-                predictions = predictions_with_id_df.drop(columns=['defendant_id']).to_numpy()
+                [ predictions, defendant_ids ] = get_predictions(instability_type, model, tests[i], fold_id, True)
                 
                 stability_df = pd.DataFrame({
-                    'defendant_id': predictions_with_id_df['defendant_id'],
+                    'defendant_id': defendant_ids,
                     'mean_prediction': np.mean(predictions, axis=1),
                     'lower_95': np.percentile(predictions, 2.5, axis=1),
                     'upper_95': np.percentile(predictions, 97.5, axis=1)
@@ -194,12 +115,7 @@ def mean_absolute_prediction_error(y, instability_type, tests, folds): # check n
     for i in range(2):
         for model in models:
             for fold_id in folds:
-                predictions_with_id_df = pd.read_csv(
-                    f'predictions/{instability_type}/'
-                    f'{model}_Predictions_{tests[i]}_{fold_id}.csv'
-                )
-                predictions = predictions_with_id_df.drop(columns=['defendant_id']).to_numpy()
-                defendant_ids = predictions_with_id_df['defendant_id']
+                [ predictions, defendant_ids ] = get_predictions(instability_type, model, tests[i], fold_id, True)
                     
                 mape_per_defendant = np.mean(
                     np.abs(predictions - y[:, None]),
@@ -219,11 +135,7 @@ def top_k_jaccard(instability_type, tests, folds):
     for i in range(2):
         for model in models:
             for fold_id in folds:
-                predictions_with_id_df = pd.read_csv(
-                    f'predictions/{instability_type}/'
-                    f'{model}_Predictions_{tests[i]}_{fold_id}.csv'
-                )
-                predictions = predictions_with_id_df.drop(columns=['defendant_id']).to_numpy()
+                predictions = get_predictions(instability_type, model, tests[i], fold_id)
                 
                 k = int(0.10 * len(predictions))
                 jaccard_scores = top_k_jaccard_all(predictions, k)
@@ -242,12 +154,7 @@ def classification_instability_index(instability_type, tests, folds):
     for i in range(2):
         for model in models:
             for fold_id in folds:
-                predictions_with_id_df = pd.read_csv(
-                    f'predictions/{instability_type}/'
-                    f'{model}_Predictions_{tests[i]}_{fold_id}.csv'
-                )
-                predictions = predictions_with_id_df.drop(columns=['defendant_id']).to_numpy()
-                defendant_ids = predictions_with_id_df['defendant_id']
+                [ predictions, defendant_ids ] = get_predictions(instability_type, model, tests[i], fold_id, True)
                 
                 threshold = 0.5
                 
@@ -280,13 +187,7 @@ def calibration_plot(y, instability_type, tests, folds):
     for i in range(2):
         for model in models:
             for fold_id in folds:
-                predictions_with_id_df = pd.read_csv(
-                    f'predictions/{instability_type}/'
-                    f'{model}_Predictions_{tests[i]}_{fold_id}.csv'
-                )
-                predictions = predictions_with_id_df.drop(
-                    columns=['defendant_id']
-                ).to_numpy()
+                [ predictions ] = get_predictions(instability_type, model, tests[i], fold_id)
 
                 plt.figure(figsize=(8, 6))
 
@@ -345,3 +246,60 @@ def demographic_false_positive_rate(y, instability_type, tests, folds):
         fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
 
         fpr_by_group[group] = fpr
+        
+# ===== HELPER FUNCTIONS =====
+# saves results from all k_folds per model in one csv file
+def save_to_csv_all_folds(metric_result, metric_directory, metric_name, instability_type, model_name, test_name, fold_id):
+    csv_file_path = f'metrics/{instability_type}/{metric_directory}/{metric_name}_{model_name}_{test_name}.csv'
+    create_nested_directory(f'metrics/{instability_type}/{metric_name}')
+    
+    if os.path.isfile(csv_file_path):
+        results_csv = pd.read_csv(csv_file_path)
+        results_csv[f'fold_{fold_id}'] = metric_result
+    else:
+        results_csv = pd.DataFrame({
+            f'fold_{fold_id}': metric_result
+        })
+    results_csv.to_csv(csv_file_path, index=False)
+
+# saves results from all runs in a k_fold per model csv file
+def save_to_csv_by_fold(metric_result, metric_directory, metric_name, instability_type, model_name, test_name, fold_id, defendant_ids=None):
+    csv_file_path = f'metrics/{instability_type}/{metric_directory}/{metric_name}_{model_name}_{test_name}_{fold_id}.csv'
+    create_nested_directory(f'metrics/{instability_type}/{metric_name}')
+    
+    if os.path.isfile(csv_file_path):
+        results_csv = pd.read_csv(csv_file_path)
+        results_csv[metric_name] = metric_result
+    else:
+        results_csv = pd.DataFrame({
+            **({f'defendant_id': defendant_ids} if defendant_ids != None else {}),
+            metric_name: metric_result
+        })
+    results_csv.to_csv(csv_file_path, index=False)
+
+# saves individual results per run, also in a k_fold per model csv file
+def save_to_csv_by_run(metric_result, metric_directory, metric_name, instability_type, model_name, test_name, fold_id, col, defendant_ids=None):
+    csv_file_path = f'metrics/{instability_type}/{metric_directory}/{metric_name}_{model_name}_{test_name}_{fold_id}.csv'
+    create_nested_directory(f'metrics/{instability_type}/{metric_name}')
+    
+    if os.path.isfile(csv_file_path):
+        results_csv = pd.read_csv(csv_file_path)
+        results_csv[col] = metric_result
+    else:
+        results_csv = pd.DataFrame({
+            **({f'defendant_id': defendant_ids} if defendant_ids != None else {}),
+            col: metric_result
+        })
+    results_csv.to_csv(csv_file_path, index=False)
+
+def get_predictions(instability_type, model_name, test_name, fold_id, with_ids=False, with_raw=False):
+    raw_predictions = pd.read_csv(f'predictions/{instability_type}/{model_name}_Predictions_{test_name}_{fold_id}.csv')
+    predictions = raw_predictions.drop(columns=['defendant_id']).to_numpy()
+    
+    data = [predictions]
+    if with_ids:
+        defendant_ids = raw_predictions['defendant_id']
+        data.append(defendant_ids)
+    if with_raw:
+        data.append(raw_predictions)
+    return data
