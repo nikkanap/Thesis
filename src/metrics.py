@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from sklearn.metrics import roc_auc_score, roc_curve, auc, brier_score_loss
+from sklearn.metrics import roc_auc_score, roc_curve, auc, brier_score_loss, confusion_matrix
 from sklearn.calibration import calibration_curve
 from statsmodels.nonparametric.smoothers_lowess import lowess
 from top_k_jaccard import top_k_jaccard_all
@@ -12,29 +12,36 @@ from create_dir import create_nested_directory
 
 # list of models being tested
 models = ['LR', 'RF', 'XGB', 'LinearSVC' 'MLP']
+race_columns = [
+    'race:African-American',
+    'race:Asian',
+    'race:Caucasian',
+    'race:Native-American',
+    'race:Hispanic',
+    'race:Other'
+]
 
 # ===== PART OF METRICS ===== 
-def roc_auc_and_std(instability_type, tests, y):
-    print('Computing ROC-AUC and STD...')
-    
+def roc_auc_and_std(y, instability_type, tests, folds):
     for i in range(2):
+        print(f'[Generating {instability_type}-{tests[i]} ROC-AUC and STD]')
         for model in models:
-            roc_aucs = []
-            
-            for fold_id in range(10):
+            for fold_id in folds:
                 [ predictions, defendant_ids ] = get_predictions(instability_type, model, tests[i], fold_id, True)
                                 
+                roc_aucs = []
                 for col in predictions.columns:
                     y_pred_proba = predictions[col].values
                     roc_auc = roc_auc_score(y, y_pred_proba)
+                    
                     save_to_csv_by_run(roc_auc_mean, 'roc_auc_mean', instability_type, model, tests[i], fold_id, col, defendant_ids)
                     roc_aucs.append(roc_auc)
             
-            roc_auc_mean = np.mean(roc_aucs)
-            save_to_csv_by_fold(roc_auc_mean, 'roc_auc_mean', instability_type, model, tests[i], fold_id, defendant_ids)
-            
-            roc_auc_sd = np.std(roc_aucs)
-            save_to_csv_by_fold(roc_auc_sd, 'roc_auc_std', instability_type, model, tests[i], fold_id, defendant_ids)
+                roc_auc_mean = np.mean(roc_aucs)
+                save_to_csv_by_fold(roc_auc_mean, 'roc_auc_mean', instability_type, model, tests[i], fold_id, defendant_ids)
+                
+                roc_auc_sd = np.std(roc_aucs)
+                save_to_csv_by_fold(roc_auc_sd, 'roc_auc_std', instability_type, model, tests[i], fold_id, defendant_ids)
     
 # Performance metric
 # Gets the brier score
@@ -113,6 +120,7 @@ def ninety_five_instability_percentile(instability_type, tests, folds):
 # Mean Absolute Prediction Error
 def mean_absolute_prediction_error(y, instability_type, tests, folds): # check notebook lm to get the steps for MAPE values
     for i in range(2):
+        print(f'[Generating {instability_type}-{tests[i]} MAPE]')
         for model in models:
             for fold_id in folds:
                 [ predictions, defendant_ids ] = get_predictions(instability_type, model, tests[i], fold_id, True)
@@ -133,6 +141,7 @@ def mean_absolute_prediction_error(y, instability_type, tests, folds): # check n
 # Instability metric
 def top_k_jaccard(instability_type, tests, folds):
     for i in range(2):
+        print(f'[Generating {instability_type}-{tests[i]} Top-K Jaccard]')
         for model in models:
             for fold_id in folds:
                 predictions = get_predictions(instability_type, model, tests[i], fold_id)
@@ -152,6 +161,7 @@ def top_k_jaccard(instability_type, tests, folds):
 # Instability metric
 def classification_instability_index(instability_type, tests, folds):
     for i in range(2):
+        print(f'[Generating {instability_type}-{tests[i]} CII]')
         for model in models:
             for fold_id in folds:
                 [ predictions, defendant_ids ] = get_predictions(instability_type, model, tests[i], fold_id, True)
@@ -185,6 +195,7 @@ def classification_instability_index(instability_type, tests, folds):
 # Performance metric
 def calibration_plot(y, instability_type, tests, folds):
     for i in range(2):
+        print(f'[Generating {instability_type}-{tests[i]} Calibration Plot]')
         for model in models:
             for fold_id in folds:
                 [ predictions ] = get_predictions(instability_type, model, tests[i], fold_id)
@@ -231,21 +242,29 @@ def calibration_plot(y, instability_type, tests, folds):
                 plt.close()
                 
                 
-def demographic_false_positive_rate(y, instability_type, tests, folds):
-    fpr_by_group = {}
+def demographic_false_positive_rate(y, test_dfs, instability_type, tests, folds):
+    
+    for i in range(2):
+        for model in models:
+            for fold_id in folds:
+                fpr_by_group = {}
+                for race in race_columns:
+                    [ predictions ] = get_predictions(instability_type, model, tests[i], fold_id)
+                    
+                    mask = test_dfs[i] == race
 
-    for group in demographics.unique():
-        mask = demographics == group
+                    tn, fp, fn, tp = confusion_matrix(
+                        y[mask],
+                        predictions[mask],
+                        labels=[0, 1]
+                    ).ravel()
 
-        tn, fp, fn, tp = confusion_matrix(
-            y_true[mask],
-            y_pred[mask],
-            labels=[0, 1]
-        ).ravel()
+                    fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
+                    save_to_csv_by_fold(fpr, 'dfpr', 'DFPR', instability_type, model, tests[i], fold_id)
+                    fpr_by_group[race] = fpr
+                mean_fpr = 
+                
 
-        fpr = fp / (fp + tn) if (fp + tn) > 0 else 0
-
-        fpr_by_group[group] = fpr
         
 # ===== HELPER FUNCTIONS =====
 # saves results from all k_folds per model in one csv file
