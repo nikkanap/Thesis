@@ -68,13 +68,3 @@ for fold_id, (train_idx, test_idx) in enumerate(k_fold.split(X_train)):
         MLP_Model(X_scaled, y, X_val_ids, fold_id, random_seed, b)
         LinearSVC_Model(X_scaled, y, X_val_ids, fold_id, random_seed, b)
     
-"""
-# displaying as a scatter plot
-make_scatter()
-percentile()
-MAPE()
-top_k_jaccard()
-cii()
-pr_auc_sd(y_test)
-brier_score_sd(y_test)
-"""
