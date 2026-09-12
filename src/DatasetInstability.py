@@ -21,6 +21,7 @@ random_seed = 42
 
 # kfold init
 k_fold = KFold(n_splits=10, shuffle=True, random_state=random_seed)
+iterations = 11
     
 for fold_id, (train_idx, test_idx) in enumerate(k_fold.split(X_train)):
     X_pool = X_train.iloc[train_idx]
@@ -31,7 +32,7 @@ for fold_id, (train_idx, test_idx) in enumerate(k_fold.split(X_train)):
     y_val = y_train[test_idx]
 
     # bootstrapping for 10 rows la anay
-    for b in range(10): 
+    for b in range(1, iterations): 
         print(f"BOOTSTRAP #{b}" )
         
         # make bootstrapped sample of training dataset
