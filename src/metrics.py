@@ -3,15 +3,18 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-from sklearn.metrics import roc_auc_score, roc_curve, auc, brier_score_loss, confusion_matrix
 from sklearn.calibration import calibration_curve
+from sklearn.metrics import roc_auc_score, roc_curve, auc, brier_score_loss, confusion_matrix
+from sklearn.neighbors import NearestNeighbors
+from sklearn.preprocessing import StandardScaler
+
 from itertools import combinations
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
 from create_dir import create_nested_directory
 
 class Metrics:
-    def __init__(self, test_dfs, y_true, instability_type, tests, folds):
+    def __init__(self, X, y_true, instability_type, tests, folds):
         self.race_columns = [
             'race:African-American',
             'race:Asian',
@@ -21,7 +24,7 @@ class Metrics:
             'race:Other'
         ]
         self.models = [ 'LR', 'RF', 'LSVM', 'XGB', 'MLP' ]
-        self.test_dfs = test_dfs
+        self.X = X
         self.y_true = y_true
         self.instability_type = instability_type
         self.tests = tests
@@ -496,12 +499,13 @@ class Metrics:
         self.metric_name = 'DFPR'
         self.metric_directory = 'dfpr'
 
+        test_dfs = self.X[1,3]
         for i, test in enumerate(self.tests):
             print(f'[Generating {self.instability_type}-{test} DFPR]')
 
             for model in self.models:
                 if test == 'Validation':
-                    for fold_id, test_df in enumerate(self.test_dfs, start=1):
+                    for fold_id, test_df in enumerate(test_dfs, start=1):
                         
                         [predictions] = self.get_predictions(
                             model_name=model,
@@ -569,7 +573,7 @@ class Metrics:
                                 row=race_row
                             )
                 else:
-                    test_df = self.test_dfs[0]
+                    test_df = test_dfs[0]
                     for fold_id in range(1, self.folds + 1):
                         [predictions] = self.get_predictions(
                             model_name=model,
@@ -635,62 +639,11 @@ class Metrics:
                                 metric_result=std_dfpr,
                                 metric_column_name=f'STD_{self.metric_name}',
                                 row=race_row
-                            )
-    
-    # Reliability metric
-    def calculate_mrip(
-        self,
-        X,
-        y,
-        instability_type,
-        tests,
-        folds,
-        feature_std,
-        feature_names,
-        n_perturbations=50,
-        epsilon=0.1,
-        delta=0.05
-    ):  
-        for i, test in enumerate(self.tests):
-            for model in self.models:
-                for fold_id in range(1, self.folds + 1):
-                    [ predictions, defendant_ids ] = self.get_predictions(model, test, fold_id, True)
+                            )       
                             
-                    mrip_values = []
-
-                    for i, x in enumerate(X):
-
-                        x_perturbed = generate_perturbations(
-                            x,
-                            feature_std,
-                            feature_names,
-                            n_perturbations=n_perturbations,
-                            sigma_factor=0.05,
-                            delta=delta
-                        )
-
-                        probabilities = model.predict_proba(
-                            x_perturbed
-                        )[:, 1]
-
-                        errors = np.abs(
-                            self.y_true[i] - probabilities
-                        )
-
-                        mrip_value = np.mean(
-                            errors <= epsilon
-                        )
-
-                        mrip_values.append(mrip_value)
-
-                    return pd.DataFrame({
-                        'defendant_id': defendant_ids,
-                        'MRIP': mrip_values
-                    })
-
-    def shap_analysis():
+    def shap_analysis(self):
         print('hello wurl')
-            
+                
     # ===== HELPER FUNCTIONS =====
     def init_csv(
         self,
@@ -735,3 +688,50 @@ class Metrics:
             else:
                 results_csv.loc[row, metric_column_name] = metric_result
         results_csv.to_csv(self.csv_file_path, index=False)
+  
+    
+    
+    # Reliability metric
+    # Outside of the class since it's a separate experiment
+    def calculate_mrip(
+        self,
+        X_target_ids,
+        trained_model,
+        model_name,
+        test_name,
+        fold_id,
+        run,
+        epsilon=0.1,
+        delta=0.05
+    ):  
+        if model_name == 'RF' or model_name == 'XGB':
+            scaler = StandardScaler()
+            X_boot_scaled = scaler.fit_transform(X[0])
+            X_val_transf = scaler.transform(X[1])
+            X_test_transf = scaler.transform(X[2])
+            X_scaled = [X_boot_scaled, X_val_transf, X_test_transf]
+        
+        mrip_values = []
+        nn = NearestNeighbors(radius=delta)
+        nn.fit(X_scaled[0]) # X train scaled
+        
+        distances, indices = nn.radius_neighbors(X_scaled[1 if test_name == 'Validation' else 2]) # X val scaled
+        
+        for i, defendant_id in enumerate(X_target_ids): # per fold, and every fold has N numbers of defendants
+            neighbor_indices = indices[i]
+            X_star = X[0].iloc[neighbor_indices]
+            y_star = y[0].iloc[neighbor_indices]
+            
+            probabilities = trained_model.predict_proba(X_star)[:, 1]
+            errors = np.abs(y_star - probabilities)
+            mrip_value = np.mean(errors <= epsilon)
+            mrip_values.append(mrip_value)        
+
+        pd.DataFrame({
+            'defendant_id': X_target_ids,
+            f'MRIP_{run}': mrip_values
+        })
+    
+    
+
+   
