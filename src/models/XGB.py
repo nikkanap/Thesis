@@ -1,10 +1,12 @@
 import xgboost as xgb
 
 from generate_prediction_csv import generate_prediction_csv
-from runtime_metrics import calculate_mrip
+from runtime_metrics import MRIP
 
-def XGBoost_Model(X, y, X_val_ids, fold_id, random_seed, b=None):
+def XGBoost_Model(predictions_dir, X_train, y_train, testing_data, fold_id, random_seed, b=None):
     print('Model: XGBoost')
+    
+    # Setting up the parameters
     params = {
         'objective' : 'binary:logistic',
         'max_depth': 3,
@@ -13,44 +15,42 @@ def XGBoost_Model(X, y, X_val_ids, fold_id, random_seed, b=None):
     }
     n = 50
     
+    # Training the model
     model = xgb.train(
         params=params,
-        dtrain=X[0],
+        dtrain=X_train,
         num_boost_round=n,
     )
     
-    instability_type = 'Stochastic' if b == None else 'Dataset'
-    attribute_name = 'Random_Seed' if b == None else 'Bootstrap'
-    idx = random_seed if b == None else b
+    # Set up the generate_prediction_csv params
+    nth_run = random_seed if b == None else b
+    column_name = f'Random_Seed_{random_seed}' if b == None else f'Bootstrap_{b}'
+    
+    for test in testing_data:
+        csv_file_path = f'{predictions_dir}/XGB_Predictions_{test['name']}_{fold_id}.csv'
         
-    for X_idx in range(1, 3):
-        print(X)
-        test_type = 'Validation' if X_idx == 1 else 'Test'
-        csv_file_path = f'predictions/{instability_type}/XGB_Predictions_{test_type}_{fold_id}.csv'
+        # Get the predictions and save it in y_pred_proba
+        y_pred_proba = model.predict(test['X'])
         
-        # get the predictions and save it in y_pred_proba
-        y_pred_proba = model.predict(X[X_idx])
-        
-        # generate the predictions in a csv
+        # Generate the predictions in a csv
         generate_prediction_csv(
             y_pred_proba,
-            X_val_ids,
-            idx,
             csv_file_path,
-            attribute_name
+            column_name
         )
         
-        # also generate an MRIP report for each defendant per run
-        calculate_mrip(
-            X=X,
-            X_target_ids=X_val_ids,
-            y_true=y,
+        # Generate an MRIP report for each defendant per nth_run
+        MRIP(
+            X_train=X_train,
+            y_train=y_train,
+            X_val_test=test['X'],
+            y_val_test=test['y'],
+            defendant_ids=test['ids'],
             trained_model=model,
             model_name='XGB',
-            instability_type=instability_type,
-            test_name=test_type,
+            test_name=test['name'],
             fold_id=fold_id,
-            run=idx
+            nth_run=nth_run
         )
 
         
