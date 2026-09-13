@@ -1,45 +1,52 @@
 from sklearn.ensemble import RandomForestClassifier
 
 from generate_prediction_csv import generate_prediction_csv
-from metrics import calculate_mrip
+from runtime_metrics import calculate_mrip
 
-def RF_Classifier(X, y, X_val_ids, fold_id, random_seed, b=None):
+def RF_Classifier(predictions_dir, X_train, y_train, X_val, y_val, X_test, y_test, fold_id, random_seed, b=None):
     print('Model: Random Forest')
     classifier = RandomForestClassifier(
         n_estimators=100, 
         random_state=random_seed
     )
-    classifier.fit(X[0], y[0])
-
-    instability_type = 'Stochastic' if b == None else 'Dataset'
-    attribute_name = 'Random_Seed' if b == None else 'Bootstrap'
-    idx = random_seed if b == None else b
+    classifier.fit(X_train, y_train)
     
-    for X_idx in range(1, 3):
-        test_type = 'Validation' if X_idx == 1 else 'Test'
-        csv_file_path = f'predictions/{instability_type}/RF_Predictions_{test_type}_{fold_id}.csv'
+    testing_data = [
+        {
+            'name': 'Validation',
+            'X': X_val,
+            'y': y_val,
+        }, 
+        {
+            'name': 'Test',
+            'X': X_test,
+            'y': y_test,
+        }, 
+    ]
+    
+    for test in testing_data:
+        csv_file_path = f'{predictions_dir}/RF_Predictions_{test['name']}_{fold_id}.csv'
                 
         # get the predictions and save it in y_pred_proba
-        y_pred_proba = classifier.predict_proba(X[X_idx])[:,1] 
+        y_pred_proba = classifier.predict_proba(test['X'])[:,1] 
+        
+        column_name = f'Random_Seed_{random_seed}' if b == None else f'Bootstrap_{b}'
         
         # generate the predictions in a csv
         generate_prediction_csv(
             y_pred_proba,
-            X_val_ids,
-            idx,
             csv_file_path,
-            attribute_name
+            column_name
         )
         
-        # also generate an MRIP report for each defendant per run
+        # also generate an MRIP report for each defendant per nth_run
         calculate_mrip(
-            X=X,
-            X_target_ids=X_val_ids,
-            y_true=y,
+            X=test['X'],
+            y_true=test['y'],
             trained_model=classifier,
             model_name='RF',
             instability_type=instability_type,
-            test_name=test_type,
+            test_name=test['name'],
             fold_id=fold_id,
-            run=idx
+            nth_run=random_seed if b == None else b
         )

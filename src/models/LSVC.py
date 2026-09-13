@@ -2,7 +2,7 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
 
 from generate_prediction_csv import generate_prediction_csv
-from metrics import calculate_mrip
+from runtime_metrics import calculate_mrip
 
 def LinearSVC_Model(X, y, X_val_ids, fold_id, random_seed, b=None):
     print('Model: Linear Support Vector Machine')

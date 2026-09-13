@@ -1,7 +1,7 @@
 from sklearn.neural_network import MLPClassifier
 
 from generate_prediction_csv import generate_prediction_csv
-from metrics import calculate_mrip
+from runtime_metrics import calculate_mrip
 
 def MLP_Model(X, y, X_val_ids, fold_id, random_seed, b=None):
     print('Model: Multilayer Perceptron')
