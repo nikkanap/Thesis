@@ -51,10 +51,12 @@ def MRIP(
             X_star = X_train.iloc[neighbor_indices]
             y_star = y_train.iloc[neighbor_indices]
 
-            probabilities = trained_model.predict_proba(X_star)[:, 1]
+            if model_name == 'XGB':
+                probabilities = trained_model.predict(X_star)
+            else:
+                probabilities = trained_model.predict_proba(X_star)[:, 1]
 
             errors = np.abs(y_star - probabilities)
-
             mrip_value = np.mean(errors <= epsilon)
 
         mrip_values.append(mrip_value)
