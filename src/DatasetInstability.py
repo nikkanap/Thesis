@@ -12,6 +12,8 @@ import xgboost as xgb
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
+from post_metrics import PostMetrics
+
 # set default random seed
 random_seed = 42    
 no_of_folds = 10
@@ -25,15 +27,14 @@ k_fold = KFold(
 )
     
 # Arrays for metrics later (we need to save these)
-validation_indices = [] # 10 total validation indices
-train_indices = []      # 10 total train indices (oppositve to validation indices)
-bootstrap_indices = []  # 100 * 10 = 1000 total individual bootstrap indices
-# NOTE: No need to make test_indices since there's really only one official test X and y
+val_defendant_ids_arr = []
+X_val_arr = [] # 10 total validation tests
+y_val_arr = [] # 10 total validation true values
 
 # init the dataset to train & test vars
 [X_train, y_train, X_test, y_test] = init_dataset()
 
-# NOTE: Since we only have one test for everything, we just scale & DMatricx test once
+# NOTE: Since we only have one test for everything, we just scale & DMatrix the test data once
 scaler = StandardScaler()
 X_test_transf = scaler.transform(X_test)    
 xgb_test = xgb.DMatrix(X_test, y_test, enable_categorical=False)
@@ -43,17 +44,19 @@ test_defendant_ids = X_test.iloc['defendant_id'].values
 predictions_dir = 'predictions/dataset_instability'
 create_nested_directory(predictions_dir)
 
-for fold_id, (train_idx, val_idx) in enumerate(k_fold.split(X_train)):
-    validation_indices.append(val_idx) # Saving the validation indices
-    train_indices.append(train_idx)
-    
+for fold_id, (train_idx, val_idx) in enumerate(k_fold.split(X_train)):    
     # Making the training data separate from the validation data (fold)
     X_train_split = X_train.iloc[train_idx]
     y_train_split = y_train[train_idx]
     
     val_defendant_ids = X_train.iloc[val_idx]['defendant_id'].values
+    val_defendant_ids_arr.append(val_defendant_ids)
+    
     X_val = X_train.iloc[val_idx]
+    X_val_arr.append(X_val)
+    
     y_val = y_train[val_idx]
+    y_val_arr.append(y_val)
 
     for b in range(1, bootstraps + 1): 
         print(f"BOOTSTRAP #{b}" )
@@ -65,8 +68,7 @@ for fold_id, (train_idx, val_idx) in enumerate(k_fold.split(X_train)):
             size=n_samples, 
             replace=True
         )
-        bootstrap_indices.append(boot_idx) # Saving the bootstrap indices
-
+        
         # Create the bootstrapped training data
         X_boot = X_train_split.iloc[boot_idx]
         y_boot = y_train_split[boot_idx]
@@ -108,3 +110,12 @@ for fold_id, (train_idx, val_idx) in enumerate(k_fold.split(X_train)):
         LR_Model(predictions_dir, X_boot, y_boot, testing_data, fold_id, random_seed, b)
         MLP_Model(predictions_dir, X_boot, y_boot, testing_data, fold_id, random_seed, b)
         LinearSVC_Model(predictions_dir, X_boot, y_boot, testing_data, fold_id, random_seed, b)
+        
+pm = PostMetrics(
+        X_train, y_train,   
+        X_test, y_test,     
+        validation_indices, train_indices, 
+        predictions_dir,    
+        no_of_folds,        
+        bootstrap_indices,  
+    )
