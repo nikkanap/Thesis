@@ -4,7 +4,7 @@ import numpy as np
 import os
 
 from sklearn.calibration import calibration_curve
-from sklearn.metrics import roc_auc_score, roc_curve, auc, brier_score_loss, confusion_matrix
+from sklearn.metrics import roc_auc_score, brier_score_loss, confusion_matrix
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
@@ -13,46 +13,93 @@ from statsmodels.nonparametric.smoothers_lowess import lowess
 
 from create_dir import create_nested_directory
 
-class Metrics:
-    def __init__(self, X, y_true, instability_type, tests, folds):
-        self.race_columns = [
-            'race:African-American',
-            'race:Asian',
-            'race:Caucasian',
-            'race:Native-American',
-            'race:Hispanic',
-            'race:Other'
-        ]
-        self.models = [ 'LR', 'RF', 'LSVM', 'XGB', 'MLP' ]
-        self.X = X
-        self.y_true = y_true
-        self.instability_type = instability_type
-        self.tests = tests
-        self.folds = folds
+RACE_COLUMNS = [
+    'race:African-American',
+    'race:Asian',
+    'race:Caucasian',
+    'race:Native-American',
+    'race:Hispanic',
+    'race:Other'
+]
+MODEL_NAMES = [ 'LR', 'RF', 'LSVM', 'XGB', 'MLP' ]
+TEST_NAMES = [ 'Validation', 'Test'] 
+INSTABILITY_NAMES = [ '', 'Stochastic_Instability']
+
+class PostMetrics:
+    def __init__(
+        self, 
+        X_train, y_train,   # Training data (not split)
+        X_test, y_test,     # Testing data
+        validation_indices, train_indices, # indices
+        predictions_dir,    
+        no_of_folds,        
+        bootstrap_indices=None,  # Optional
+    ):
+        # Official Training data (not split yet to validation and bootstrapped samples)
+        self.X_train = X_train
+        self.y_train = y_train
         
+        # Official Testing  Data
+        self.X_test = X_test
+        self.y_test = y_test
+        
+        # Indices (for recreating the training and validation data)
+        self.validation_indices = validation_indices
+        self.train_indices = train_indices
+        self.bootstrap_indices = bootstrap_indices
+        
+        # Directory for predictions
+        self.predictions_dir = predictions_dir
+        self.instability_type = f'{'Dataset' if bootstrap_indices != None else 'Stochastic'}_Instability'
+        
+        # Consistent Data
+        self.no_of_folds = no_of_folds
+        
+        # Variables changed during metric calls
         self.csv_file_path = ''
         self.metric_result = ''
         self.metric_name = ''
-        self.metric_directory = ''
-    
-    def get_predictions(
-        self, 
-        model_name,
-        test_name,
-        fold_id,
-        with_ids=False, 
-        with_raw=False
-    ):
-        raw_predictions = pd.read_csv(f'predictions/{self.instability_type}/{model_name}_Predictions_{test_name}_{fold_id}.csv')
-        predictions = raw_predictions.drop(columns=['defendant_id'])
+        self.metric_directory = ''    
         
-        data = [predictions]
-        if with_ids:
-            defendant_ids = raw_predictions['defendant_id']
-            data.append(defendant_ids)
-        if with_raw:
-            data.append(raw_predictions)
-        return data
+    # Recreates the validation data and bootstrapped training data to be used for the metrics
+    def recreate_data_by_val_index(
+        self, 
+        train_idx,
+        val_idx
+    ):
+        # We'll be saving the boot data as one whole array since this function gets data per fold
+        X_boot_arr = []
+        y_boot_arr = []
+        
+        # Making the training data separate from the validation data through val_idx and train_idx
+        X_train_split = self.X_train.iloc[train_idx]
+        y_train_split = self.y_train[train_idx]
+        
+        val_defendant_ids = self.X_train.iloc[val_idx]['defendant_id'].values # we get this
+        X_val = self.X_train.iloc[val_idx]  # we get this
+        y_val = self.y_train[val_idx]       # also this
+        
+        for boot_idx in self.bootstrap_indices:
+            X_boot = X_train_split[boot_idx]
+            X_boot_arr.append(X_boot)
+            
+            y_boot = y_train_split[boot_idx]
+            y_boot_arr.append(y_boot)
+        
+        return [X_boot_arr, y_boot_arr, X_val, y_val, val_defendant_ids]
+    
+    # Getter functions
+    def get_validation_defendant_ids(self, val_idx):
+        val_defendant_ids = self.X_train.iloc[val_idx]['defendant_id'].values
+        return val_defendant_ids
+
+    def get_test_defendant_ids(self):
+        test_defendant_ids = self.X_test.iloc['defendant_id'].values
+        return test_defendant_ids
+    
+    def get_predictions(self, model_name, test_name, fold_id):
+        predictions = pd.read_csv(f'{self.predictions_dir}/{model_name}_Predictions_{test_name}_{fold_id}.csv')
+        return predictions
     
     # ===== PART OF METRICS =====     
     # Performance metric
@@ -61,24 +108,24 @@ class Metrics:
         self.metric_name = 'ROC_AUC'
         self.metric_directory = 'roc_auc'
         
-        for i, test in enumerate(self.tests):
-            print(f'[Generating {self.instability_type}-{test} ROC-AUC and STD]')
+        for i, test_name in enumerate(TEST_NAMES):
+            print(f'[Generating {self.instability_type}-{test_name} ROC-AUC and STD]')
 
-            for model in self.models:
+            for model_name in MODEL_NAMES:
+                print(f'MODEL: {model_name}')
                                 
-                for fold_id in range(1, self.folds + 1):
-                    [ predictions ] = self.get_predictions(
-                        model_name=model,
-                        test_name=test,
+                for fold_id in range(1, self.no_of_folds + 1):
+                    predictions = self.get_predictions(model_name,
+                        test_name,
                         fold_id=fold_id
                     )
                     
                     if fold_id == 1:
                         self.csv_file_path = self.init_csv(
-                            column_names=[*predictions.columns, f'Mean_{self.metric_name}', f'STD_{self.metric_name}'],
-                            row_count=self.folds,
-                            model_name=model,
-                            test_name=test
+                            [*predictions.columns, f'Mean_{self.metric_name}', f'STD_{self.metric_name}'],
+                            self.no_of_folds,
+                            model_name,
+                            test_name
                         )
                         
                     roc_aucs = []
@@ -113,23 +160,23 @@ class Metrics:
         self.metric_name = 'Brier_Score'
         self.metric_directory = 'brier_score'
         
-        for i, test in enumerate(self.tests):
-            print(f'[Generating {self.instability_type}-{test} Brier Scores]')
+        for i, test_name in enumerate(TEST_NAMES):
+            print(f'[Generating {self.instability_type}-{test_name} Brier Scores]')
             
-            for model in self.models:                
-                for fold_id in range(1, self.folds + 1):                    
-                    [ predictions ] = self.get_predictions(
-                        model_name=model,
-                        test_name=test,
+            for model_name in MODEL_NAMES:                
+                for fold_id in range(1, self.no_of_folds + 1):                    
+                    predictions = self.get_predictions(
+                        model_name,
+                        test_name,
                         fold_id=fold_id
                     )
                     
                     if fold_id == 1:
                         self.csv_file_path = self.init_csv(
-                            column_names=[*predictions.columns, f'Mean_{self.metric_name}', f'STD_{self.metric_name}'],
-                            row_count=self.folds,
-                            model_name=model,
-                            test_name=test
+                            [*predictions.columns, f'Mean_{self.metric_name}', f'STD_{self.metric_name}'],
+                            self.no_of_folds,
+                            model_name,
+                            test_name
                         )
                     
                     brier_scores = []
@@ -165,21 +212,21 @@ class Metrics:
         self.metric_name = '95_Stability_Interval'
         self.metric_directory = '95_stability_interval'
         
-        for i, test in enumerate(self.tests):
-            print(f'[Generating {self.instability_type}-{test} 95% Stability Interval]')
+        for i, test_name in enumerate(TEST_NAMES):
+            print(f'[Generating {self.instability_type}-{test_name} 95% Stability Interval]')
             
-            for model in self.models:         
+            for model_name in MODEL_NAMES:         
                 self.csv_file_path = self.init_csv(
-                    column_names=[
+                    [
                         f'Mean_{self.metric_name}_Fold_{fold}' 
-                        for fold in range(1, self.folds + 1)
+                        for fold in range(1, self.no_of_folds + 1)
                     ],
-                    row_count=1,
-                    model_name=model,
-                    test_name=test
+                    1,
+                    model_name,
+                    test_name
                 )      
-                for fold_id in range(1, self.folds + 1):
-                    [ predictions, defendant_ids ] = self.get_predictions(model, test, fold_id, True)
+                for fold_id in range(1, self.no_of_folds + 1):
+                    predictions = self.get_predictions(model_name, test_name, fold_id)
                     
                     stability_df = pd.DataFrame({
                         'defendant_id': defendant_ids,
@@ -212,13 +259,13 @@ class Metrics:
                     plt.xlabel('Defendant ID')
                     plt.ylabel('Predicted Probability')
                     plt.title(
-                        f'{self.instability_type} - {model} - Fold {fold_id} - 95% Stability Intervals of Predicted Recidivism Risk'
+                        f'{self.instability_type} - {model_name} - Fold {fold_id} - 95% Stability Intervals of Predicted Recidivism Risk'
                     )
                     plt.xticks(rotation=90)
                     plt.tight_layout()
                     plt.savefig(
                         f'metrics/{self.instability_type}/{self.metric_directory}/'
-                        f'{self.metric_name}-{model}-{test}-Fold_{fold_id}.png'
+                        f'{self.metric_name}-{model_name}-{test_name}-Fold_{fold_id}.png'
                     )
                     plt.show()
                     plt.close()
@@ -228,26 +275,26 @@ class Metrics:
     def mean_absolute_prediction_error(self): 
         self.metric_directory = 'mape'
         
-        for test in self.tests:
-            print(f'[Generating {self.instability_type}-{test} MAPE]')
+        for test_name in TEST_NAMES:
+            print(f'[Generating {self.instability_type}-{test_name} MAPE]')
             
-            for model in self.models:
+            for model_name in MODEL_NAMES:
                 mean_mapes = []
                 self.metric_name = 'MAPE'
                 
-                for fold_id in range(1, self.folds + 1):
-                    [ predictions, defendant_ids ] = self.get_predictions(
-                        model_name=model, 
-                        test_name=test, 
+                for fold_id in range(1, self.no_of_folds + 1):
+                    predictions = self.get_predictions(
+                        model_name, 
+                        test_name, 
                         fold_id=fold_id,
                         with_ids=True
                     )
                     
                     self.csv_file_path = self.init_csv(
-                        column_names=['defendant_id', 'MAPE'],
-                        row_count=len(defendant_ids),
-                        model_name=model,
-                        test_name=test,
+                        ['defendant_id', 'MAPE'],
+                        len(defendant_ids),
+                        model_name,
+                        test_name,
                         fold_id=fold_id,
                         first_column_data=defendant_ids
                     )
@@ -270,10 +317,10 @@ class Metrics:
                 
                 self.metric_name = 'Mean_MAPE'
                 self.csv_file_path = self.init_csv(
-                    column_names=[f'Fold_{i}' for i in range (1, self.folds + 1)],
-                    row_count=1,
-                    model_name=model,
-                    test_name=test
+                    [f'Fold_{i}' for i in range (1, self.no_of_folds + 1)],
+                    1,
+                    model_name,
+                    test
                 )  
                 
                 for col, column_mean_mape in enumerate(mean_mapes, start=1):
@@ -287,27 +334,27 @@ class Metrics:
         self.metric_name = 'Top_K_Jaccard'
         self.metric_directory = 'top_k_jaccard'
         
-        for test in self.tests:
-            print(f'[Generating {self.instability_type}-{test} Top-K Jaccard]')
+        for test_name in TEST_NAMES:
+            print(f'[Generating {self.instability_type}-{test_name} Top-K Jaccard]')
             
-            for model in self.models:
+            for model_name in MODEL_NAMES:
                 jaccard_scores_mean = []
                 jaccard_scores_std = []
                 
-                for fold_id in range(1, self.folds + 1):
+                for fold_id in range(1, self.no_of_folds + 1):
                     jaccard_scores = []
                     
-                    [ predictions ] = self.get_predictions(
-                        model_name=model, 
-                        test_name=test, 
+                    predictions = self.get_predictions(
+                        model_name, 
+                        test_name, 
                         fold_id=fold_id
                     )
                     
                     self.csv_file_path = self.init_csv(
-                        column_names=['Run_1', 'Run_2', 'Jaccard'],
-                        row_count=(len(predictions.columns) * (len(predictions.columns) - 1))//2,
-                        model_name=model,
-                        test_name=test,
+                        ['Run_1', 'Run_2', 'Jaccard'],
+                        (len(predictions.columns) * (len(predictions.columns) - 1))//2,
+                        model_name,
+                        test_name,
                         fold_id=fold_id
                     )
                         
@@ -347,10 +394,10 @@ class Metrics:
                     jaccard_scores_std.append(std_jaccard)
                     
                 self.csv_file_path = self.init_csv(
-                    column_names=[f'Mean_{self.metric_name}', f'STD_{self.metric_name}'],
-                    row_count=self.folds,
-                    model_name=model,
-                    test_name=test,
+                    [f'Mean_{self.metric_name}', f'STD_{self.metric_name}'],
+                    self.no_of_folds,
+                    model_name,
+                    test_name,
                 )
                 
                 for row, (mean, std) in enumerate(zip(jaccard_scores_mean, jaccard_scores_std)):
@@ -370,26 +417,26 @@ class Metrics:
         threshold = 0.5
         
         self.metric_directory = 'cii'
-        for test in self.tests:
-            print(f'[Generating {self.instability_type}-{test} CII]')
+        for test_name in TEST_NAMES:
+            print(f'[Generating {self.instability_type}-{test_name} CII]')
             
-            for model in self.models:
+            for model_name in MODEL_NAMES:
                 mean_ciis = []
                 self.metric_name = 'CII'
                 
-                for fold_id in range(1, self.folds + 1):
-                    [ predictions, defendant_ids ] = self.get_predictions(
-                        model_name=model, 
-                        test_name=test, 
+                for fold_id in range(1, self.no_of_folds + 1):
+                    predictions = self.get_predictions(
+                        model_name, 
+                        test_name, 
                         fold_id=fold_id,
                         with_ids=True
                     )
                     
                     self.csv_file_path = self.init_csv(
-                        column_names=['defendant_id', 'CII'],
-                        row_count=len(defendant_ids),
-                        model_name=model,
-                        test_name=test,
+                        ['defendant_id', 'CII'],
+                        len(defendant_ids),
+                        model_name,
+                        test_name,
                         fold_id=fold_id,
                         first_column_data=defendant_ids
                     )
@@ -416,18 +463,18 @@ class Metrics:
                     plt.hist(cii_individual, bins=20)
                     plt.xlabel('CII per Individual')
                     plt.ylabel('Count')
-                    plt.title(f'Classification Instability Distribution ({self.instability_type} - {model}, Fold {fold_id})')
+                    plt.title(f'Classification Instability Distribution ({self.instability_type} - {model_name}, Fold {fold_id})')
                     plt.savefig(
                         f'metrics/{self.instability_type}/{self.metric_directory}/'
-                        f'{model}_{test}_{self.metric_name}_Distribution_Plot_{fold_id}.png')
+                        f'{model_name}_{test_name}_{self.metric_name}_Distribution_Plot_{fold_id}.png')
                     plt.close()
                 
                 self.metric_name = 'Mean_CII'
                 self.csv_file_path = self.init_csv(
-                    column_names=[f'Fold_{i}' for i in range (1, self.folds + 1)],
-                    row_count=1,
-                    model_name=model,
-                    test_name=test
+                    [f'Fold_{i}' for i in range (1, self.no_of_folds + 1)],
+                    1,
+                    model_name,
+                    test_name
                 )  
                 
                 for col, column_mean_cii in enumerate(mean_ciis, start=1):
@@ -441,15 +488,15 @@ class Metrics:
         self.metric_name = 'Calibration_Plot'
         self.metric_directory = 'calibration_plot'
         
-        for i, test in enumerate(self.tests):
-            print(f'[Generating {self.instability_type}-{test} Calibration Plot]')
+        for i, test_name in enumerate(TEST_NAMES):
+            print(f'[Generating {self.instability_type}-{test_name} Calibration Plot]')
             
-            for model in self.models:
+            for model_name in MODEL_NAMES:
                 
-                for fold_id in range(1, self.folds + 1):
-                    [ predictions ] = self.get_predictions(
-                        model_name=model, 
-                        test_name=test, 
+                for fold_id in range(1, self.no_of_folds + 1):
+                    predictions = self.get_predictions(
+                        model_name, 
+                        test_name, 
                         fold_id=fold_id
                     )
 
@@ -479,7 +526,7 @@ class Metrics:
                     plt.xlabel('Mean Predicted Probability')
                     plt.ylabel('Fraction of Positives')
                     plt.title(
-                        f'{self.instability_type} - {model} - {test} - '
+                        f'{self.instability_type} - {model_name} - {test_name} - '
                         f'Calibration Plot - Fold {fold_id}'
                     )
                     plt.legend()
@@ -487,7 +534,7 @@ class Metrics:
 
                     plt.savefig(
                         f'metrics/{self.instability_type}/{self.metric_directory}/'
-                        f'{model}-{test}-{self.metric_name}-Fold_{fold_id}.png',
+                        f'{model_name}-{test_name}-{self.metric_name}-Fold_{fold_id}.png',
                         dpi=300,
                         bbox_inches='tight'
                     )
@@ -500,34 +547,34 @@ class Metrics:
         self.metric_directory = 'dfpr'
 
         test_dfs = self.X[1,3]
-        for i, test in enumerate(self.tests):
-            print(f'[Generating {self.instability_type}-{test} DFPR]')
+        for i, test_name in enumerate(TEST_NAMES):
+            print(f'[Generating {self.instability_type}-{test_name} DFPR]')
 
-            for model in self.models:
-                if test == 'Validation':
+            for model_name in MODEL_NAMES:
+                if test_name == 'Validation':
                     for fold_id, test_df in enumerate(test_dfs, start=1):
                         
                         [predictions] = self.get_predictions(
-                            model_name=model,
-                            test_name=test,
+                            model_name,
+                            test_name,
                             fold_id=fold_id
                         )
 
                         self.csv_file_path = self.init_csv(
-                            column_names=[
+                            [
                                 'Race',
                                 *predictions.columns,
                                 f'Mean_{self.metric_name}',
                                 f'STD_{self.metric_name}'
                             ],
-                            row_count=len(self.race_columns),
-                            model_name=model,
-                            test_name=test,
+                            len(RACE_COLUMNS),
+                            model_name,
+                            test_name,
                             fold_id=fold_id,
-                            first_column_data=self.race_columns
+                            first_column_data=RACE_COLUMNS
                         )
 
-                        for race_row, race in enumerate(self.race_columns):
+                        for race_row, race in enumerate(RACE_COLUMNS):
                             mask = test_df[race] == 1
 
                             dfpr_scores = []
@@ -574,28 +621,28 @@ class Metrics:
                             )
                 else:
                     test_df = test_dfs[0]
-                    for fold_id in range(1, self.folds + 1):
+                    for fold_id in range(1, self.no_of_folds + 1):
                         [predictions] = self.get_predictions(
-                            model_name=model,
-                            test_name=test,
+                            model_name,
+                            test_name,
                             fold_id=fold_id
                         )
 
                         self.csv_file_path = self.init_csv(
-                            column_names=[
+                            [
                                 'Race',
                                 *predictions.columns,
                                 f'Mean_{self.metric_name}',
                                 f'STD_{self.metric_name}'
                             ],
-                            row_count=len(self.race_columns),
-                            model_name=model,
-                            test_name=test,
+                            len(RACE_COLUMNS),
+                            model_name,
+                            test_name,
                             fold_id=fold_id,
-                            first_column_data=self.race_columns
+                            first_column_data=RACE_COLUMNS
                         )
 
-                        for race_row, race in enumerate(self.race_columns):
+                        for race_row, race in enumerate(RACE_COLUMNS):
                             mask = test_df[race] == 1
 
                             dfpr_scores = []
@@ -640,9 +687,6 @@ class Metrics:
                                 metric_column_name=f'STD_{self.metric_name}',
                                 row=race_row
                             )       
-                            
-    def shap_analysis(self):
-        print('hello wurl')
                 
     # ===== HELPER FUNCTIONS =====
     def init_csv(
@@ -690,47 +734,6 @@ class Metrics:
         results_csv.to_csv(self.csv_file_path, index=False)
   
     
-    
-    # Reliability metric
-    # Outside of the class since it's a separate experiment
-    def calculate_mrip(
-        self,
-        X_target_ids,
-        trained_model,
-        model_name,
-        test_name,
-        fold_id,
-        run,
-        epsilon=0.1,
-        delta=0.05
-    ):  
-        if model_name == 'RF' or model_name == 'XGB':
-            scaler = StandardScaler()
-            X_boot_scaled = scaler.fit_transform(X[0])
-            X_val_transf = scaler.transform(X[1])
-            X_test_transf = scaler.transform(X[2])
-            X_scaled = [X_boot_scaled, X_val_transf, X_test_transf]
-        
-        mrip_values = []
-        nn = NearestNeighbors(radius=delta)
-        nn.fit(X_scaled[0]) # X train scaled
-        
-        distances, indices = nn.radius_neighbors(X_scaled[1 if test_name == 'Validation' else 2]) # X val scaled
-        
-        for i, defendant_id in enumerate(X_target_ids): # per fold, and every fold has N numbers of defendants
-            neighbor_indices = indices[i]
-            X_star = X[0].iloc[neighbor_indices]
-            y_star = y[0].iloc[neighbor_indices]
-            
-            probabilities = trained_model.predict_proba(X_star)[:, 1]
-            errors = np.abs(y_star - probabilities)
-            mrip_value = np.mean(errors <= epsilon)
-            mrip_values.append(mrip_value)        
-
-        pd.DataFrame({
-            'defendant_id': X_target_ids,
-            f'MRIP_{run}': mrip_values
-        })
     
     
 
