@@ -71,19 +71,40 @@ for fold_id, (train_idx, val_idx) in enumerate(k_fold.split(X_train)):
         X_boot = X_train_split.iloc[boot_idx]
         y_boot = y_train_split[boot_idx]
         
+        testing_data = [
+            {
+                'name': 'Validation',
+                'X': X_val,
+                'y': y_val,
+                'ids': val_defendant_ids
+            }, 
+            {
+                'name': 'Test',
+                'X': X_test,
+                'y': y_test,
+                'ids': test_defendant_ids
+            }, 
+        ]
+        
         # Train RF
-        RF_Classifier(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)# convert data for xgboost
+        RF_Classifier(predictions_dir, X_boot, y_boot, testing_data, fold_id, random_seed, b)
         
         # Create DMatrix of X_boot and X_val
         xgb_boot = xgb.DMatrix(X_boot, y_boot, enable_categorical=False)
         xgb_val = xgb.DMatrix(X_val, y_val, enable_categorical=False)
-        XGBoost_Model(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)
+        
+        testing_data[0]['X'] = xgb_val
+        testing_data[1]['X'] = xgb_test
+        XGBoost_Model(predictions_dir, xgb_boot, y_boot, testing_data, fold_id, random_seed, b)
         
         # fit X_boot and transform the X_val 
         X_boot_scaled = scaler.fit_transform(X_boot)
         X_val_transf = scaler.transform(X_val)
         
+        testing_data[0]['X'] = X_val_transf
+        testing_data[1]['X'] = X_test_transf
+        
         # Train LR, MLP, and LinearSVC models
-        LR_Model(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)
-        MLP_Model(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)
-        LinearSVC_Model(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)
+        LR_Model(predictions_dir, X_boot, y_boot, testing_data, fold_id, random_seed, b)
+        MLP_Model(predictions_dir, X_boot, y_boot, testing_data, fold_id, random_seed, b)
+        LinearSVC_Model(predictions_dir, X_boot, y_boot, testing_data, fold_id, random_seed, b)
