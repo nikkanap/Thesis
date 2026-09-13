@@ -12,60 +12,79 @@ import xgboost as xgb
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
-# init the dataset to train & test vars
-[X_train, y_train, X_test, y_test] = init_dataset()
-create_nested_directory('predictions/Dataset')
-
 # set default random seed
 random_seed = 42    
+no_of_folds = 10
+bootstraps = 100
 
 # kfold init
-k_fold = KFold(n_splits=10, shuffle=True, random_state=random_seed)
-iterations = 11
+k_fold = KFold(
+    n_splits=no_of_folds, 
+    shuffle=True, 
+    random_state=random_seed
+)
     
-for fold_id, (train_idx, test_idx) in enumerate(k_fold.split(X_train)):
-    X_pool = X_train.iloc[train_idx]
-    y_pool = y_train[train_idx]
+# Arrays for metrics later (we need to save these)
+# 100 individual bootstrap indices
+
+
+# 10 validation indices
+validation_indices = []
+train_indices = []
+bootstrap_indices = []
+
+# NOTE: No need to make test_indices since there's really only one official test X and y
+
+# init the dataset to train & test vars
+[X_train, y_train, X_test, y_test] = init_dataset()
+
+# Create the directory for saving the predictions
+predictions_dir = 'predictions/dataset_instability'
+create_nested_directory(predictions_dir)
+
+for fold_id, (train_idx, val_idx) in enumerate(k_fold.split(X_train)):
+    validation_indices.append(val_idx) # Saving the validation indices
+    train_indices.append(train_idx)
     
-    X_val_ids = X_train.iloc[test_idx]['defendant_id'].values
-    X_val = X_train.iloc[test_idx]
-    y_val = y_train[test_idx]
+    # Making the training data separate from the validation data (fold)
+    X_train_split = X_train.iloc[train_idx]
+    y_train_split = y_train[train_idx]
+    
+    val_defendant_ids = X_train.iloc[val_idx]['defendant_id'].values
+    X_val = X_train.iloc[val_idx]
+    y_val = y_train[val_idx]
 
     # bootstrapping for 10 rows la anay
-    for b in range(1, iterations): 
+    for b in range(1, bootstraps + 1): 
         print(f"BOOTSTRAP #{b}" )
         
         # make bootstrapped sample of training dataset
-        n_samples = len(X_pool)
+        n_samples = len(X_train_split)
         boot_idx = np.random.choice(
             n_samples, 
             size=n_samples, 
             replace=True
         )
-        X_boot = X_pool.iloc[boot_idx]
-        y_boot = y_pool[boot_idx]
+        bootstrap_indices.append(boot_idx) # Saving the bootstrap indices
         
-        X = [X_boot, X_val, X_test] 
-        y = [y_boot, y_val, y_test]
+        X_boot = X_train_split.iloc[boot_idx]
+        y_boot = y_train_split[boot_idx]
         
         # Train RF and XGBoost models
-        RF_Classifier(X, y, X_val_ids, fold_id, random_seed, b)# convert data for xgboost
+        RF_Classifier(predictions_dir, X_boot, y_boot, X_val, y_val, X_test, y_test, fold_id, random_seed, b)# convert data for xgboost
         
-        xgb_train = xgb.DMatrix(X[0], y[0], enable_categorical=False)
-        xgb_val = xgb.DMatrix(X[1], y[1], enable_categorical=False)
-        xgb_test = xgb.DMatrix(X[2], y[2], enable_categorical=False)
-        X_xgb = [xgb_train, xgb_val, xgb_test]
-        XGBoost_Model(X_xgb, y, X_val_ids, fold_id, random_seed, b)
+        xgb_train = xgb.DMatrix(X_boot, y_boot, enable_categorical=False)
+        xgb_val = xgb.DMatrix(X_val, y_val, enable_categorical=False)
+        xgb_test = xgb.DMatrix(X_test, y_test, enable_categorical=False)
+        XGBoost_Model(predictions_dir, xgb_train, y_boot, xgb_val, y_val, xgb_test, y_test, fold_id, random_seed, b)
         
         # fit the training data and transform the test data
         scaler = StandardScaler()
         X_boot_scaled = scaler.fit_transform(X_boot)
         X_val_transf = scaler.transform(X_val)
         X_test_transf = scaler.transform(X_test)
-        X_scaled = [X_boot_scaled, X_val_transf, X_test_transf]
         
         # Train LR, MLP, and LinearSVC models
-        LR_Model(X_scaled, y, X_val_ids, fold_id, random_seed, b)
-        MLP_Model(X_scaled, y, X_val_ids, fold_id, random_seed, b)
-        LinearSVC_Model(X_scaled, y, X_val_ids, fold_id, random_seed, b)
-    
+        LR_Model(predictions_dir, X_boot_scaled, y_boot, X_val_transf, y_val, X_test_transf, y_test, fold_id, random_seed, b)
+        MLP_Model(predictions_dir, X_boot_scaled, y_boot, X_val_transf, y_val, X_test_transf, y_test, fold_id, random_seed, b)
+        LinearSVC_Model(predictions_dir, X_boot_scaled, y_boot, X_val_transf, y_val, X_test_transf, y_test, fold_id, random_seed, b)
