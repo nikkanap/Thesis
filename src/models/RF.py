@@ -1,6 +1,7 @@
 from sklearn.ensemble import RandomForestClassifier
 
 from generate_prediction_csv import generate_prediction_csv
+from metrics import calculate_mrip
 
 def RF_Classifier(X, y, X_val_ids, fold_id, random_seed, b=None):
     print('Model: Random Forest')
@@ -13,7 +14,7 @@ def RF_Classifier(X, y, X_val_ids, fold_id, random_seed, b=None):
     instability_type = 'Stochastic' if b == None else 'Dataset'
     attribute_name = 'Random_Seed' if b == None else 'Bootstrap'
     idx = random_seed if b == None else b
-
+    
     for X_idx in range(1, 3):
         test_type = 'Validation' if X_idx == 1 else 'Test'
         csv_file_path = f'predictions/{instability_type}/RF_Predictions_{test_type}_{fold_id}.csv'
@@ -28,4 +29,17 @@ def RF_Classifier(X, y, X_val_ids, fold_id, random_seed, b=None):
             idx,
             csv_file_path,
             attribute_name
+        )
+        
+        # also generate an MRIP report for each defendant per run
+        calculate_mrip(
+            X=X,
+            X_target_ids=X_val_ids,
+            y_true=y,
+            trained_model=classifier,
+            model_name='RF',
+            instability_type=instability_type,
+            test_name=test_type,
+            fold_id=fold_id,
+            run=idx
         )

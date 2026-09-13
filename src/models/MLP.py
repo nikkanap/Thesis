@@ -1,6 +1,7 @@
 from sklearn.neural_network import MLPClassifier
 
 from generate_prediction_csv import generate_prediction_csv
+from metrics import calculate_mrip
 
 def MLP_Model(X, y, X_val_ids, fold_id, random_seed, b=None):
     print('Model: Multilayer Perceptron')
@@ -29,4 +30,16 @@ def MLP_Model(X, y, X_val_ids, fold_id, random_seed, b=None):
             idx,
             csv_file_path,
             attribute_name
+        )
+        
+        calculate_mrip(
+            X=X,
+            X_target_ids=X_val_ids,
+            y_true=y,
+            trained_model=model,
+            model_name='MLP',
+            instability_type=instability_type,
+            test_name=test_type,
+            fold_id=fold_id,
+            run=idx
         )
