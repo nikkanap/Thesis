@@ -37,6 +37,7 @@ bootstrap_indices = []  # 100 * 10 = 1000 total individual bootstrap indices
 scaler = StandardScaler()
 X_test_transf = scaler.transform(X_test)    
 xgb_test = xgb.DMatrix(X_test, y_test, enable_categorical=False)
+test_defendant_ids = X_test.iloc['defendant_id'].values
 
 # Create the directory for saving the predictions
 predictions_dir = 'predictions/dataset_instability'
@@ -71,18 +72,18 @@ for fold_id, (train_idx, val_idx) in enumerate(k_fold.split(X_train)):
         y_boot = y_train_split[boot_idx]
         
         # Train RF
-        RF_Classifier(predictions_dir, X_boot, y_boot, X_val, y_val, X_test, y_test, fold_id, random_seed, b)# convert data for xgboost
+        RF_Classifier(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)# convert data for xgboost
         
         # Create DMatrix of X_boot and X_val
         xgb_boot = xgb.DMatrix(X_boot, y_boot, enable_categorical=False)
         xgb_val = xgb.DMatrix(X_val, y_val, enable_categorical=False)
-        XGBoost_Model(predictions_dir, xgb_boot, y_boot, xgb_val, y_val, xgb_test, y_test, fold_id, random_seed, b)
+        XGBoost_Model(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)
         
         # fit X_boot and transform the X_val 
         X_boot_scaled = scaler.fit_transform(X_boot)
         X_val_transf = scaler.transform(X_val)
         
         # Train LR, MLP, and LinearSVC models
-        LR_Model(predictions_dir, X_boot_scaled, y_boot, X_val_transf, y_val, X_test_transf, y_test, fold_id, random_seed, b)
-        MLP_Model(predictions_dir, X_boot_scaled, y_boot, X_val_transf, y_val, X_test_transf, y_test, fold_id, random_seed, b)
-        LinearSVC_Model(predictions_dir, X_boot_scaled, y_boot, X_val_transf, y_val, X_test_transf, y_test, fold_id, random_seed, b)
+        LR_Model(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)
+        MLP_Model(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)
+        LinearSVC_Model(predictions_dir, X_boot, y_boot, X_val, y_val, val_defendant_ids, X_test, y_test, test_defendant_ids, fold_id, random_seed, b)
