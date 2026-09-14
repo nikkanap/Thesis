@@ -113,9 +113,9 @@ for fold_id, (train_idx, val_idx) in enumerate(k_fold.split(X_train)):
         
 pm = PostMetrics(
         X_train, y_train,   
-        X_test, y_test,     
-        validation_indices, train_indices, 
-        predictions_dir,    
+        X_val_arr, y_val_arr, val_defendant_ids_arr,
+        X_test, y_test, test_defendant_ids,
         no_of_folds,        
-        bootstrap_indices,  
+        predictions_dir,
+        'Dataset'
     )
