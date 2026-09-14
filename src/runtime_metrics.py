@@ -10,16 +10,11 @@ from create_dir import create_nested_directory
 # Reliability Metric
 # (GOOD)
 def MRIP(
-    X_train,
-    y_train,
-    X_val_test,
+    X_train, y_train, X_val_test,
     instability_type,
     defendant_ids,
-    trained_model,
-    model_name,
-    test_name,
-    fold_id,
-    nth_run,
+    trained_model, model_name,
+    test_name, fold_id, nth_run,
     epsilon=0.1,
     delta=0.05
 ):
