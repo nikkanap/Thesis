@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import os
+import shap
 
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
@@ -18,11 +19,11 @@ def MRIP(
     epsilon=0.1,
     delta=0.05
 ):
-    file_directory = f'metrics/{instability_type}/MRIP'
-    create_nested_directory(file_directory)
+    mrip_dir = f'metrics/{instability_type}/MRIP'
+    create_nested_directory(mrip_dir)
 
     file_name = f'MRIP_{model_name}_{test_name}_Fold_{fold_id}.csv'
-    csv_file_path = f'{file_directory}/{file_name}'
+    csv_file_path = f'{mrip_dir}/{file_name}'
 
     # Scale only for neighbor-distance calculation
     scaler = StandardScaler()
@@ -67,10 +68,45 @@ def MRIP(
     df[f'MRIP_{nth_run}'] = mrip_values
     df.to_csv(csv_file_path, index=False) 
                        
-def shap_analysis():
-    print('hello wurl') 
+def get_shap_values(
+    X_train,
+    X_val_test,
+    trained_model,
+    model_name,
+    test_name,
+    fold_id,
+    nth_run,
+    instability_type,
+    defendant_ids
+):
+    shap_dir = f'shap_values/{instability_type}'
+    create_nested_directory(shap_dir)
     
-    
+    file_name = f'Shap_Values_{model_name}_{test_name}_Fold_{fold_id}.csv'
+    csv_file_path = f'{shap_dir}/{file_name}'
+    if model_name in ['RF', 'XGB']:
+        explainer = shap.TreeExplainer(trained_model)
+        shap_values = explainer.shap_values(X_val_test)
+    elif model_name in ['LR', 'LSVM']:
+        explainer = shap.LinearExplainer(trained_model, X_train)
+        shap_values = explainer.shap_values(X_val_test) 
+    elif model_name == 'MLP':
+        background = shap.sample(X_train, 100)
+        explainer = shap.KernelExplainer(
+            trained_model.predict_proba,
+            background
+        )
+        shap_values = explainer.shap_values(X_val_test)
+
+    if nth_run == 1:
+        df = pd.DataFrame({ 
+            'defendant_id' : defendant_ids,
+            f'fold_{fold_id}': shap_values
+        })
+    else:
+        df = pd.read_csv(csv_file_path)
+        df[f'fold_{fold_id}'] = shap_values
+    df.to_csv(csv_file_path, index=False)
 
     
     
