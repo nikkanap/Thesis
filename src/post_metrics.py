@@ -671,7 +671,73 @@ class PostMetrics:
                         dfpr_stds
                     )
                 
-    
+    # SHAP ANALYSIS
+    # Uses the runtime shap values per fold
+    def shap_analysis(self):
+        metric_name = 'SHAP_Analysis'
+        shap_dir = f'{self.metrics_dir}/shap_analysis'
+        create_nested_directory(shap_dir)
+        
+        for i, test_name in enumerate(TEST_NAMES):
+            print(f'[Generating {self.instability_type}-{test_name} SHAP Analysis]')
+                        
+            for model_name in MODEL_NAMES:
+                print(f'MODEL: {model_name}')
+                shap_means = []
+                shap_stds = []
+                
+                for fold_id in range(1, self.no_of_folds + 1):
+                    y_df = self.get_y_values(test_name, fold_id)
+                    
+                    by_fold_csv_file_path = f'{shap_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
+                    predictions = self.get_predictions(model_name,
+                        test_name,
+                        fold_id=fold_id
+                    )
+                        
+                    self.save_to_csv(
+                        by_fold_csv_file_path,
+                        'run',
+                        predictions.columns
+                    )
+                    
+                    roc_aucs = []
+                    for col in predictions.columns:
+                        y_pred_proba = predictions[col].values
+                        
+                        roc_auc = roc_auc_score(y_df, y_pred_proba)
+                        roc_aucs.append(roc_auc)
+                        
+                    self.save_to_csv(
+                        by_fold_csv_file_path,
+                        'roc_auc_score',
+                        roc_aucs
+                    )
+                    
+                    roc_auc_mean = np.mean(roc_aucs)
+                    shap_means.append(roc_auc_mean)
+                                        
+                    roc_auc_std = np.std(roc_aucs, ddof=1)
+                    shap_stds.append(roc_auc_std)
+                
+                csv_file_path = f'{shap_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'
+                self.save_to_csv(
+                    csv_file_path,
+                    'fold',
+                    [i for i in range(1, self.no_of_folds + 1)]                   
+                )
+                
+                self.save_to_csv(
+                    csv_file_path,
+                    f'Mean_{metric_name}',
+                    shap_means
+                )
+                
+                self.save_to_csv(
+                    csv_file_path,
+                    f'STD_{metric_name}',
+                    shap_stds
+                )
     
 
    
