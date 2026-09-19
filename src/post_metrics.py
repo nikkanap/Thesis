@@ -1,6 +1,7 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import shutil
 import os
 
 from sklearn.calibration import calibration_curve
@@ -15,11 +16,11 @@ RACE_NAMES = [
     'race:African-American',
     'race:Asian',
     'race:Caucasian',
-    'race:Native-American',
+    'race:Native_American',
     'race:Hispanic',
     'race:Other'
 ]
-MODEL_NAMES = [ 'LR', 'RF', 'LSVM', 'XGB', 'MLP' ]
+MODEL_NAMES = [ 'LR', 'RF', 'LSVC', 'XGB', 'MLP' ]
 TEST_NAMES = [ 'Validation', 'Test'] 
 
 class PostMetrics:
@@ -54,7 +55,15 @@ class PostMetrics:
         self.no_of_folds = no_of_folds
         
         # Directory for metrics
+        
         self.metrics_dir = f'metrics/{self.instability_type}'
+        self.delete_dirs(self.metrics_dir)
+    
+    def delete_dirs(self, directory_name):
+        try:
+            shutil.rmtree(directory_name, ignore_errors=True)
+        except Exception as e:
+            print(f"An error occurred: {e}")
     
     # Getter functions
     # Gets the defendant ids from the test or validation data
@@ -63,7 +72,7 @@ class PostMetrics:
             return self.test_defendant_ids
 
         # Validation defendant_ids
-        return self.val_defendant_ids_arr[fold_id-1]['defendant_id'].values
+        return self.val_defendant_ids_arr[fold_id-1]
     
     # Gets the y_values from the test or validation data
     def get_y_values(self, test_name, fold_id=None):
@@ -100,14 +109,15 @@ class PostMetrics:
     # Gets the roc_auc (GOOD)
     def roc_auc(self):
         metric_name = 'ROC_AUC'
-        roc_auc_dir = f'{self.metrics_dir}/roc_auc'
-        create_nested_directory(roc_auc_dir)
         
         for i, test_name in enumerate(TEST_NAMES):
             print(f'[Generating {self.instability_type}-{test_name} ROC-AUC and STD]')
                         
             for model_name in MODEL_NAMES:
                 print(f'MODEL: {model_name}')
+                roc_auc_dir = f'{self.metrics_dir}/roc_auc/{model_name}'
+                create_nested_directory(roc_auc_dir)
+                
                 roc_auc_means = []
                 roc_auc_stds = []
                 
@@ -168,13 +178,14 @@ class PostMetrics:
     # Gets the brier score (GOOD)
     def brier_score(self):
         metric_name = 'Brier_Score'
-        brier_score_dir = f'{self.metrics_dir}/brier_score'
-        create_nested_directory(brier_score_dir)
         
         for i, test_name in enumerate(TEST_NAMES):
             print(f'[Generating {self.instability_type}-{test_name} Brier Scores]')
             
             for model_name in MODEL_NAMES:         
+                brier_score_dir = f'{self.metrics_dir}/brier_score/{model_name}'
+                create_nested_directory(brier_score_dir)
+                
                 brier_score_means = []
                 brier_score_stds = []
                 
@@ -237,16 +248,17 @@ class PostMetrics:
     # Gets the 95% Instability Percentile (GOOD)
     def ninety_five_stability_interval(self):
         metric_name = '95_Stability_Interval'
-        si_dir = f'{self.metrics_dir}/95_stability_interval'
-        create_nested_directory(si_dir)
         
         for i, test_name in enumerate(TEST_NAMES):
-            print(f'[Generating {self.instability_type}-{test_name} 95% Stability Interval]')
-            mean_si_widths = []
+            print(f'[Generating {self.instability_type}-{test_name} 95% Stability Interval]')                    
             
             for model_name in MODEL_NAMES:     
+                si_dir = f'{self.metrics_dir}/95_stability_interval/{model_name}'
+                create_nested_directory(si_dir)
+                
                 csv_file_path = f'{si_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'
-                                    
+                mean_si_widths = []
+                
                 for fold_id in range(1, self.no_of_folds + 1):
                                         
                     predictions = self.get_predictions(model_name, test_name, fold_id)
@@ -267,15 +279,15 @@ class PostMetrics:
                                         
                     plot_df = stability_df.head(100)
                     plt.figure(figsize=(12, 6))
-                    plt.errorbar(
+                    plt.vlines(
                         plot_df['defendant_id'],
-                        plot_df['mean_prediction'],
-                        yerr=[
-                            plot_df['mean_prediction'] - plot_df['lower_95'],
-                            plot_df['upper_95'] - plot_df['mean_prediction']
-                        ],
-                        fmt='o',
-                        capsize=3
+                        plot_df['lower_95'],
+                        plot_df['upper_95']
+                    )
+
+                    plt.scatter(
+                        plot_df['defendant_id'],
+                        plot_df['mean_prediction']
                     )
                     plt.xlabel('Defendant ID')
                     plt.ylabel('Predicted Probability')
@@ -284,8 +296,7 @@ class PostMetrics:
                     )
                     plt.xticks(rotation=90)
                     plt.tight_layout()
-                    plt.savefig(csv_file_path.replace('csv','png'))
-                    plt.show()
+                    plt.savefig(csv_file_path.replace('.csv', f'_Fold_{fold_id}.png'))
                     plt.close()
                     
                 self.save_to_csv(
@@ -304,13 +315,14 @@ class PostMetrics:
     # Mean Absolute Prediction Error (GOOD)
     def mean_absolute_prediction_error(self): 
         metric_name = 'MAPE'
-        mape_dir = f'{self.metrics_dir}/mape'
-        create_nested_directory(mape_dir)
         
         for test_name in TEST_NAMES:
             print(f'[Generating {self.instability_type}-{test_name} MAPE]')
             
             for model_name in MODEL_NAMES:
+                mape_dir = f'{self.metrics_dir}/mape/{model_name}'
+                create_nested_directory(mape_dir)
+                
                 mean_mapes = []
                 
                 for fold_id in range(1, self.no_of_folds + 1):
@@ -318,7 +330,7 @@ class PostMetrics:
                         model_name, 
                         test_name, 
                         fold_id=fold_id
-                    )
+                    ).to_numpy()  
                     
                     mape_csv_file_path = f'{mape_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
                     self.save_to_csv(
@@ -327,7 +339,7 @@ class PostMetrics:
                         self.get_defendant_ids(test_name, fold_id)
                     )
                         
-                    mean_prediction = np.mean(predictions, axis=1)    
+                    mean_prediction = np.mean(predictions, axis=1) 
                     mape_per_defendant = np.mean(
                         np.abs(predictions - mean_prediction[:, None]),
                         axis=1
@@ -359,13 +371,14 @@ class PostMetrics:
     # Instability metric (GOOD)
     def top_k_jaccard(self):
         metric_name = 'Top_K_Jaccard'
-        tk_jaccard_dir = f'{self.metrics_dir}/top_k_jaccard'
-        create_nested_directory(tk_jaccard_dir)
         
         for test_name in TEST_NAMES:
             print(f'[Generating {self.instability_type}-{test_name} Top-K Jaccard]')
             
             for model_name in MODEL_NAMES:
+                tk_jaccard_dir = f'{self.metrics_dir}/top_k_jaccard/{model_name}'
+                create_nested_directory(tk_jaccard_dir)
+        
                 jaccard_scores_mean = []
                 jaccard_scores_std = []
                 
@@ -442,13 +455,14 @@ class PostMetrics:
     def classification_instability_index(self):
         threshold = 0.5
         metric_name = 'CII'
-        cii_dir = f'{self.metrics_dir}/cii'
-        create_nested_directory(cii_dir)
         
         for test_name in TEST_NAMES:
             print(f'[Generating {self.instability_type}-{test_name} CII]')
             
             for model_name in MODEL_NAMES:
+                cii_dir = f'{self.metrics_dir}/cii/{model_name}'
+                create_nested_directory(cii_dir)
+        
                 mean_ciis = []
                 std_ciis = []
                 
@@ -517,13 +531,13 @@ class PostMetrics:
     # Performance metric (GOOD)
     def calibration_plot(self):
         metric_name = 'Calibration_Plot'
-        cal_plot_dir = f'{self.metrics_dir}/calibration_plot'
-        create_nested_directory(cal_plot_dir)
         
         for i, test_name in enumerate(TEST_NAMES):
             print(f'[Generating {self.instability_type}-{test_name} Calibration Plot]')
             
             for model_name in MODEL_NAMES:
+                cal_plot_dir = f'{self.metrics_dir}/calibration_plot/{model_name}'
+                create_nested_directory(cal_plot_dir)
                 
                 for fold_id in range(1, self.no_of_folds + 1):
                     y_df = self.get_y_values(test_name, fold_id)
@@ -577,13 +591,14 @@ class PostMetrics:
     # Focuses on getting the false positive rate per demographic (race) (GOOD)             
     def demographic_false_positive_rate(self):
         metric_name = 'DFPR'
-        dfpr_dir = f'{self.metrics_dir}/dfpr'
-        create_nested_directory(dfpr_dir)
 
         for i, test_name in enumerate(TEST_NAMES):
             print(f'[Generating {self.instability_type}-{test_name} DFPR]')
             
             for model_name in MODEL_NAMES:
+                dfpr_dir = f'{self.metrics_dir}/dfpr/{model_name}'
+                create_nested_directory(dfpr_dir)
+                
                 for fold_id in range(1, self.no_of_folds + 1):
                     test_df = self.X_val_arr[fold_id - 1] if test_name == 'Validation' else self.X_test
                     y_df = self.get_y_values(test_name, fold_id)
@@ -675,69 +690,69 @@ class PostMetrics:
     # Uses the runtime shap values per fold
     def shap_analysis(self):
         metric_name = 'SHAP_Analysis'
-        shap_dir = f'{self.metrics_dir}/shap_analysis'
-        create_nested_directory(shap_dir)
-        
-        for i, test_name in enumerate(TEST_NAMES):
-            print(f'[Generating {self.instability_type}-{test_name} SHAP Analysis]')
-                        
+
+        for test_name in TEST_NAMES:
+            print(
+                f'[Generating {self.instability_type}-{test_name} '
+                f'SHAP Analysis]'
+            )
+
             for model_name in MODEL_NAMES:
                 print(f'MODEL: {model_name}')
-                shap_means = []
-                shap_stds = []
-                
+
+                shap_values_dir = (
+                    f'{self.metrics_dir}/shap_values/{model_name}'
+                )
+
+                shap_dir = (
+                    f'{self.metrics_dir}/shap_analysis/{model_name}'
+                )
+
+                create_nested_directory(shap_dir)
+
                 for fold_id in range(1, self.no_of_folds + 1):
-                    y_df = self.get_y_values(test_name, fold_id)
-                    
-                    by_fold_csv_file_path = f'{shap_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
-                    predictions = self.get_predictions(model_name,
-                        test_name,
-                        fold_id=fold_id
+
+                    if test_name == 'Validation':
+                        shap_values = pd.read_csv(
+                            f'{shap_values_dir}/'
+                            f'SHAP_{model_name}_Validation_Fold_{fold_id}.csv'
+                        )
+                    else:
+                        shap_values = pd.read_csv(
+                            f'{shap_values_dir}/'
+                            f'SHAP_{model_name}_Test_Fold_{fold_id}.csv'
+                        )
+
+                    defendant_ids = shap_values['defendant_id']
+                    features = shap_values['feature']
+                    shap_values = shap_values.drop(
+                        columns=['defendant_id', 'feature']
                     )
-                        
-                    self.save_to_csv(
-                        by_fold_csv_file_path,
-                        'run',
-                        predictions.columns
+
+                    # Each column = one run
+                    # Each row = one defendant
+                    shap_mean = shap_values.mean(axis=1)
+                    shap_std = shap_values.std(axis=1, ddof=1)
+
+                    output = pd.DataFrame({
+                        'defendant_id': defendant_ids,
+                        'feature': features,
+                        'SHAP_Mean': shap_mean,
+                        'SHAP_STD': shap_std
+                    })
+
+                    csv_file_path = (
+                        f'{shap_dir}/'
+                        f'{metric_name}_{model_name}_'
+                        f'{self.instability_type}_{test_name}_'
+                        f'Fold_{fold_id}.csv'
                     )
-                    
-                    roc_aucs = []
-                    for col in predictions.columns:
-                        y_pred_proba = predictions[col].values
-                        
-                        roc_auc = roc_auc_score(y_df, y_pred_proba)
-                        roc_aucs.append(roc_auc)
-                        
-                    self.save_to_csv(
-                        by_fold_csv_file_path,
-                        'roc_auc_score',
-                        roc_aucs
+
+                    output.to_csv(
+                        csv_file_path,
+                        index=False
                     )
-                    
-                    roc_auc_mean = np.mean(roc_aucs)
-                    shap_means.append(roc_auc_mean)
-                                        
-                    roc_auc_std = np.std(roc_aucs, ddof=1)
-                    shap_stds.append(roc_auc_std)
                 
-                csv_file_path = f'{shap_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'
-                self.save_to_csv(
-                    csv_file_path,
-                    'fold',
-                    [i for i in range(1, self.no_of_folds + 1)]                   
-                )
-                
-                self.save_to_csv(
-                    csv_file_path,
-                    f'Mean_{metric_name}',
-                    shap_means
-                )
-                
-                self.save_to_csv(
-                    csv_file_path,
-                    f'STD_{metric_name}',
-                    shap_stds
-                )
     
 
    
