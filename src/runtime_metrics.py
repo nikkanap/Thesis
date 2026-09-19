@@ -6,106 +6,152 @@ import shap
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
-from create_dir import create_nested_directory
-
 # Reliability Metric
 # (GOOD)
 def MRIP(
-    X_train, y_train, X_val_test,
-    instability_type,
-    defendant_ids,
-    trained_model, model_name,
-    test_name, fold_id, nth_run,
+    X_train,
+    y_train,
+    X_val_test,
+    X_val_test_ids,
+    trained_model, 
+    model_name,
+    nth_run,
+    csv_file_path,
     epsilon=0.1,
-    delta=0.05
+    delta=0.5
 ):
-    mrip_dir = f'metrics/{instability_type}/MRIP'
-    create_nested_directory(mrip_dir)
-
-    file_name = f'MRIP_{model_name}_{test_name}_Fold_{fold_id}.csv'
-    csv_file_path = f'{mrip_dir}/{file_name}'
-
+    print(f'MRIP for model {model_name}')
     # Scale only for neighbor-distance calculation
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_val_test_scaled = scaler.transform(X_val_test)
+
+    X_train_scaled = scaler.fit_transform(
+        X_train
+    )
+
+    X_val_test_scaled = scaler.transform(
+        X_val_test
+    )
 
     # Find training neighbors within delta
+    # nn = NearestNeighbors(radius=delta)
+    # nn.fit(X_train_scaled)
+
+    #ndistances, indices = nn.radius_neighbors(X_val_test_scaled)
+    
     nn = NearestNeighbors(radius=delta)
     nn.fit(X_train_scaled)
 
-    distances, indices = nn.radius_neighbors(X_val_test_scaled)
-
+    nearest_distances, indices = nn.radius_neighbors(X_val_test_scaled)
+    
     mrip_values = []
 
-    for i, defendant_id in enumerate(defendant_ids):
+    no_neighbor_count = 0
+    for i, defendant_id in enumerate(X_val_test_ids):
         neighbor_indices = indices[i]
 
         if len(neighbor_indices) == 0:
+            no_neighbor_count += 1  
             mrip_value = np.nan
-        else:
-            X_star = X_train.iloc[neighbor_indices]
-            y_star = y_train.iloc[neighbor_indices]
 
-            if model_name == 'XGB':
-                probabilities = trained_model.predict(X_star)
-            else:
-                probabilities = trained_model.predict_proba(X_star)[:, 1]
+        else:
+            # Use the representation the model was trained on
+            if model_name in ['LR', 'LSVC', 'MLP']:
+                X_star = X_train_scaled[neighbor_indices]
+            else:  # RF, XGB
+                X_star = X_train.iloc[neighbor_indices]
+            y_star = y_train[neighbor_indices]
+
+            # All models now provide predict_proba()
+            probabilities = trained_model.predict_proba(X_star)[:, 1]
 
             errors = np.abs(y_star - probabilities)
+
             mrip_value = np.mean(errors <= epsilon)
 
         mrip_values.append(mrip_value)
 
+    print(
+        f'No-neighbor defendants: '
+        f'{no_neighbor_count}/{len(X_val_test_ids)}'
+    )
+    
     # Create or update CSV
     if os.path.isfile(csv_file_path):
         df = pd.read_csv(csv_file_path)
+        df[f'MRIP_{nth_run}'] = mrip_values
+
     else:
         df = pd.DataFrame({
-            'Defendant_ID': defendant_ids
+            'Defendant_ID': X_val_test_ids,
+            f'MRIP_{nth_run}': mrip_values
         })
 
-    df[f'MRIP_{nth_run}'] = mrip_values
-    df.to_csv(csv_file_path, index=False) 
+    df.to_csv(csv_file_path, index=False)
                        
 def get_shap_values(
     X_train,
     X_val_test,
+    feature_names,
     trained_model,
     model_name,
-    test_name,
     fold_id,
     nth_run,
-    instability_type,
-    defendant_ids
+    defendant_ids,
+    csv_file_path
 ):
-    shap_dir = f'shap_values/{instability_type}'
-    create_nested_directory(shap_dir)
-    
-    file_name = f'Shap_Values_{model_name}_{test_name}_Fold_{fold_id}.csv'
-    csv_file_path = f'{shap_dir}/{file_name}'
     if model_name in ['RF', 'XGB']:
         explainer = shap.TreeExplainer(trained_model)
         shap_values = explainer.shap_values(X_val_test)
-    elif model_name in ['LR', 'LSVM']:
-        explainer = shap.LinearExplainer(trained_model, X_train)
-        shap_values = explainer.shap_values(X_val_test) 
+
+    elif model_name in ['LR', 'LSVC']:        
+        if model_name == 'LSVC':
+            explainer = shap.Explainer(
+                trained_model.predict_proba,
+                X_train
+            )
+            shap_values = explainer(X_val_test).values
+        else:
+            explainer = shap.LinearExplainer(
+                trained_model,
+                X_train
+            )
+            shap_values = explainer.shap_values(X_val_test)
+
     elif model_name == 'MLP':
-        background = shap.sample(X_train, 100)
+        # Smaller background dataset
+        background = shap.sample(
+            X_train,
+            min(50, len(X_train)),
+            random_state=42
+        )
+
         explainer = shap.KernelExplainer(
             trained_model.predict_proba,
             background
         )
-        shap_values = explainer.shap_values(X_val_test)
+
+        # Explicit computational budget
+        shap_values = explainer.shap_values(
+            X_val_test,
+            nsamples=100
+        )
+
+    # Handle binary classification SHAP output
+    if isinstance(shap_values, list):
+        shap_values = shap_values[1]
+    elif shap_values.ndim == 3:
+        shap_values = shap_values[:, :, 1]
 
     if nth_run == 1:
-        df = pd.DataFrame({ 
-            'defendant_id' : defendant_ids,
-            f'fold_{fold_id}': shap_values
+        df = pd.DataFrame({
+            'defendant_id': np.repeat(defendant_ids, len(feature_names)),
+            'feature': np.tile(feature_names, len(defendant_ids)),
+            f'Bootstrap_{nth_run}': shap_values.flatten()
         })
     else:
         df = pd.read_csv(csv_file_path)
-        df[f'fold_{fold_id}'] = shap_values
+        df[f'Bootstrap_{nth_run}'] = shap_values.flatten()
+
     df.to_csv(csv_file_path, index=False)
 
     
