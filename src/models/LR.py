@@ -1,47 +1,60 @@
 
 from sklearn.linear_model import LogisticRegression
 
-from generate_prediction_csv import generate_prediction_csv
-from runtime_metrics import MRIP
-
-def LR_Model(predictions_dir, X_train, y_train, testing_data, fold_id, random_seed, b=None):
+def Logistic_Regression(
+    X_train_arr,
+    y_train_arr,
+    no_of_folds,
+    no_of_runs,
+    instability_type, 
+    random_seed=None
+):
     print('Model: Logistic Regression')
-    
-    # Training the model
-    model = LogisticRegression(
-        max_iter=1000,
-        random_state=random_seed
-    )
-    model.fit(X_train, y_train)
-    
-    # Set up the generate_prediction_csv params
-    nth_run = random_seed if b == None else b
-    column_name = f'Random_Seed_{random_seed}' if b == None else f'Bootstrap_{b}'
+    trained_model_arr = []
+        
+    for fold_id in range(1, no_of_folds + 1):
+        X_train_fold = X_train_arr[fold_id-1]
+        y_train_fold = y_train_arr[fold_id-1]
+        
+        trained_models_fold = []
+        for nth_run in range(1, no_of_runs + 1):
+            X_train = X_train_fold[nth_run-1]
+            y_train = y_train_fold[nth_run-1]
             
-    for test in testing_data:
-        csv_file_path = f'{predictions_dir}/LR_Predictions_{test['name']}_{fold_id}.csv'
-        
-        # Get the predictions and save it in y_pred_proba
-        y_pred_proba = model.predict_proba(test['X'])[:,1] 
-        
-        # Generate the predictions in a csv
-        generate_prediction_csv(
-            y_pred_proba,
-            csv_file_path,
-            column_name,
-        )
-        
-        # Generate an MRIP report for each defendant per nth_run
-        MRIP(
-            X_train=X_train,
-            y_train=y_train,
-            X_val_test=test['X'],
-            y_val_test=test['y'],
-            defendant_ids=test['ids'],
-            trained_model=model,
-            model_name='LR',
-            test_name=test['name'],
-            fold_id=fold_id,
-            nth_run=nth_run
-        )
+            # Training the model
+            model = LogisticRegression(
+                max_iter=1000,
+                random_state=(
+                    random_seed 
+                    if instability_type == 'Dataset'
+                    else nth_run
+                )
+            )
+            model.fit(X_train, y_train)
+            trained_models_fold.append(model)
+        trained_model_arr.append(trained_models_fold)
+            
+    return trained_model_arr
+
+    """
+    # Generate an MRIP report for each defendant per nth_run
+    MRIP(
+        test,
+        instability_type,
+        model, 'LR',
+        test['name'], fold_id, nth_run
+    )
     
+    get_shap_values(
+        X_train,
+        X_val,
+        test['X_raw'].columns,
+        model,
+        'LR',
+        test['name'],
+        fold_id,
+        nth_run,
+        instability_type,
+        test['ids']
+    )
+    """
