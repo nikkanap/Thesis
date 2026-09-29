@@ -555,7 +555,7 @@ class PostMetrics:
 
                     plt.figure(figsize=(8, 6))
                     for run in range(predictions.shape[1]):
-                        print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting Calibration Plots... {round(((run+1)/len(predictions.shape[1]))*100)}%', end='\r')
+                        print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting Calibration Plots... {round(((run+1)/predictions.shape[1])*100)}%', end='\r')
                         prob_true, prob_pred = calibration_curve(
                             y_df,
                             predictions.iloc[:, run],
