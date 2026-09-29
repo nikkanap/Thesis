@@ -23,27 +23,25 @@ INSTABILITY_TYPE = 'Stochastic'
 MODEL_NAMES = ['LR', 'LSVC', 'XGB', 'RF', 'MLP']
 
 class StochasticInstability:
-    def __init__(self, dataset):      
+    def __init__(self, dataset=None, force_reset=False):      
         # RNG 
         self.rng = np.random.default_rng(42)
-          
+        self.force_reset = force_reset # forces reset
+        
         # K-fold
         self.k_fold = KFold(
             n_splits=NO_OF_FOLDS,
             shuffle=True,
             random_state=42
         )
-
         # Initializing the dataset to training and testing data + ids
-        [
-            self.X_train,
-            self.y_train,
-            self.X_test,
-            self.y_test,
-            self.train_ids,
-            self.test_ids
-        ] = dataset
-
+        self.X_train = self.get_data(dataset, 'X_train') 
+        self.y_train = self.get_data(dataset, 'y_train')
+        self.X_test = self.get_data(dataset, 'X_test')
+        self.y_test = self.get_data(dataset, 'y_test')
+        self.train_ids = self.get_data(dataset, 'train_ids')
+        self.test_ids = self.get_data(dataset, 'test_ids')
+            
         # Save initialized data to csvs (for later recreation)
         self.data_dir = f'data/{INSTABILITY_TYPE}'
         self.delete_dirs(self.data_dir)
@@ -55,14 +53,14 @@ class StochasticInstability:
         self.to_csv(self.y_test, 'y_test', 'y_test')
         self.to_csv(self.train_ids, 'train_ids', 'defendant_id')
         self.to_csv(self.test_ids, 'test_ids', 'defendant_id')
-        
-        [   
-            self.X_train_split_arr,
-            self.y_train_split_arr,
-            self.X_val_arr,
-            self.y_val_arr,
-            self.val_ids_fold_arr,
-        ] = self.get_k_split_data()
+    
+        # Either save the newly generated split data or use existing data
+        split_data = self.get_k_split_data()
+        self.X_train_split_arr = self.get_data(split_data, 'X_train_split_arr')
+        self.y_train_split_arr = self.get_data(split_data, 'y_train_split_arr')
+        self.X_val_arr = self.get_data(split_data, 'X_val_arr')
+        self.y_val_arr = self.get_data(split_data, 'y_val_arr')
+        self.val_ids_fold_arr = self.get_data(split_data, 'val_ids_fold_arr')
         
         # Save initialized array data to csvs (for later recreation)
         self.to_csv(self.X_train_split_arr, 'X_train_split_arr')
@@ -86,6 +84,18 @@ class StochasticInstability:
         self.create_nested_directory(self.predictions_dir)
         self.get_predictions()        
         self.get_metrics()
+    
+    def data_exists(self, data_name):
+        csv_file_path = f'{self.data_dir}/{data_name}'
+        return os.path.isfile(csv_file_path)
+    
+    def get_data(self, generated_data, data_name):
+        data = (
+            generated_data[data_name] 
+            if not self.data_exists or self.force_reset
+            else pd.read_csv(f'{self.data_dir}/{data_name}')
+        )
+        return data
     
     # Saves data to csvs
     def to_csv(self, data, data_name, column_name=None):
