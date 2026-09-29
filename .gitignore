@@ -211,7 +211,9 @@ __marimo__/
 !*/Manuscript.tex
 !*/Manuscript.pdf
 
-predictions/
-images/
-metrics/
-data/
+src/predictions/
+src/images/
+src/metrics/
+src/data/
+src/models/Dataset/
+src/models/Stochastic/
