@@ -31,12 +31,6 @@ def MRIP(
     X_val_test_scaled = scaler.transform(
         X_val_test
     )
-
-    # Find training neighbors within delta
-    # nn = NearestNeighbors(radius=delta)
-    # nn.fit(X_train_scaled)
-
-    #ndistances, indices = nn.radius_neighbors(X_val_test_scaled)
     
     nn = NearestNeighbors(radius=delta)
     nn.fit(X_train_scaled)
@@ -94,7 +88,6 @@ def get_shap_values(
     feature_names,
     trained_model,
     model_name,
-    fold_id,
     nth_run,
     defendant_ids,
     csv_file_path
@@ -142,20 +135,11 @@ def get_shap_values(
     elif shap_values.ndim == 3:
         shap_values = shap_values[:, :, 1]
 
-    if nth_run == 1:
-        df = pd.DataFrame({
-            'defendant_id': np.repeat(defendant_ids, len(feature_names)),
-            'feature': np.tile(feature_names, len(defendant_ids)),
-            f'Bootstrap_{nth_run}': shap_values.flatten()
-        })
-    else:
-        df = pd.read_csv(csv_file_path)
-        df[f'Bootstrap_{nth_run}'] = shap_values.flatten()
+    df = pd.DataFrame({
+        'defendant_id': np.repeat(defendant_ids, len(feature_names)),
+        'feature': np.tile(feature_names, len(defendant_ids)),
+        f'Bootstrap_{nth_run}': shap_values.flatten()
+    })
 
+    print(f'getting shap values - csv_file_path: {csv_file_path}')
     df.to_csv(csv_file_path, index=False)
-
-    
-    
-    
-
-   

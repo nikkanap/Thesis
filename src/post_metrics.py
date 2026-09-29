@@ -688,70 +688,67 @@ class PostMetrics:
                 
     # SHAP ANALYSIS
     # Uses the runtime shap values per fold
-    def shap_analysis(self):
+    def shap_analysis(self, trained_models):
         metric_name = 'SHAP_Analysis'
-
         for test_name in TEST_NAMES:
-            print(
-                f'[Generating {self.instability_type}-{test_name} '
-                f'SHAP Analysis]'
-            )
+            for trained_model in trained_models:
 
-            for model_name in MODEL_NAMES:
-                print(f'MODEL: {model_name}')
+                print(f'MODEL: {trained_model['name']}')
 
                 shap_values_dir = (
-                    f'{self.metrics_dir}/shap_values/{model_name}'
+                    f'{self.metrics_dir}/shap_values/{trained_model['name']}'
                 )
 
                 shap_dir = (
-                    f'{self.metrics_dir}/shap_analysis/{model_name}'
+                    f'{self.metrics_dir}/shap_analysis/{trained_model['name']}'
                 )
 
                 create_nested_directory(shap_dir)
 
-                for fold_id in range(1, self.no_of_folds + 1):
-
-                    if test_name == 'Validation':
-                        shap_values = pd.read_csv(
-                            f'{shap_values_dir}/'
-                            f'SHAP_{model_name}_Validation_Fold_{fold_id}.csv'
-                        )
-                    else:
-                        shap_values = pd.read_csv(
-                            f'{shap_values_dir}/'
-                            f'SHAP_{model_name}_Test_Fold_{fold_id}.csv'
-                        )
-
-                    defendant_ids = shap_values['defendant_id']
-                    features = shap_values['feature']
-                    shap_values = shap_values.drop(
-                        columns=['defendant_id', 'feature']
+                if test_name == 'Validation':
+                    shap_values = pd.read_csv(
+                        f'{shap_values_dir}/'
+                        f'SHAP_{trained_model['name']}_Validation_Fold_{trained_model['random_fold']}'
+                        f'_{'Run' if self.instability_type == 'Dataset' else 'Random_Seed'}_'
+                        f'{trained_model['random_run'] if self.instability_type == 'Dataset' else trained_model['random_seed']}.csv'
+                    )
+                else:
+                    shap_values = pd.read_csv(
+                        f'{shap_values_dir}/'
+                        f'SHAP_{trained_model['name']}_Test_Fold_{trained_model['random_fold']}'
+                        f'_{'Run' if self.instability_type == 'Dataset' else 'Random_Seed'}_'
+                        f'{trained_model['random_run'] if self.instability_type == 'Dataset' else trained_model['random_seed']}.csv'
                     )
 
-                    # Each column = one run
-                    # Each row = one defendant
-                    shap_mean = shap_values.mean(axis=1)
-                    shap_std = shap_values.std(axis=1, ddof=1)
+                defendant_ids = shap_values['defendant_id']
+                features = shap_values['feature']
+                shap_values = shap_values.drop(
+                    columns=['defendant_id', 'feature']
+                )
 
-                    output = pd.DataFrame({
-                        'defendant_id': defendant_ids,
-                        'feature': features,
-                        'SHAP_Mean': shap_mean,
-                        'SHAP_STD': shap_std
-                    })
+                # Each column = one run
+                # Each row = one defendant
+                shap_mean = shap_values.mean(axis=1)
+                shap_std = shap_values.std(axis=1, ddof=1)
 
-                    csv_file_path = (
-                        f'{shap_dir}/'
-                        f'{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{test_name}_'
-                        f'Fold_{fold_id}.csv'
-                    )
+                output = pd.DataFrame({
+                    'defendant_id': defendant_ids,
+                    'feature': features,
+                    'SHAP_Mean': shap_mean,
+                    'SHAP_STD': shap_std
+                })
 
-                    output.to_csv(
-                        csv_file_path,
-                        index=False
-                    )
+                csv_file_path = (
+                    f'{shap_dir}/'
+                    f'{metric_name}_{trained_model['name']}_'
+                    f'{self.instability_type}_{test_name}_'
+                    f'Fold_{trained_model['random_fold']}.csv'
+                )
+
+                output.to_csv(
+                    csv_file_path,
+                    index=False
+                )
                 
     
 
