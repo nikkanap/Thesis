@@ -1,5 +1,8 @@
 
 from sklearn.linear_model import LogisticRegression
+from create_dir import create_nested_directory
+import joblib
+import os
 
 def Logistic_Regression(
     X_train_arr,
@@ -7,19 +10,25 @@ def Logistic_Regression(
     no_of_folds,
     no_of_runs,
     instability_type, 
+    models_dir,
     random_seed=None
 ):
     print('Model: Logistic Regression')
-    trained_model_arr = []
+    final_model_dir = f'{models_dir}/LR'
+    create_nested_directory(final_model_dir)
         
     for fold_id in range(1, no_of_folds + 1):
-        print(f'Fold {fold_id}')
         X_train_fold = X_train_arr[fold_id-1]
         y_train_fold = y_train_arr[fold_id-1]
-        
-        trained_models_fold = []
         for nth_run in range(1, no_of_runs + 1):
-            
+            print(f'Fold {fold_id}/{no_of_folds} ({round(((nth_run)/no_of_runs)*100)}%)', end='\r')
+            model_path = os.path.join(
+                final_model_dir,
+                f"Fold_{fold_id}_{'Bootstrap' if instability_type == 'Dataset' else 'Random_Seed'}_{nth_run}.joblib"
+            )
+            if os.path.exists(model_path):
+                continue
+                        
             if instability_type == 'Dataset':
                 X_train = X_train_fold[nth_run-1]
                 y_train = y_train_fold[nth_run-1]
@@ -37,7 +46,7 @@ def Logistic_Regression(
                 )
             )
             model.fit(X_train, y_train)
-            trained_models_fold.append(model)
-        trained_model_arr.append(trained_models_fold)
+            joblib.dump(model, model_path)
             
-    return trained_model_arr
+        print(f'Fold {fold_id}/{no_of_folds} (100%)')
+    print()
