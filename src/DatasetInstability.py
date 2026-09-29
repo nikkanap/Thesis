@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import shutil
+import joblib
 import os
 
 from models.LR import Logistic_Regression
@@ -8,7 +9,6 @@ from models.RF import Random_Forest
 from models.XGB import XGBoost
 from models.MLP import Multilayer_Perceptron
 from models.LSVC import Linear_SVC
-from init_database import init_dataset
 
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
@@ -21,9 +21,10 @@ RANDOM_SEED = 42
 NO_OF_FOLDS = 10
 BOOTSTRAPS = 100
 INSTABILITY_TYPE = 'Dataset'
+MODEL_NAMES = ['LR', 'LSVC', 'XGB', 'RF', 'MLP']
 
 class DatasetInstability:
-    def __init__(self):      
+    def __init__(self, dataset):      
         # RNG 
         self.rng = np.random.default_rng(RANDOM_SEED)
           
@@ -42,7 +43,7 @@ class DatasetInstability:
             self.y_test,
             self.train_ids,
             self.test_ids
-        ] = init_dataset()
+        ] = dataset
 
         # Save initialized data to csvs (for later recreation)
         self.data_dir = f'data/{INSTABILITY_TYPE}'
@@ -82,8 +83,9 @@ class DatasetInstability:
             self.transf_X_test_arr
         ] = self.get_X_scaled()
         
+        self.models_dir = f'models/{INSTABILITY_TYPE}'
         # running the model
-        self.trained_models = self.get_trained_models()
+        self.train_models()
         
         self.predictions_dir = f'predictions/{INSTABILITY_TYPE}'
         self.delete_dirs(self.predictions_dir)
@@ -168,7 +170,7 @@ class DatasetInstability:
         
         count = 1
         for train_idx, val_idx in self.k_fold.split(self.X_train):
-            print(f'\nSplitting.... ({count}/{NO_OF_FOLDS})', end="\r")
+            print(f'Splitting.... ({count}/{NO_OF_FOLDS})', end="\r")
             
             X_train_split = self.X_train.iloc[train_idx]
             X_train_split_arr.append(X_train_split)
@@ -186,6 +188,8 @@ class DatasetInstability:
             val_ids_fold_arr.append(val_ids_fold)
             
             count += 1
+        print(f'Splitting.... ({NO_OF_FOLDS}/{NO_OF_FOLDS})')
+        print()
         
         return [ X_train_split_arr, y_train_split_arr, X_val_arr, y_val_arr, val_ids_fold_arr ]
 
@@ -196,9 +200,7 @@ class DatasetInstability:
         transf_X_val_arr = []
         transf_X_test_arr = []
 
-        for fold_id in range(1, NO_OF_FOLDS + 1):
-            print(f'\nGetting Scaled/Transformed Versions.... ({fold_id}/{NO_OF_FOLDS})', end="\r")
-            
+        for fold_id in range(1, NO_OF_FOLDS + 1):            
             X_boot_fold = self.X_boot_arr[fold_id - 1]
             X_val_fold = self.X_val_arr[fold_id - 1]
 
@@ -217,11 +219,14 @@ class DatasetInstability:
 
                 transf_X_test = scaler.transform(self.X_test)
                 transf_X_test_fold.append(transf_X_test)
-
+                print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting Scaled/Transformed Versions.... {round(((run+1)/BOOTSTRAPS)*100)}%', end="\r")
+            print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting Scaled/Transformed Versions.... 100%')
+            
             scaled_X_boot_arr.append(scaled_X_boot_fold)
             transf_X_val_arr.append(transf_X_val_fold)
             transf_X_test_arr.append(transf_X_test_fold)
-            
+        print()
+        
         return [
             scaled_X_boot_arr,
             transf_X_val_arr,
@@ -234,17 +239,17 @@ class DatasetInstability:
         X_boot_arr = []
         y_boot_arr = []
         
-        for fold_id in range(1, NO_OF_FOLDS+1):
-            print(f'Fold {fold_id}/{NO_OF_FOLDS}')
-            
+        for fold_id in range(1, NO_OF_FOLDS+1):            
             X_train_split = self.X_train_split_arr[fold_id-1]
             y_train_split = self.y_train_split_arr[fold_id-1]
             
             X_boot_fold_arr = []
             y_boot_fold_arr = []
-            for b in range(BOOTSTRAPS):    
-                print(f'\nGetting Bootstrap Data.... ({b}/{BOOTSTRAPS})', end="\r")
-                
+            for b in range(1, BOOTSTRAPS + 1):           
+                print(
+                    f"Fold {fold_id}/{NO_OF_FOLDS} - Getting bootstrapped samples: {round((b/BOOTSTRAPS)*100)}%",
+                    end="\r"
+                )         
                 n_samples = len(X_train_split)
         
                 boot_idx = self.rng.choice(
@@ -258,120 +263,103 @@ class DatasetInstability:
                 
                 y_boot = y_train_split[boot_idx]
                 y_boot_fold_arr.append(y_boot)
-                
+            
             X_boot_arr.append(X_boot_fold_arr)
             y_boot_arr.append(y_boot_fold_arr)
-            
+            print(f"Fold {fold_id}/{NO_OF_FOLDS} - Getting bootstrapped samples: 100%")     
+        print()  
+        
         return [ X_boot_arr, y_boot_arr ]
     
     # Gets the trained models as an array
-    def get_trained_models(self):
+    def train_models(self):
         print('===== TRAINING MODELS =====')
         
         # Random forest
-        rf_trained_models = Random_Forest(
+        Random_Forest(
             self.X_boot_arr,
             self.y_boot_arr,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
-            random_seed=RANDOM_SEED
+            self.models_dir,
+            RANDOM_SEED
         )
         
         # XGBoost
-        xgb_trained_models = XGBoost(
+        XGBoost(
             self.X_boot_arr,
             self.y_boot_arr,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
-            random_seed=RANDOM_SEED
+            self.models_dir,
+            RANDOM_SEED
         )
             
         # Logistic Regression
-        lr_trained_models = Logistic_Regression(
+        Logistic_Regression(
             self.scaled_X_boot_arr,
             self.y_boot_arr,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
-            random_seed=RANDOM_SEED
+            self.models_dir,
+            RANDOM_SEED
         )
         
         # Linear SVC (SVM)
-        lsvc_trained_models = Linear_SVC(
+        Linear_SVC(
             self.scaled_X_boot_arr,
             self.y_boot_arr,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
-            random_seed=RANDOM_SEED
+            self.models_dir,
+            RANDOM_SEED
         )
         
         # Multilayer Perceptron
-        mlp_trained_models = Multilayer_Perceptron(
+        Multilayer_Perceptron(
             self.scaled_X_boot_arr,
             self.y_boot_arr,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
-            random_seed=RANDOM_SEED
+            self.models_dir,
+            RANDOM_SEED
         )
-            
-        return [ 
-            {   
-                'name': 'RF',
-                'models': rf_trained_models
-            },
-            {
-                'name': 'XGB',
-                'models': xgb_trained_models
-            },
-            {
-                'name': 'LR',
-                'models': lr_trained_models
-            },
-            {
-                'name': 'LSVC',
-                'models': lsvc_trained_models
-            },
-            {
-                'name': 'MLP',
-                'models': mlp_trained_models   
-            }
-        ]
 
     # Gets the predictions from the trained models
     def get_predictions(self):
-        for trained_model in self.trained_models:
-            print(f'Model: {trained_model['name']}')
+        for model_name in MODEL_NAMES:
+            print(f'Model: {model_name}')
             
-            for fold_id, models_by_fold in enumerate(trained_model['models'],start=1):
-                print(f'Fold_{fold_id}')
-
-                if trained_model['name'] in ['LR', 'LSVC', 'MLP']:
+            for fold_id in range(1, NO_OF_FOLDS+1):
+                if model_name in ['LR', 'LSVC', 'MLP']:
                     transf_X_val_fold = self.transf_X_val_arr[fold_id - 1]
                     transf_X_test_fold = self.transf_X_test_arr[fold_id - 1]
                 else:
                     X_val_fold = self.X_val_arr[fold_id - 1]
                     X_test_fold = self.X_test
 
-                for nth_run, model in enumerate(models_by_fold, start=1):
-                    print(f'Run_{nth_run}')
+                for b in range(1, BOOTSTRAPS + 1):
+                    print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting model predictions... {round((b/BOOTSTRAPS)*100)}%', end='\r')
                     
-                    if trained_model['name'] in ['LR', 'LSVC', 'MLP']:
-                        X_val = transf_X_val_fold[nth_run - 1]
-                        X_test = transf_X_test_fold[nth_run - 1]
+                    if model_name in ['LR', 'LSVC', 'MLP']:
+                        X_val = transf_X_val_fold[b - 1]
+                        X_test = transf_X_test_fold[b - 1]
                     else:
                         X_val = X_val_fold
                         X_test = X_test_fold
 
+                    model = joblib.load(f"{self.models_dir}/{model_name}/Fold_{fold_id}_Bootstrap_{b}.joblib")
                     y_pred_proba = model.predict_proba(X_val)[:, 1]
 
-                    column_name = f'Bootstrap_{nth_run}'
+                    column_name = f'Bootstrap_{b}'
                     csv_file_path = (
                         f'{self.predictions_dir}/'
-                        f'{trained_model["name"]}_Predictions_Validation_{fold_id}.csv'
+                        f'{model_name}_Predictions_Validation_{fold_id}.csv'
                     )
                     generate_prediction_csv(
                         y_pred_proba,
@@ -382,16 +370,19 @@ class DatasetInstability:
                     y_test_pred_proba = model.predict_proba(X_test)[:, 1]
                     test_csv_file_path = (
                         f'{self.predictions_dir}/'
-                        f'{trained_model["name"]}_Predictions_Test_{fold_id}.csv'
+                        f'{model_name}_Predictions_Test_{fold_id}.csv'
                     )
                     generate_prediction_csv(
                         y_test_pred_proba,
                         column_name,
                         test_csv_file_path
                     )
-                  
+                print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting model predictions... 100%')
+            print()
+            
     # Gets the metric results  
     def get_metrics(self):
+        print('===== METRICS =====')
         pm = PostMetrics(
             self.X_train,
             self.y_train,
@@ -418,7 +409,7 @@ class DatasetInstability:
         self.get_mrip()
         self.generate_shap_values()
         
-        pm.shap_analysis(self.trained_models)
+        pm.shap_analysis(MODEL_NAMES)
     
     # ===============
     # METRIC-SPECIFIC
@@ -426,13 +417,11 @@ class DatasetInstability:
     
     # Gets the mrip       
     def get_mrip(self):
-        for trained_model in self.trained_models:
-            print(f'MRIP for {trained_model["name"]}')
+        for model_name in MODEL_NAMES:
+            print(f'MRIP for {model_name}')
             
             random_fold = self.get_random_fold()
             random_run = self.get_random_run()
-            print(f'Fold_{random_fold}')
-            print(f'Run_{random_run}')
             
             y_train_fold = self.y_boot_arr[random_fold-1]
             val_ids_fold = self.val_ids_fold_arr[random_fold-1]
@@ -442,16 +431,17 @@ class DatasetInstability:
             X_train = X_train_fold[random_run-1]
             y_train = y_train_fold[random_run-1]
             
-            mrip_dir = f'metrics/{INSTABILITY_TYPE}/MRIP/{trained_model["name"]}'
+            mrip_dir = f'metrics/{INSTABILITY_TYPE}/MRIP/{model_name}'
             self.create_nested_directory(mrip_dir)
         
-            file_name = f'MRIP_{trained_model["name"]}_Validation_Fold_{random_fold}_Run_{random_run}.csv'
+            file_name = f'MRIP_{model_name}_Validation_Fold_{random_fold}_Run_{random_run}.csv'
             csv_file_path = f'{mrip_dir}/{file_name}'
-            
-            
-            model = trained_model['models'][random_fold-1][random_run-1]
-            model_name = trained_model["name"]
-            
+        
+            model = joblib.load(
+                "models/Dataset/LR/fold_1_bootstrap_1.joblib"
+            )
+            model_name = model_name
+            print(f'Getting MRIP for Validation...', end='\r')
             MRIP(
                 X_train,
                 y_train,
@@ -459,13 +449,15 @@ class DatasetInstability:
                 val_ids_fold,
                 model, 
                 model_name,
+                random_fold,
                 random_run,
                 csv_file_path
             )
+            print(f'Getting MRIP for Validation... Completed')
             
-            test_file_name = f'MRIP_{trained_model["name"]}_Test_Fold_{random_fold}_Run_{random_run}.csv'
+            test_file_name = f'MRIP_{model_name}_Test_Fold_{random_fold}_Run_{random_run}.csv'
             test_csv_file_path = f'{mrip_dir}/{test_file_name}'
-            
+            print(f'Getting MRIP for Test...', end='\r')
             MRIP(
                 X_train,
                 y_train,
@@ -473,45 +465,42 @@ class DatasetInstability:
                 self.test_ids,
                 model, 
                 model_name,
+                random_fold,
                 random_run,
                 test_csv_file_path
             )
+            print(f'Getting MRIP for Test... Completed')
         
     def generate_shap_values(self):
-        for trained_model in self.trained_models:
-            print(f'SHAP for {trained_model["name"]}')
-            
+        for model_name in MODEL_NAMES:
+            print(f'SHAP values for {model_name}')
             random_fold = self.get_random_fold()
-            trained_model['random_fold'] = random_fold
-            print(f'Fold_{random_fold}')
+            model_name['random_fold'] = random_fold
             
             random_run = self.get_random_run()
-            trained_model['random_run'] = random_run
-            print(f'Run_{random_run}')
+            model_name['random_run'] = random_run
             
             val_ids_fold = self.val_ids_fold_arr[random_fold-1]
-            if trained_model['name'] in ['LR', 'LSVC', 'MLP']:
-                print('if LR LSVC or MLP')
+            if model_name in ['LR', 'LSVC', 'MLP']:
                 X_train_fold = self.scaled_X_boot_arr[random_fold-1]
                 transf_X_val_fold = self.transf_X_val_arr[random_fold - 1]
                 X_val = transf_X_val_fold[random_run-1]
                 X_test = self.transf_X_test_arr[random_fold - 1][random_run-1]
             else:
-                print('else XGB RF')
                 X_train_fold = self.X_boot_arr[random_fold-1]
                 X_val = self.X_val_arr[random_fold - 1]
                 X_test = self.X_test
             
             X_train = X_train_fold[random_run-1]    
             feature_names = self.X_train.columns
-            model = trained_model['models'][random_fold-1][random_run-1]
-            model_name = trained_model['name']
+            model = joblib.load(f"{self.models_dir}/{model_name}/Fold_{random_fold}_Bootstrap_{random_run}.joblib")
             
-            shap_dir = f'metrics/{INSTABILITY_TYPE}/shap_values/{trained_model["name"]}'
+            shap_dir = f'metrics/{INSTABILITY_TYPE}/shap_values/{model_name}'
             self.create_nested_directory(shap_dir)
         
-            file_name = f'SHAP_{trained_model["name"]}_Validation_Fold_{random_fold}_Run_{random_run}.csv'
+            file_name = f'SHAP_{model_name}_Validation_Fold_{random_fold}_Run_{random_run}.csv'
             csv_file_path = f'{shap_dir}/{file_name}'
+            print(f'Getting SHAP values for Validation...', end='\r')
             get_shap_values(
                 X_train,
                 X_val,
@@ -522,9 +511,11 @@ class DatasetInstability:
                 val_ids_fold,
                 csv_file_path
             )
+            print(f'Getting SHAP values for Validation... Complete')
             
-            test_file_name = f'SHAP_{trained_model["name"]}_Test_Fold_{random_fold}_Run_{random_run}.csv'
+            test_file_name = f'SHAP_{model_name}_Test_Fold_{random_fold}_Run_{random_run}.csv'
             test_csv_file_path = f'{shap_dir}/{test_file_name}' 
+            print(f'Getting SHAP values for Test...', end='\r')
             get_shap_values(
                 X_train,
                 X_test,
@@ -535,6 +526,7 @@ class DatasetInstability:
                 self.test_ids,
                 test_csv_file_path
             )
+            print(f'Getting SHAP values for Test... Complete')
  
     def get_random_fold(self):
         random_fold = self.rng.choice(NO_OF_FOLDS) + 1
