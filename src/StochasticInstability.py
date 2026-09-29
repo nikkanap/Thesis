@@ -1,53 +1,476 @@
-from models.LR import LR_Model
-from models.RF import RF_Classifier
-from models.XGB import XGBoost_Model
-from models.MLP import MLP_Model
-from models.LSVC import LinearSVC_Model
-from init_database import init_dataset
-from create_dir import create_nested_directory
+import numpy as np
+import pandas as pd
+import shutil
+import os
 
-import xgboost as xgb
+from models.LR import Logistic_Regression
+from models.RF import Random_Forest
+from models.XGB import XGBoost
+from models.MLP import Multilayer_Perceptron
+from models.LSVC import Linear_SVC
+from init_database import init_dataset
+
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 
-# init the dataset to train & test vars
-[X_train, y_train, X_test, y_test] = init_dataset()
-create_nested_directory('predictions/Stochastic')
+from runtime_metrics import MRIP, get_shap_values
+from post_metrics import PostMetrics
+from generate_prediction_csv import generate_prediction_csv
 
-# kfold init
-k_fold = KFold(n_splits=10, shuffle=True, random_state=42)
-    
-for fold_id, (train_idx, test_idx) in enumerate(k_fold.split(X_train)):
-    X_pool = X_train.iloc[train_idx]
-    y_pool = y_train[train_idx]
-    
-    X_val = X_train.iloc[test_idx]
-    y_val = y_train[test_idx]
-    X_val_ids = X_train.iloc[test_idx]['defendant_id'].values
-    
-    X = [X_train, X_val, X_test] 
-    y = [y_train, y_val, y_test]
+RANDOM_SEEDS = 10
+NO_OF_FOLDS = 10
+INSTABILITY_TYPE = 'Stochastic'
 
-    # random seed from 0 to 9
-    for random_seed in range(10): 
-        print(f"RANDOM_SEED #{random_seed}" )
+class StochasticInstability:
+    def __init__(self):      
+        # RNG 
+        self.rng = np.random.default_rng(42)
+          
+        # K-fold
+        self.k_fold = KFold(
+            n_splits=NO_OF_FOLDS,
+            shuffle=True,
+            random_state=42
+        )
+
+        # Initializing the dataset to training and testing data + ids
+        [
+            self.X_train,
+            self.y_train,
+            self.X_test,
+            self.y_test,
+            self.train_ids,
+            self.test_ids
+        ] = init_dataset()
+
+        # Save initialized data to csvs (for later recreation)
+        self.data_dir = f'data/{INSTABILITY_TYPE}'
+        self.delete_dirs(self.data_dir)
+        self.create_nested_directory(self.data_dir)
         
-        RF_Classifier(X, y, X_val_ids, fold_id, random_seed)
+        self.to_csv(self.X_train, 'X_train')
+        self.to_csv(self.y_train, 'y_train', 'y_train')
+        self.to_csv(self.X_test, 'X_test')
+        self.to_csv(self.y_test, 'y_test', 'y_test')
+        self.to_csv(self.train_ids, 'train_ids', 'defendant_id')
+        self.to_csv(self.test_ids, 'test_ids', 'defendant_id')
         
-        # convert data for xgboost
-        xgb_train = xgb.DMatrix(X[0], y[0], enable_categorical=False)
-        xgb_val = xgb.DMatrix(X[1], y[1], enable_categorical=False)
-        xgb_test = xgb.DMatrix(X[2], y[2], enable_categorical=False)
-        X_xgb = [xgb_train, xgb_val, xgb_test]
-        XGBoost_Model(X_xgb, y, X_val_ids, fold_id, random_seed)
+        [   
+            self.X_train_split_arr,
+            self.y_train_split_arr,
+            self.X_val_arr,
+            self.y_val_arr,
+            self.val_ids_fold_arr,
+        ] = self.get_k_split_data()
         
-        # fit training data and transform the test data
-        scaler = StandardScaler()
-        X_train_scaled = scaler.fit_transform(X_train)
-        X_val_transf = scaler.transform(X_val)
-        X_test_transf = scaler.transform(X_test)
-        X_scaled = [X_train_scaled, X_val_transf, X_test_transf]
+        # Save initialized array data to csvs (for later recreation)
+        self.to_csv(self.X_train_split_arr, 'X_train_split_arr')
+        self.to_csv(self.y_train_split_arr, 'y_train_split_arr', 'y_train')
+        self.to_csv(self.X_val_arr, 'X_val_arr')
+        self.to_csv(self.y_val_arr, 'y_val_arr')
+        self.to_csv(self.val_ids_fold_arr, 'val_ids_fold_arr')
+
+        [
+            self.scaled_X_train_split_arr,
+            self.transf_X_val_arr,
+            self.transf_X_test_arr
+        ] = self.get_X_scaled()
         
-        LR_Model(X_scaled, y, X_val_ids, fold_id, random_seed)
-        MLP_Model(X_scaled, y, X_val_ids, fold_id, random_seed)
-        LinearSVC_Model(X_scaled, y, X_val_ids, fold_id, random_seed)
+        # running the model
+        self.trained_models = self.get_trained_models()
+        
+        self.predictions_dir = f'predictions/{INSTABILITY_TYPE}'
+        self.delete_dirs(self.predictions_dir)
+        self.create_nested_directory(self.predictions_dir)
+        self.get_predictions()        
+        self.get_metrics()
+    
+    # Saves data to csvs
+    def to_csv(self, data, data_name, column_name=None):
+        if isinstance(data, pd.DataFrame):
+            print(f'Saving data: {data_name}')
+            data.to_csv(
+                f'{self.data_dir}/{data_name}.csv',
+                index=False
+            )
+
+        elif isinstance(data, np.ndarray):
+            pd.DataFrame({
+                column_name: data
+            }).to_csv(
+                f'{self.data_dir}/{data_name}.csv',
+                index=False
+            )
+
+        elif isinstance(data, list):
+            if all(isinstance(x, pd.DataFrame) for x in data):
+                pd.concat(
+                    data,
+                    keys=range(1, len(data) + 1),
+                    names=['fold_id']
+                ).to_csv(
+                    f'{self.data_dir}/{data_name}.csv'
+                )
+
+            elif all(isinstance(x, np.ndarray) for x in data):
+                pd.concat(
+                    [pd.Series(x) for x in data],
+                    axis=1
+                ).T.to_csv(
+                    f'{self.data_dir}/{data_name}.csv',
+                    index=False
+                )
+
+            else:
+                print('Invalid data. Cannot save to csv.')
+
+        else:
+            print('Invalid data. Cannot save to csv.')
+
+    # Creates nested directories
+    def create_nested_directory(self, directory_name):
+        try:
+            os.makedirs(directory_name)
+            print(f"Directory '{directory_name}' created successfully.")
+        except FileExistsError:
+            print(f"Directory '{directory_name}' already exists.")
+        except PermissionError:
+            print(f"Permission denied: Unable to create '{directory_name}'.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+    
+    # Deletes directories
+    def delete_dirs(self, directory_name):
+        try:
+            shutil.rmtree(directory_name, ignore_errors=True)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+            
+    # ================
+    # GETTER FUNCTIONS
+    # ================
+    
+    # Gets the k fold split data
+    def get_k_split_data(self):
+        print('===== SPLITTING DATA TO K FOLDS =====')
+        X_train_split_arr = []
+        y_train_split_arr = []
+        
+        X_val_arr = []
+        y_val_arr = []
+        val_ids_fold_arr = []
+        
+        count = 1
+        for train_idx, val_idx in self.k_fold.split(self.X_train):
+            print(f'\nSplitting.... ({count}/{NO_OF_FOLDS})', end="\r")
+            
+            X_train_split = self.X_train.iloc[train_idx]
+            X_train_split_arr.append(X_train_split)
+            
+            y_train_split = self.y_train[train_idx]
+            y_train_split_arr.append(y_train_split)
+
+            X_val = self.X_train.iloc[val_idx]
+            X_val_arr.append(X_val)
+            
+            y_val = self.y_train[val_idx]
+            y_val_arr.append(y_val)
+
+            val_ids_fold = self.train_ids[val_idx]
+            val_ids_fold_arr.append(val_ids_fold)
+            
+            count += 1
+        
+        return [ X_train_split_arr, y_train_split_arr, X_val_arr, y_val_arr, val_ids_fold_arr ]
+
+    # Gets scaled version of the data as an array
+    def get_X_scaled(self):
+        print('===== SCALED VERSIONS =====')
+        scaled_X_train_split_arr = []
+        transf_X_val_arr = []
+        transf_X_test_arr = []
+
+        for fold_id in range(1, NO_OF_FOLDS + 1):
+            print(f'\nGetting Scaled/Transformed Versions.... ({fold_id}/{NO_OF_FOLDS})', end="\r")
+            
+            X_train_fold = self.X_train_split_arr[fold_id - 1]
+            X_val_fold = self.X_val_arr[fold_id - 1]
+
+            scaler = StandardScaler()
+
+            scaled_X_train = scaler.fit_transform(X_train_fold)
+            scaled_X_train_split_arr.append(scaled_X_train)
+
+            transf_X_val = scaler.transform(X_val_fold)
+            transf_X_val_arr.append(transf_X_val)
+
+            transf_X_test = scaler.transform(self.X_test)
+            transf_X_test_arr.append(transf_X_test)
+            
+        return [
+            scaled_X_train_split_arr,
+            transf_X_val_arr,
+            transf_X_test_arr
+        ]
+    
+    # Gets the trained models as an array
+    def get_trained_models(self):
+        print('===== TRAINING MODELS =====')
+        
+        # Random forest
+        rf_trained_models = Random_Forest(
+            self.X_train_split_arr,
+            self.y_train_split_arr,
+            NO_OF_FOLDS,
+            RANDOM_SEEDS,
+            INSTABILITY_TYPE, 
+        )
+        
+        # XGBoost
+        xgb_trained_models = XGBoost(
+            self.X_train_split_arr,
+            self.y_train_split_arr,
+            NO_OF_FOLDS,
+            RANDOM_SEEDS,
+            INSTABILITY_TYPE
+        )
+            
+        # Logistic Regression
+        lr_trained_models = Logistic_Regression(
+            self.scaled_X_train_split_arr,
+            self.y_train_split_arr,
+            NO_OF_FOLDS,
+            RANDOM_SEEDS,
+            INSTABILITY_TYPE
+        )
+        
+        # Linear SVC (SVM)
+        lsvc_trained_models = Linear_SVC(
+            self.scaled_X_train_split_arr,
+            self.y_train_split_arr,
+            NO_OF_FOLDS,
+            RANDOM_SEEDS,
+            INSTABILITY_TYPE
+        )
+        
+        # Multilayer Perceptron
+        mlp_trained_models = Multilayer_Perceptron(
+            self.scaled_X_train_split_arr,
+            self.y_train_split_arr,
+            NO_OF_FOLDS,
+            RANDOM_SEEDS,
+            INSTABILITY_TYPE
+        )
+            
+        return [ 
+            {   
+                'name': 'RF',
+                'models': rf_trained_models
+            },
+            {
+                'name': 'XGB',
+                'models': xgb_trained_models
+            },
+            {
+                'name': 'LR',
+                'models': lr_trained_models
+            },
+            {
+                'name': 'LSVC',
+                'models': lsvc_trained_models
+            },
+            {
+                'name': 'MLP',
+                'models': mlp_trained_models   
+            }
+        ]
+
+    # Gets the predictions from the trained models
+    def get_predictions(self):
+        for trained_model in self.trained_models:
+            print(f'Model: {trained_model['name']}')
+            
+            for fold_id, models_by_fold in enumerate(trained_model['models'],start=1):
+                print(f'Fold_{fold_id}')
+
+                if trained_model['name'] in ['LR', 'LSVC', 'MLP']:
+                    X_val = self.transf_X_val_arr[fold_id - 1]
+                    X_test = self.transf_X_test_arr[fold_id - 1]
+                else:
+                    X_val = self.X_val_arr[fold_id - 1]
+                    X_test = self.X_test
+
+                for random_seed, model in enumerate(models_by_fold, start=1):
+                    print(f'Random_Seed_{random_seed}')
+
+                    y_pred_proba = model.predict_proba(X_val)[:, 1]
+
+                    column_name = f'Random_Seed_{random_seed}'
+                    csv_file_path = (
+                        f'{self.predictions_dir}/'
+                        f'{trained_model["name"]}_Predictions_Validation_{fold_id}.csv'
+                    )
+                    generate_prediction_csv(
+                        y_pred_proba,
+                        column_name,
+                        csv_file_path
+                    )
+
+                    y_test_pred_proba = model.predict_proba(X_test)[:, 1]
+                    test_csv_file_path = (
+                        f'{self.predictions_dir}/'
+                        f'{trained_model["name"]}_Predictions_Test_{fold_id}.csv'
+                    )
+                    generate_prediction_csv(
+                        y_test_pred_proba,
+                        column_name,
+                        test_csv_file_path
+                    )
+                  
+    # Gets the metric results  
+    def get_metrics(self):
+        pm = PostMetrics(
+            self.X_train,
+            self.y_train,
+            self.X_val_arr,
+            self.y_val_arr,
+            self.val_ids_fold_arr,
+            self.X_test,
+            self.y_test,
+            self.test_ids,
+            NO_OF_FOLDS,
+            self.predictions_dir,
+            INSTABILITY_TYPE
+        )
+
+        pm.roc_auc()
+        pm.brier_score()
+        pm.calibration_plot()
+        pm.ninety_five_stability_interval()
+        pm.mean_absolute_prediction_error()
+        pm.classification_instability_index()
+        pm.top_k_jaccard()
+        pm.demographic_false_positive_rate()
+        
+        self.get_mrip()
+        self.generate_shap_values()
+        
+        pm.shap_analysis(self.trained_models)
+    
+    # ===============
+    # METRIC-SPECIFIC
+    # ===============      
+    
+    # Gets the mrip       
+    def get_mrip(self):
+        for trained_model in self.trained_models:
+            print(f'MRIP for {trained_model["name"]}')
+            
+            random_fold = self.get_random_fold()
+            random_seed = self.get_random_seed()
+            print(f'Fold_{random_fold}')
+            print(f'Random_Seed_{random_seed}')
+            
+            y_train = self.y_train_split_arr[random_fold-1]
+            X_train = self.X_train_split_arr[random_fold-1]
+            
+            val_ids_fold = self.val_ids_fold_arr[random_fold-1]
+            X_val_fold = self.X_val_arr[random_fold - 1]
+            
+            mrip_dir = f'metrics/{INSTABILITY_TYPE}/MRIP/{trained_model["name"]}'
+            self.create_nested_directory(mrip_dir)
+        
+            file_name = f'MRIP_{trained_model["name"]}_Validation_Fold_{random_fold}_Random_Seed_{random_seed}.csv'
+            csv_file_path = f'{mrip_dir}/{file_name}'
+            
+            
+            model = trained_model['models'][random_fold-1][random_seed-1]
+            model_name = trained_model["name"]
+            
+            MRIP(
+                X_train,
+                y_train,
+                X_val_fold,
+                val_ids_fold,
+                model, 
+                model_name,
+                random_seed,
+                csv_file_path
+            )
+            
+            test_file_name = f'MRIP_{trained_model["name"]}_Test_Fold_{random_fold}_Random_Seed_{random_seed}.csv'
+            test_csv_file_path = f'{mrip_dir}/{test_file_name}'
+            
+            MRIP(
+                X_train,
+                y_train,
+                self.X_test,
+                self.test_ids,
+                model, 
+                model_name,
+                random_seed,
+                test_csv_file_path
+            )
+        
+    def generate_shap_values(self):
+        for trained_model in self.trained_models:
+            print(f'SHAP for {trained_model["name"]}')
+            
+            random_fold = self.get_random_fold()
+            trained_model['random_fold'] = random_fold
+            print(f'Fold_{random_fold}')
+            
+            random_seed = self.get_random_seed()
+            trained_model['random_seed'] = random_seed
+            print(f'Random_Seed_{random_seed}')
+            
+            val_ids_fold = self.val_ids_fold_arr[random_fold-1]
+            if trained_model['name'] in ['LR', 'LSVC', 'MLP']:
+                X_train = self.scaled_X_train_split_arr[random_fold - 1]
+                X_val = self.transf_X_val_arr[random_fold - 1]
+                X_test = self.transf_X_test_arr[random_fold - 1]
+            else:
+                X_train = self.X_train_split_arr[random_fold - 1]
+                X_val = self.X_val_arr[random_fold - 1]
+                X_test = self.X_test
+            
+            feature_names = self.X_train.columns
+            model = trained_model['models'][random_fold-1][random_seed-1]
+            model_name = trained_model['name']
+            
+            shap_dir = f'metrics/{INSTABILITY_TYPE}/shap_values/{trained_model["name"]}'
+            self.create_nested_directory(shap_dir)
+        
+            file_name = f'SHAP_{trained_model["name"]}_Validation_Fold_{random_fold}_Random_Seed_{random_seed}.csv'
+            csv_file_path = f'{shap_dir}/{file_name}'
+            get_shap_values(
+                X_train,
+                X_val,
+                feature_names,
+                model,
+                model_name,
+                random_seed,
+                val_ids_fold,
+                csv_file_path
+            )
+            
+            test_file_name = f'SHAP_{trained_model["name"]}_Test_Fold_{random_fold}_Random_Seed_{random_seed}.csv'
+            test_csv_file_path = f'{shap_dir}/{test_file_name}' 
+            get_shap_values(
+                X_train,
+                X_test,
+                feature_names,
+                model,
+                model_name,
+                random_seed,
+                self.test_ids,
+                test_csv_file_path
+            )
+ 
+    def get_random_fold(self):
+        random_fold = self.rng.choice(NO_OF_FOLDS) + 1
+        return random_fold
+    
+    def get_random_seed(self):
+        random_seed = self.rng.choice(RANDOM_SEEDS) + 1
+        return random_seed
