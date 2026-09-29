@@ -15,12 +15,12 @@ def MRIP(
     X_val_test_ids,
     trained_model, 
     model_name,
+    fold_id,
     nth_run,
     csv_file_path,
     epsilon=0.1,
     delta=0.5
 ):
-    print(f'MRIP for model {model_name}')
     # Scale only for neighbor-distance calculation
     scaler = StandardScaler()
 
@@ -41,6 +41,7 @@ def MRIP(
 
     no_neighbor_count = 0
     for i, defendant_id in enumerate(X_val_test_ids):
+        print(f'Fold {fold_id}, Run {nth_run} - Getting MRIP... {round((i/len(X_val_test_ids))*100)}%', end='\r')
         neighbor_indices = indices[i]
 
         if len(neighbor_indices) == 0:
@@ -63,11 +64,8 @@ def MRIP(
             mrip_value = np.mean(errors <= epsilon)
 
         mrip_values.append(mrip_value)
-
-    print(
-        f'No-neighbor defendants: '
-        f'{no_neighbor_count}/{len(X_val_test_ids)}'
-    )
+    print(f'Fold {fold_id}, Run {nth_run} - Getting MRIP... 100%')
+    print()
     
     # Create or update CSV
     if os.path.isfile(csv_file_path):
@@ -92,6 +90,7 @@ def get_shap_values(
     defendant_ids,
     csv_file_path
 ):
+    print('')
     if model_name in ['RF', 'XGB']:
         explainer = shap.TreeExplainer(trained_model)
         shap_values = explainer.shap_values(X_val_test)
