@@ -23,4 +23,11 @@ def init_dataset():
     training_ids = training_df['defendant_id'].to_numpy()
     testing_ids = testing_df['defendant_id'].to_numpy()
 
-    return [X_train, y_train, X_test, y_test, training_ids, testing_ids]
+    return {
+        'X_train': X_train, 
+        'y_train': y_train, 
+        'X_test': X_test, 
+        'y_test': y_test, 
+        'training_ids': training_ids, 
+        'testing_ids': testing_ids
+    }
