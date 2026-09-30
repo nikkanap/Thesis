@@ -31,8 +31,11 @@ class PostMetrics:
         X_test, y_test, test_defendant_ids,     # Testing data  
         no_of_folds,        
         predictions_dir,  
-        instability_type
+        instability_type,
+        force_reset
     ):
+        self.force_reset = force_reset
+        
         # Official Training data (not split yet to validation and bootstrapped samples)
         self.X_train = X_train
         self.y_train = y_train
@@ -57,7 +60,8 @@ class PostMetrics:
         # Directory for metrics
         
         self.metrics_dir = f'metrics/{self.instability_type}'
-        self.delete_dirs(self.metrics_dir)
+        if self.force_reset:
+            self.delete_dirs(self.metrics_dir)
     
     def delete_dirs(self, directory_name):
         try:
@@ -120,9 +124,9 @@ class PostMetrics:
                 roc_auc_stds = []
                 
                 for fold_id in range(1, self.no_of_folds + 1):
+                    by_fold_csv_file_path = f'{roc_auc_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
                     y_df = self.get_y_values(test_name, fold_id)
                     
-                    by_fold_csv_file_path = f'{roc_auc_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
                     predictions = self.get_predictions(model_name,
                         test_name,
                         fold_id=fold_id
@@ -137,6 +141,7 @@ class PostMetrics:
                     roc_aucs = []
                     for col in predictions.columns:
                         print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting ROC-AUCs... {round((len(roc_aucs)/len(predictions.columns))*100)}%', end='\r')
+                        
                         y_pred_proba = predictions[col].values
                         
                         roc_auc = roc_auc_score(y_df, y_pred_proba)
@@ -191,9 +196,9 @@ class PostMetrics:
                 brier_score_stds = []
                 
                 for fold_id in range(1, self.no_of_folds + 1):
+                    by_fold_csv_file_path = f'{brier_score_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'       
                     y_df = self.get_y_values(test_name, fold_id)
-                                               
-                    by_fold_csv_file_path = f'{brier_score_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'                               
+                                                                   
                     predictions = self.get_predictions(
                         model_name,
                         test_name,
@@ -227,7 +232,7 @@ class PostMetrics:
                     brier_score_std = np.std(brier_scores, ddof=1)
                     brier_score_stds.append(brier_score_std)
                 
-                csv_file_path = f'{brier_score_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'           
+                csv_file_path = f'{brier_score_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'     
                 self.save_to_csv(
                     csv_file_path,
                     'fold',
@@ -321,21 +326,24 @@ class PostMetrics:
         metric_name = 'MAPE'
         
         print('Metric: Mean Absolute Prediction Error (MAPE)')
+            
         for test_name in TEST_NAMES:
             for model_name in MODEL_NAMES:
                 mape_dir = f'{self.metrics_dir}/mape/{model_name}'
+                
                 create_nested_directory(mape_dir)
             
                 mean_mapes = []
                 for fold_id in range(1, self.no_of_folds + 1):
                     print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds}', end='\r')
+                    mape_csv_file_path = f'{mape_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
+                           
                     predictions = self.get_predictions(
                         model_name, 
                         test_name, 
                         fold_id=fold_id
                     ).to_numpy()  
                     
-                    mape_csv_file_path = f'{mape_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
                     self.save_to_csv(
                         mape_csv_file_path,
                         'defendant_id',
@@ -387,7 +395,8 @@ class PostMetrics:
                 jaccard_scores_mean = []
                 jaccard_scores_std = []
                 
-                for fold_id in range(1, self.no_of_folds + 1):
+                for fold_id in range(1, self.no_of_folds + 1):                    
+                    by_fold_csv_file_path = f'{tk_jaccard_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'     
                     run_1_arr = []
                     run_2_arr = []
                     jaccard_scores = []
@@ -414,8 +423,7 @@ class PostMetrics:
 
                         jaccard = intersection / union
                         jaccard_scores.append(jaccard)
-                    
-                    by_fold_csv_file_path = f'{tk_jaccard_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'                        
+                                    
                     self.save_to_csv(
                         by_fold_csv_file_path,
                        'run_1',
@@ -471,6 +479,7 @@ class PostMetrics:
                 std_ciis = []
                 for fold_id in range(1, self.no_of_folds + 1):
                     print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds}', end='\r')
+                    by_fold_csv_file_path = f'{cii_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'    
                     predictions = self.get_predictions(
                         model_name, 
                         test_name, 
@@ -478,8 +487,7 @@ class PostMetrics:
                     )
                     
                     defendant_ids = self.get_defendant_ids(test_name, fold_id)
-                    
-                    by_fold_csv_file_path = f'{cii_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'    
+                                    
                     self.save_to_csv(
                         by_fold_csv_file_path,
                         'defendant_id',
@@ -512,6 +520,7 @@ class PostMetrics:
                     plt.title(f'Classification Instability Distribution ({self.instability_type} - {model_name}, Fold {fold_id})')
                     plt.savefig(by_fold_csv_file_path.replace('csv', 'png'))
                     plt.close()
+                    
                 print(f'{test_name}, {model_name}, Fold {self.no_of_folds}/{self.no_of_folds}')
                 csv_file_path = f'{cii_dir}/Aggregate_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv' 
                 self.save_to_csv(
@@ -568,6 +577,7 @@ class PostMetrics:
                             prob_true,
                             alpha=0.1
                         )
+                        
                     print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting Calibration Plots... 100%')
                     plt.plot(
                         [0, 1],
@@ -605,6 +615,7 @@ class PostMetrics:
                 create_nested_directory(dfpr_dir)
                 
                 for fold_id in range(1, self.no_of_folds + 1):
+                    by_fold_csv_file_path = f'{dfpr_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'             
                     test_df = self.X_val_arr[fold_id - 1] if test_name == 'Validation' else self.X_test
                     y_df = self.get_y_values(test_name, fold_id)
                     predictions = self.get_predictions(
@@ -615,9 +626,8 @@ class PostMetrics:
                     
                     dfpr_scores_by_race = { race: [] for race in RACE_NAMES }
                     dfpr_means = []
-                    dfpr_stds = []
-
-                    by_fold_csv_file_path = f'{dfpr_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'                         
+                    dfpr_stds = []            
+                    
                     self.save_to_csv(
                         by_fold_csv_file_path,
                         'race',
@@ -633,21 +643,22 @@ class PostMetrics:
                         for race in RACE_NAMES:
                             mask = test_df[race] == 1
                             
-                            y_pred = (
-                                predictions[column_name].values >= 0.5
-                            ).astype(int)
+                            y_pred = (predictions[column_name].values >= 0.5).astype(int)
 
-                            tn, fp, fn, tp = confusion_matrix(
-                                y_df[mask],
-                                y_pred[mask],
-                                labels=[0, 1]
-                            ).ravel()
+                            if len(y_df[mask]) == 0:
+                                dfpr = np.nan
+                            else:
+                                tn, fp, fn, tp = confusion_matrix(
+                                    y_df[mask],
+                                    y_pred[mask],
+                                    labels=[0, 1]
+                                ).ravel()
 
-                            dfpr = (
-                                fp / (fp + tn)
-                                if (fp + tn) > 0
-                                else np.nan
-                            )
+                                dfpr = (
+                                    fp / (fp + tn)
+                                    if (fp + tn) > 0
+                                    else np.nan
+                                )
                             dfpr_scores_by_run.append(dfpr)
                             dfpr_scores_by_race[race].append(dfpr)
                             
