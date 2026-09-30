@@ -19,7 +19,7 @@ from generate_prediction_csv import generate_prediction_csv
 
 RANDOM_SEED = 42
 NO_OF_FOLDS = 10
-BOOTSTRAPS = 100
+BOOTSTRAPS = 10
 INSTABILITY_TYPE = 'Dataset'
 MODEL_NAMES = ['LR', 'LSVC', 'XGB', 'RF', 'MLP']
 
@@ -36,28 +36,31 @@ class DatasetInstability:
             random_state=RANDOM_SEED
         )
 
-        # Initializing the dataset to training and testing data + ids
-        self.X_train = self.get_data(dataset, 'X_train') 
-        self.y_train = self.get_data(dataset, 'y_train')
-        self.X_test = self.get_data(dataset, 'X_test')
-        self.y_test = self.get_data(dataset, 'y_test')
-        self.train_ids = self.get_data(dataset, 'train_ids')
-        self.test_ids = self.get_data(dataset, 'test_ids')
-            
-        # Save initialized data to csvs (for later recreation)
         self.data_dir = f'data/{INSTABILITY_TYPE}'
-        self.delete_dirs(self.data_dir)
+        if self.force_reset: 
+            self.delete_dirs(self.data_dir)
         self.create_nested_directory(self.data_dir)
         
-        self.to_csv(self.X_train, 'X_train')
-        self.to_csv(self.y_train, 'y_train', 'y_train')
-        self.to_csv(self.X_test, 'X_test')
-        self.to_csv(self.y_test, 'y_test', 'y_test')
-        self.to_csv(self.train_ids, 'train_ids', 'defendant_id')
-        self.to_csv(self.test_ids, 'test_ids', 'defendant_id')
+        # Initializing the dataset to training and testing data + ids
+        self.X_train = self.get_data(dataset, 'X_train')
+        self.y_train = np.asarray(self.get_data(dataset, 'y_train')).ravel()
+        self.X_test = self.get_data(dataset, 'X_test')
+        self.y_test = np.asarray(self.get_data(dataset, 'y_test')).ravel()
+        self.train_ids = np.asarray(self.get_data(dataset, 'train_ids')).ravel()
+        self.test_ids = np.asarray(self.get_data(dataset, 'test_ids')).ravel()    
+        
+        # Save initialized data to csvs (for later recreation)
+        self.to_joblib(self.X_train, 'X_train')
+        self.to_joblib(self.y_train, 'y_train')
+        self.to_joblib(self.X_test, 'X_test')
+        self.to_joblib(self.y_test, 'y_test')
+        self.to_joblib(self.train_ids, 'train_ids')
+        self.to_joblib(self.test_ids, 'test_ids')
 
         # Either save the newly generated split data or use existing data
-        split_data = self.get_k_split_data()
+        split_data = None
+        if force_reset:
+            split_data = self.get_k_split_data()
         self.X_train_split_arr = self.get_data(split_data, 'X_train_split_arr')
         self.y_train_split_arr = self.get_data(split_data, 'y_train_split_arr')
         self.X_val_arr = self.get_data(split_data, 'X_val_arr')
@@ -65,17 +68,21 @@ class DatasetInstability:
         self.val_ids_fold_arr = self.get_data(split_data, 'val_ids_fold_arr')
         
         # Save initialized array data to csvs (for later recreation)
-        self.to_csv(self.X_train_split_arr, 'X_train_split_arr')
-        self.to_csv(self.y_train_split_arr, 'y_train_split_arr', 'y_train')
-        self.to_csv(self.X_val_arr, 'X_val_arr')
-        self.to_csv(self.y_val_arr, 'y_val_arr')
-        self.to_csv(self.val_ids_fold_arr, 'val_ids_fold_arr')
+        self.to_joblib(self.X_train_split_arr, 'X_train_split_arr')
+        self.to_joblib(self.y_train_split_arr, 'y_train_split_arr')
+        self.to_joblib(self.X_val_arr, 'X_val_arr')
+        self.to_joblib(self.y_val_arr, 'y_val_arr')
+        self.to_joblib(self.val_ids_fold_arr, 'val_ids_fold_arr')
         
-        [
-            self.X_boot_arr,
-            self.y_boot_arr
-        ] = self.get_bootstrap_data()
-
+        bootstrap_data = None
+        if force_reset:
+            bootstrap_data = self.get_bootstrap_data()
+        self.X_boot_arr = self.get_data(bootstrap_data, 'X_boot_arr')
+        self.y_boot_arr = self.get_data(bootstrap_data, 'y_boot_arr')
+        
+        self.to_joblib(self.X_boot_arr, 'X_boot_arr')
+        self.to_joblib(self.y_boot_arr, 'y_boot_arr')
+                
         [
             self.scaled_X_boot_arr,
             self.transf_X_val_arr,
@@ -84,67 +91,36 @@ class DatasetInstability:
         
         self.models_dir = f'models/{INSTABILITY_TYPE}'
         # running the model
-        """self.train_models()"""
         
         self.predictions_dir = f'predictions/{INSTABILITY_TYPE}'
-        """self.delete_dirs(self.predictions_dir)
-        self.create_nested_directory(self.predictions_dir)
-        self.get_predictions()   """     
+        if force_reset:
+            self.train_models()
+            self.delete_dirs(self.predictions_dir)
+            self.create_nested_directory(self.predictions_dir)
+            self.get_predictions()
         self.get_metrics()
     
     def data_exists(self, data_name):
-        csv_file_path = f'{self.data_dir}/{data_name}'
+        csv_file_path = f'{self.data_dir}/{data_name}.joblib'
         return os.path.isfile(csv_file_path)
     
     def get_data(self, generated_data, data_name):
-        data = (
-            generated_data[data_name] 
-            if not self.data_exists or self.force_reset
-            else pd.read_csv(f'{self.data_dir}/{data_name}')
-        )
-        return data
+        path = f'{self.data_dir}/{data_name}.joblib'
+
+        if self.force_reset or not os.path.isfile(path):
+            data = generated_data[data_name]
+            joblib.dump(data, path)
+            return data
+
+        return joblib.load(path)
     
-    # Saves data to csvs
-    def to_csv(self, data, data_name, column_name=None):
-        if isinstance(data, pd.DataFrame):
-            print(f'Saving data: {data_name}')
-            data.to_csv(
-                f'{self.data_dir}/{data_name}.csv',
-                index=False
-            )
+    def to_joblib(self, data, data_name):
+        print(f'Saving data: {data_name}')
 
-        elif isinstance(data, np.ndarray):
-            pd.DataFrame({
-                column_name: data
-            }).to_csv(
-                f'{self.data_dir}/{data_name}.csv',
-                index=False
-            )
-
-        elif isinstance(data, list):
-            if all(isinstance(x, pd.DataFrame) for x in data):
-                pd.concat(
-                    data,
-                    keys=range(1, len(data) + 1),
-                    names=['fold_id']
-                ).to_csv(
-                    f'{self.data_dir}/{data_name}.csv'
-                )
-
-            elif all(isinstance(x, np.ndarray) for x in data):
-                pd.concat(
-                    [pd.Series(x) for x in data],
-                    axis=1
-                ).T.to_csv(
-                    f'{self.data_dir}/{data_name}.csv',
-                    index=False
-                )
-
-            else:
-                print('Invalid data. Cannot save to csv.')
-
-        else:
-            print('Invalid data. Cannot save to csv.')
+        joblib.dump(
+            data,
+            f'{self.data_dir}/{data_name}.joblib'
+        )
 
     # Creates nested directories
     def create_nested_directory(self, directory_name):
@@ -172,42 +148,35 @@ class DatasetInstability:
     # Gets the k fold split data
     def get_k_split_data(self):
         print('===== SPLITTING DATA TO K FOLDS =====')
+
         X_train_split_arr = []
         y_train_split_arr = []
-        
         X_val_arr = []
         y_val_arr = []
         val_ids_fold_arr = []
-        
-        count = 1
-        for train_idx, val_idx in self.k_fold.split(self.X_train):
-            print(f'Splitting.... ({count}/{NO_OF_FOLDS})', end="\r")
-            
-            X_train_split = self.X_train.iloc[train_idx]
-            X_train_split_arr.append(X_train_split)
-            
-            y_train_split = self.y_train[train_idx]
-            y_train_split_arr.append(y_train_split)
 
-            X_val = self.X_train.iloc[val_idx]
-            X_val_arr.append(X_val)
-            
-            y_val = self.y_train[val_idx]
-            y_val_arr.append(y_val)
+        for count, (train_idx, val_idx) in enumerate(
+            self.k_fold.split(self.X_train), start=1
+        ):
+            print(f'Splitting.... ({count}/{NO_OF_FOLDS})', end='\r')
 
-            val_ids_fold = self.train_ids[val_idx]
-            val_ids_fold_arr.append(val_ids_fold)
-            
-            count += 1
+            X_train_split_arr.append(self.X_train.iloc[train_idx].copy())
+            y_train_split_arr.append(self.y_train[train_idx])
+
+            X_val_arr.append(self.X_train.iloc[val_idx].copy())
+            y_val_arr.append(self.y_train[val_idx])
+
+            val_ids_fold_arr.append(self.train_ids[val_idx])
+
         print(f'Splitting.... ({NO_OF_FOLDS}/{NO_OF_FOLDS})')
         print()
         
         return {
-            'X_train_split_arr': X_train_split_arr, 
-            'y_train_split_arr': y_train_split_arr, 
-            'X_val_arr': X_val_arr, 
-            'y_val_arr': y_val_arr, 
-            'val_ids_fold_arr': val_ids_fold_arr 
+            'X_train_split_arr': X_train_split_arr,
+            'y_train_split_arr': y_train_split_arr,
+            'X_val_arr': X_val_arr,
+            'y_val_arr': y_val_arr,
+            'val_ids_fold_arr': val_ids_fold_arr
         }
 
     # Gets scaled version of the data as an array
@@ -286,7 +255,10 @@ class DatasetInstability:
             print(f"Fold {fold_id}/{NO_OF_FOLDS} - Getting bootstrapped samples: 100%")     
         print()  
         
-        return [ X_boot_arr, y_boot_arr ]
+        return {
+            'X_boot_arr': X_boot_arr, 
+            'y_boot_arr': y_boot_arr 
+        }
     
     # Gets the trained models as an array
     def train_models(self):
@@ -300,6 +272,7 @@ class DatasetInstability:
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
+            self.force_reset,
             RANDOM_SEED
         )
         
@@ -311,6 +284,7 @@ class DatasetInstability:
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
+            self.force_reset,
             RANDOM_SEED
         )
             
@@ -322,6 +296,7 @@ class DatasetInstability:
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
+            self.force_reset,
             RANDOM_SEED
         )
         
@@ -333,6 +308,7 @@ class DatasetInstability:
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
+            self.force_reset,
             RANDOM_SEED
         )
         
@@ -344,6 +320,7 @@ class DatasetInstability:
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
+            self.force_reset,
             RANDOM_SEED
         )
 
@@ -411,7 +388,8 @@ class DatasetInstability:
             self.test_ids,
             NO_OF_FOLDS,
             self.predictions_dir,
-            INSTABILITY_TYPE
+            INSTABILITY_TYPE,
+            self.force_reset
         )
 
         pm.roc_auc()
@@ -426,7 +404,7 @@ class DatasetInstability:
         self.get_mrip()
         self.generate_shap_values()
         
-        pm.shap_analysis(MODEL_NAMES)
+        pm.shap_analysis(self.trained_models)
     
     # ===============
     # METRIC-SPECIFIC
@@ -454,16 +432,14 @@ class DatasetInstability:
             file_name = f'MRIP_{model_name}_Validation_Fold_{random_fold}_Run_{random_run}.csv'
             csv_file_path = f'{mrip_dir}/{file_name}'
         
-            model = joblib.load(
-                "models/Dataset/LR/fold_1_bootstrap_1.joblib"
-            )
-            model_name = model_name
+            model = joblib.load(f"{self.models_dir}/{model_name}/Fold_{random_fold}_Bootstrap_{random_run}.joblib")
             print(f'Getting MRIP for Validation...', end='\r')
             MRIP(
                 X_train,
                 y_train,
                 X_val_fold,
                 val_ids_fold,
+                'Validation',
                 model, 
                 model_name,
                 random_fold,
@@ -480,6 +456,7 @@ class DatasetInstability:
                 y_train,
                 self.X_test,
                 self.test_ids,
+                'Test',
                 model, 
                 model_name,
                 random_fold,
@@ -489,13 +466,19 @@ class DatasetInstability:
             print(f'Getting MRIP for Test... Completed')
         
     def generate_shap_values(self):
+        self.trained_models = []
         for model_name in MODEL_NAMES:
             print(f'SHAP values for {model_name}')
             random_fold = self.get_random_fold()
-            model_name['random_fold'] = random_fold
-            
             random_run = self.get_random_run()
-            model_name['random_run'] = random_run
+            
+            self.trained_models.append(
+                {
+                    'name': model_name,
+                    'random_fold': random_fold,
+                    'random_run': random_run
+                }
+            )
             
             val_ids_fold = self.val_ids_fold_arr[random_fold-1]
             if model_name in ['LR', 'LSVC', 'MLP']:
