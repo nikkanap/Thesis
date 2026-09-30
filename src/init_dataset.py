@@ -28,6 +28,6 @@ def init_dataset():
         'y_train': y_train, 
         'X_test': X_test, 
         'y_test': y_test, 
-        'training_ids': training_ids, 
-        'testing_ids': testing_ids
+        'train_ids': training_ids, 
+        'test_ids': testing_ids
     }

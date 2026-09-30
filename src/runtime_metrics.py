@@ -13,6 +13,7 @@ def MRIP(
     y_train,
     X_val_test,
     X_val_test_ids,
+    test_name,
     trained_model, 
     model_name,
     fold_id,
@@ -41,7 +42,7 @@ def MRIP(
 
     no_neighbor_count = 0
     for i, defendant_id in enumerate(X_val_test_ids):
-        print(f'Fold {fold_id}, Run {nth_run} - Getting MRIP... {round((i/len(X_val_test_ids))*100)}%', end='\r')
+        print(f'{test_name}, Fold {fold_id}, Run {nth_run} - Getting MRIP... {round((i/len(X_val_test_ids))*100)}%', end='\r')
         neighbor_indices = indices[i]
 
         if len(neighbor_indices) == 0:
@@ -64,8 +65,7 @@ def MRIP(
             mrip_value = np.mean(errors <= epsilon)
 
         mrip_values.append(mrip_value)
-    print(f'Fold {fold_id}, Run {nth_run} - Getting MRIP... 100%')
-    print()
+    print(f'{test_name},  Fold {fold_id}, Run {nth_run} - Getting MRIP... 100%')
     
     # Create or update CSV
     if os.path.isfile(csv_file_path):
