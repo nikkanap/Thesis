@@ -155,18 +155,19 @@ class PostMetrics:
                         roc_aucs
                     )
                     
-                    roc_auc_mean = np.mean(roc_aucs)
+                    roc_auc_mean = float(f'{np.mean(roc_aucs):.4g}')
                     roc_auc_means.append(roc_auc_mean)
                                         
-                    roc_auc_std = np.std(roc_aucs, ddof=1)
+                    roc_auc_std = float(f'{np.std(roc_aucs, ddof=1):.4g}')
                     roc_auc_stds.append(roc_auc_std)
                 
-                csv_file_path = f'{roc_auc_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'
-                self.save_to_csv(
-                    csv_file_path,
-                    'fold',
-                    [i for i in range(1, self.no_of_folds + 1)]                   
-                )
+                csv_file_path = f'{roc_auc_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv'
+                if test_name == 'Validation':
+                    self.save_to_csv(
+                        csv_file_path,
+                        'fold',
+                        [i for i in range(1, self.no_of_folds + 1)]                   
+                    )
                 
                 self.save_to_csv(
                     csv_file_path,
@@ -226,44 +227,45 @@ class PostMetrics:
                     )
                     
                     # Compute mean and STD of Brier scores across runs
-                    brier_score_mean = np.mean(brier_scores)
+                    brier_score_mean = float(f'{np.mean(brier_scores):.4g}')
                     brier_score_means.append(brier_score_mean)
                 
-                    brier_score_std = np.std(brier_scores, ddof=1)
+                    brier_score_std = float(f'{np.std(brier_scores, ddof=1):.4g}')
                     brier_score_stds.append(brier_score_std)
                 
-                csv_file_path = f'{brier_score_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'     
-                self.save_to_csv(
-                    csv_file_path,
-                    'fold',
-                    [i for i in range(1, self.no_of_folds + 1)]                   
-                )
+                csv_file_path = f'{brier_score_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv'     
+                if test_name == 'Validation':
+                    self.save_to_csv(
+                        csv_file_path,
+                        'fold',
+                        [i for i in range(1, self.no_of_folds + 1)]                   
+                    )
                 
                 self.save_to_csv(
                     csv_file_path,
-                    f'Mean_{metric_name}',
+                    f'Mean_{metric_name}_{test_name}',
                     brier_score_means                   
                 )    
                     
                 self.save_to_csv(
                     csv_file_path,
-                    f'STD_{metric_name}',
+                    f'STD_{metric_name}_{test_name}',
                     brier_score_stds
                 )
         print()
 
     # Instability metric
     # Gets the 95% Instability Percentile (GOOD)
-    def ninety_five_stability_interval(self):
-        metric_name = '95_Stability_Interval'
+    def ninety_five_prediction_interval(self):
+        metric_name = '95_prediction_interval'
         
         print('Metric: 95 Instability Interval')
         for i, test_name in enumerate(TEST_NAMES):
             for model_name in MODEL_NAMES:     
-                si_dir = f'{self.metrics_dir}/95_stability_interval/{model_name}'
+                si_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
                 create_nested_directory(si_dir)
                 
-                csv_file_path = f'{si_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'
+                csv_file_path = f'{si_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv'
                 mean_si_widths = []
                 
                 for fold_id in range(1, self.no_of_folds + 1):
@@ -306,16 +308,17 @@ class PostMetrics:
                     plt.savefig(csv_file_path.replace('.csv', f'_Fold_{fold_id}.png'))
                     plt.close()
                 print(f'{test_name}, {model_name}, Fold {self.no_of_folds}/{self.no_of_folds}')
-                    
-                self.save_to_csv(
-                    csv_file_path,
-                    f'fold',
-                    [i for i in range(1, self.no_of_folds + 1)]
-                )
+                
+                if test_name == 'Validation':
+                    self.save_to_csv(
+                        csv_file_path,
+                        f'fold',
+                        [i for i in range(1, self.no_of_folds + 1)]
+                    )
                 
                 self.save_to_csv(
                     csv_file_path,
-                    f'Mean_SI_Width',
+                    f'Mean_PI_Width_{test_name}',
                     mean_si_widths
                 )
         print()    
@@ -350,11 +353,11 @@ class PostMetrics:
                         self.get_defendant_ids(test_name, fold_id)
                     )
                         
-                    mean_prediction = np.mean(predictions, axis=1) 
-                    mape_per_defendant = np.mean(
+                    mean_prediction = float(f'{np.mean(predictions, axis=1):.4g}') 
+                    mape_per_defendant = float(f'{np.mean(
                         np.abs(predictions - mean_prediction[:, None]),
                         axis=1
-                    )
+                    ):.4g}')
                     
                     self.save_to_csv(
                         mape_csv_file_path,
@@ -362,7 +365,7 @@ class PostMetrics:
                         mape_per_defendant
                     )
                     
-                    mape_mean = np.mean(mape_per_defendant)
+                    mape_mean = float(f'{np.mean(mape_per_defendant):.4g}')
                     mean_mapes.append(mape_mean)
                 print(f'{test_name}, {model_name}, Fold {self.no_of_folds}/{self.no_of_folds}')
                 
@@ -440,26 +443,28 @@ class PostMetrics:
                         jaccard_scores
                     )
                         
-                    mean_jaccard = np.mean(jaccard_scores)
+                    mean_jaccard = float(f'{np.mean(jaccard_scores):.4g}')
                     jaccard_scores_mean.append(mean_jaccard)
                     
-                    std_jaccard = np.std(jaccard_scores, ddof=1)
+                    std_jaccard = float(f'{np.std(jaccard_scores, ddof=1):.4g}')
                     jaccard_scores_std.append(std_jaccard)
                     
-                csv_file_path = f'{tk_jaccard_dir}/Aggregate_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'
+                csv_file_path = f'{tk_jaccard_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv'
+                if test_name == 'Validation':
+                    self.save_to_csv(
+                        csv_file_path,
+                        'fold',
+                        [i for i in range(1, self.no_of_folds + 1)]
+                    )
+                    
                 self.save_to_csv(
                     csv_file_path,
-                    'fold',
-                    [i for i in range(1, self.no_of_folds + 1)]
-                )
-                self.save_to_csv(
-                    csv_file_path,
-                    f'Mean_{metric_name}',
+                    f'Mean_{metric_name}_{test_name}',
                     jaccard_scores_mean
                 )
                 self.save_to_csv(
                     csv_file_path,
-                    f'STD_{metric_name}',
+                    f'STD_{metric_name}_{test_name}',
                     jaccard_scores_std
                 )
             
@@ -508,10 +513,10 @@ class PostMetrics:
                         cii_individual
                     )
                                   
-                    cii_mean = np.mean(cii_individual)
+                    cii_mean = float(f'{np.mean(cii_individual):.4g}')
                     mean_ciis.append(cii_mean)
                     
-                    cii_std = np.std(cii_individual, ddof=1)
+                    cii_std = float(f'{np.std(cii_individual, ddof=1):.4g}')
                     std_ciis.append(cii_std)
                     
                     plt.hist(cii_individual, bins=20)
@@ -522,22 +527,23 @@ class PostMetrics:
                     plt.close()
                     
                 print(f'{test_name}, {model_name}, Fold {self.no_of_folds}/{self.no_of_folds}')
-                csv_file_path = f'{cii_dir}/Aggregate_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv' 
-                self.save_to_csv(
-                    csv_file_path,
-                    'fold',
-                    [i for i in range (1, self.no_of_folds + 1)]
-                )
+                csv_file_path = f'{cii_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv' 
+                if test_name == 'Validation':
+                    self.save_to_csv(
+                        csv_file_path,
+                        'fold',
+                        [i for i in range (1, self.no_of_folds + 1)]
+                    )
                 
                 self.save_to_csv(
                     csv_file_path,
-                    f'Mean_{metric_name}',
+                    f'Mean_{metric_name}_{test_name}',
                     mean_ciis
                 )
                 
                 self.save_to_csv(
                     csv_file_path,
-                    f'STD_{metric_name}',
+                    f'STD_{metric_name}_{test_name}',
                     std_ciis
                 )
         print()
@@ -703,6 +709,18 @@ class PostMetrics:
                         f'fold_{fold_id}',
                         dfpr_stds
                     )
+                    
+                self.save_to_csv(
+                    mean_csv_file_path,
+                    f'z_{fold_id}',
+                    dfpr_means
+                )
+
+                self.save_to_csv(
+                    std_csv_file_path,
+                    f'fold_{fold_id}',
+                    dfpr_stds
+                )
         print()
                 
     # SHAP ANALYSIS
