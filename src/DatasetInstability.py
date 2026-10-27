@@ -19,7 +19,7 @@ from generate_prediction_csv import generate_prediction_csv
 
 RANDOM_SEED = 42
 NO_OF_FOLDS = 10
-BOOTSTRAPS = 10
+BOOTSTRAPS = 100
 INSTABILITY_TYPE = 'Dataset'
 MODEL_NAMES = ['LR', 'LSVC', 'XGB', 'RF', 'MLP']
 
@@ -47,7 +47,7 @@ class DatasetInstability:
         self.X_test = self.get_data(dataset, 'X_test')
         self.y_test = np.asarray(self.get_data(dataset, 'y_test')).ravel()
         self.train_ids = np.asarray(self.get_data(dataset, 'train_ids')).ravel()
-        self.test_ids = np.asarray(self.get_data(dataset, 'test_ids')).ravel()    
+        self.test_ids = np.asarray(self.get_data(dataset, 'test_ids')).ravel() 
         
         # Save initialized data to csvs (for later recreation)
         self.to_joblib(self.X_train, 'X_train')
@@ -181,6 +181,7 @@ class DatasetInstability:
 
     # Gets scaled version of the data as an array
     def get_X_scaled(self):
+        print()
         print('===== SCALED VERSIONS =====')
         scaled_X_boot_arr = []
         transf_X_val_arr = []
@@ -395,7 +396,7 @@ class DatasetInstability:
         pm.roc_auc()
         pm.brier_score()
         pm.calibration_plot()
-        pm.ninety_five_stability_interval()
+        pm.ninety_five_prediction_interval()
         pm.mean_absolute_prediction_error()
         pm.classification_instability_index()
         pm.top_k_jaccard()

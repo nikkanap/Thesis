@@ -323,7 +323,7 @@ class StochasticInstability:
         pm.roc_auc()
         pm.brier_score()
         pm.calibration_plot()
-        pm.ninety_five_stability_interval()
+        pm.ninety_five_prediction_interval()
         pm.mean_absolute_prediction_error()
         pm.classification_instability_index()
         pm.top_k_jaccard()
