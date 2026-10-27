@@ -5,7 +5,7 @@ import shutil
 import os
 
 from sklearn.calibration import calibration_curve
-from sklearn.metrics import roc_auc_score, brier_score_loss, confusion_matrix
+from sklearn.metrics import roc_auc_score, brier_score_loss, confusion_matrix, r2_score
 
 from itertools import combinations
 from statsmodels.nonparametric.smoothers_lowess import lowess
@@ -257,71 +257,146 @@ class PostMetrics:
     # Instability metric
     # Gets the 95% Instability Percentile (GOOD)
     def ninety_five_prediction_interval(self):
-        metric_name = '95_prediction_interval'
-        
-        print('Metric: 95 Instability Interval')
-        for i, test_name in enumerate(TEST_NAMES):
-            for model_name in MODEL_NAMES:     
-                si_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(si_dir)
-                
-                csv_file_path = f'{si_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv'
-                mean_si_widths = []
-                
-                for fold_id in range(1, self.no_of_folds + 1):
-                    print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds}', end='\r')
-                    predictions = self.get_predictions(model_name, test_name, fold_id)
-                    defendant_ids = self.get_defendant_ids(test_name, fold_id)
-                    
-                    stability_df = pd.DataFrame({
-                        'defendant_id': defendant_ids,
-                        'mean_prediction': np.mean(predictions, axis=1),
-                        'lower_95': np.percentile(predictions, 2.5, axis=1),
-                        'upper_95': np.percentile(predictions, 97.5, axis=1)
-                    })
-                    
-                    stability_df['si_width'] = ( 
-                        stability_df['upper_95'] - stability_df['lower_95']
+            metric_name = '95_Prediction_Interval'
+            print('Metric: 95 Prediction Interval')
+    
+            for i, test_name in enumerate(TEST_NAMES):
+                for model_name in MODEL_NAMES:
+    
+                    si_dir = f'{self.metrics_dir}/95_prediction_interval/{model_name}'
+                    create_nested_directory(si_dir)
+    
+                    csv_file_path = (
+                        f'{si_dir}/Aggregated_{metric_name}_'
+                        f'{model_name}_{self.instability_type}_{test_name}.csv'
                     )
-                    mean_si_width = stability_df['si_width'].mean()
-                    mean_si_widths.append(mean_si_width)
-                                        
-                    plot_df = stability_df.head(100)
+    
+                    folds = []
+                    lower_95_errors = []
+                    upper_95_errors = []
+                    mean_errors = []
+                    median_errors = []
+    
+                    # Store errors for the final box plot
+                    all_fold_errors = []
+    
+                    for fold_id in range(1, self.no_of_folds + 1):
+                        print(
+                            f'{test_name}, {model_name}, '
+                            f'Fold {fold_id}/{self.no_of_folds}',
+                            end='\r'
+                        )
+    
+                        # Predictions:
+                        # rows    = defendants
+                        # columns = bootstrap runs
+                        predictions = self.get_predictions(
+                            model_name,
+                            test_name,
+                            fold_id
+                        )
+    
+                        # Actual y values
+                        y_true = self.get_y_values(
+                            test_name,
+                            fold_id
+                        )
+    
+                        errors = np.abs(y_true[:, np.newaxis] - predictions)
+    
+                        # Flatten all defendant-bootstrap errors for this fold
+                        fold_errors = errors.to_numpy().flatten()
+    
+                        # Store for final box plot
+                        all_fold_errors.append(fold_errors)
+    
+                        lower_95 = np.percentile(fold_errors, 2.5)
+                        upper_95 = np.percentile(fold_errors, 97.5)
+    
+                        mean_error = np.mean(fold_errors)
+                        median_error = np.median(fold_errors)
+    
+                        folds.append(fold_id)
+                        lower_95_errors.append(float(f'{lower_95:.4g}'))
+                        upper_95_errors.append(float(f'{upper_95:.4g}'))
+                        mean_errors.append(float(f'{mean_error:.4g}'))
+                        median_errors.append(float(f'{median_error:.4g}'))
+    
+                    # ------------------------------------------------------
+                    # Box plot: Prediction Error per Fold
+                    # ------------------------------------------------------
                     plt.figure(figsize=(12, 6))
-                    plt.vlines(
-                        plot_df['defendant_id'],
-                        plot_df['lower_95'],
-                        plot_df['upper_95']
+    
+                    plt.boxplot(
+                        all_fold_errors,
+                        tick_labels=[
+                            f'Fold {fold_id}'
+                            for fold_id in range(1, self.no_of_folds + 1)
+                        ],
+                        notch=True
                     )
-
-                    plt.scatter(
-                        plot_df['defendant_id'],
-                        plot_df['mean_prediction']
+    
+                    # Zero = no prediction error
+                    plt.axhline(
+                        y=0,
+                        linestyle='--',
+                        linewidth=1
                     )
-                    plt.xlabel('Defendant ID')
-                    plt.ylabel('Predicted Probability')
+    
+                    plt.xlabel('Fold')
+                    plt.ylabel('Prediction Error (y - predicted probability)')
+    
                     plt.title(
-                        f'{self.instability_type} - {model_name} - Fold {fold_id} - 95% Stability Intervals of Predicted Recidivism Risk'
+                        f'{self.instability_type} - {model_name} - '
+                        f'95% Prediction Error Distribution - {test_name}'
                     )
-                    plt.xticks(rotation=90)
+    
                     plt.tight_layout()
-                    plt.savefig(csv_file_path.replace('.csv', f'_Fold_{fold_id}.png'))
+    
+                    plot_path = csv_file_path.replace(
+                        '.csv',
+                        '_Prediction_Error_Boxplot.png'
+                    )
+    
+                    plt.savefig(plot_path)
                     plt.close()
-                print(f'{test_name}, {model_name}, Fold {self.no_of_folds}/{self.no_of_folds}')
-                
-                if test_name == 'Validation':
+    
                     self.save_to_csv(
                         csv_file_path,
-                        f'fold',
-                        [i for i in range(1, self.no_of_folds + 1)]
+                        'Fold',
+                        folds
                     )
-                
-                self.save_to_csv(
-                    csv_file_path,
-                    f'Mean_PI_Width_{test_name}',
-                    mean_si_widths
-                )
-        print()    
+    
+                    self.save_to_csv(
+                        csv_file_path,
+                        'Lower_95_Error',
+                        lower_95_errors
+                    )
+    
+                    self.save_to_csv(
+                        csv_file_path,
+                        'Upper_95_Error',
+                        upper_95_errors
+                    )
+    
+                    self.save_to_csv(
+                        csv_file_path,
+                        'Mean_Error',
+                        mean_errors
+                    )
+    
+                    self.save_to_csv(
+                        csv_file_path,
+                        'Median_Error',
+                        median_errors
+                    )
+    
+                    print(
+                        f'{test_name}, {model_name}, '
+                        f'Fold {self.no_of_folds}/{self.no_of_folds}'
+                    )
+    
+                    print()
 
     # Instability metric
     # Mean Absolute Prediction Error (GOOD)
@@ -340,7 +415,7 @@ class PostMetrics:
                 for fold_id in range(1, self.no_of_folds + 1):
                     print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds}', end='\r')
                     mape_csv_file_path = f'{mape_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
-                           
+                            
                     predictions = self.get_predictions(
                         model_name, 
                         test_name, 
@@ -353,11 +428,11 @@ class PostMetrics:
                         self.get_defendant_ids(test_name, fold_id)
                     )
                         
-                    mean_prediction = float(f'{np.mean(predictions, axis=1):.4g}') 
-                    mape_per_defendant = float(f'{np.mean(
+                    mean_prediction = np.mean(predictions, axis=1) 
+                    mape_per_defendant = np.mean(
                         np.abs(predictions - mean_prediction[:, None]),
                         axis=1
-                    ):.4g}')
+                    )
                     
                     self.save_to_csv(
                         mape_csv_file_path,
@@ -365,7 +440,7 @@ class PostMetrics:
                         mape_per_defendant
                     )
                     
-                    mape_mean = float(f'{np.mean(mape_per_defendant):.4g}')
+                    mape_mean = np.mean(mape_per_defendant)
                     mean_mapes.append(mape_mean)
                 print(f'{test_name}, {model_name}, Fold {self.no_of_folds}/{self.no_of_folds}')
                 
@@ -571,6 +646,9 @@ class PostMetrics:
                     plt.figure(figsize=(8, 6))
                     for run in range(predictions.shape[1]):
                         print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting Calibration Plots... {round(((run+1)/predictions.shape[1])*100)}%', end='\r')
+                        
+                        y_pred = predictions.iloc[:, run]
+                        
                         prob_true, prob_pred = calibration_curve(
                             y_df,
                             predictions.iloc[:, run],
@@ -583,6 +661,8 @@ class PostMetrics:
                             prob_true,
                             alpha=0.1
                         )
+                        
+                        r2 = r2_score(y_df, y_pred)
                         
                     print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting Calibration Plots... 100%')
                     plt.plot(
@@ -598,6 +678,15 @@ class PostMetrics:
                         f'{self.instability_type} - {model_name} - {test_name} - '
                         f'Calibration Plot - Fold {fold_id}'
                     )
+                    
+                    plt.text(
+                        0.05, 0.95,
+                        f'$R^2$ = {r2:.4f}',
+                        transform=plt.gca().transAxes,
+                        verticalalignment='top',
+                        bbox=dict(facecolor='white', alpha=0.8)
+                    )
+                    
                     plt.legend()
                     plt.tight_layout()
 
