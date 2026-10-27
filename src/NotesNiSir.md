@@ -8,3 +8,6 @@ coefficient of determination
 
 DFPR:
 either restrict data for DFPR or keep (not suggested)
+
+Add notch to boxplot (just do notch=True or something)
+Make the numbers absolute value (kayano mayda negative?)
