@@ -36,17 +36,17 @@ def MRIP(
     nn = NearestNeighbors(radius=delta)
     nn.fit(X_train_scaled)
 
-    nearest_distances, indices = nn.radius_neighbors(X_val_test_scaled)
+    _, indices = nn.radius_neighbors(X_val_test_scaled)
     
     mrip_values = []
-
     no_neighbor_count = 0
+    
     for i, defendant_id in enumerate(X_val_test_ids):
         print(f'{test_name}, Fold {fold_id}, Run {nth_run} - Getting MRIP... {round((i/len(X_val_test_ids))*100)}%', end='\r')
         neighbor_indices = indices[i]
 
         if len(neighbor_indices) == 0:
-            no_neighbor_count += 1  
+            no_neighbor_count += 1
             mrip_value = np.nan
 
         else:
@@ -55,15 +55,14 @@ def MRIP(
                 X_star = X_train_scaled[neighbor_indices]
             else:  # RF, XGB
                 X_star = X_train.iloc[neighbor_indices]
+            
             y_star = y_train[neighbor_indices]
-
+            
             # All models now provide predict_proba()
             probabilities = trained_model.predict_proba(X_star)[:, 1]
-
             errors = np.abs(y_star - probabilities)
-
             mrip_value = np.mean(errors <= epsilon)
-
+        
         mrip_values.append(mrip_value)
     print(f'{test_name},  Fold {fold_id}, Run {nth_run} - Getting MRIP... 100%')
     
@@ -73,6 +72,7 @@ def MRIP(
         df[f'MRIP_{nth_run}'] = mrip_values
 
     else:
+        X_val_test_ids = list(X_val_test_ids)
         df = pd.DataFrame({
             'Defendant_ID': X_val_test_ids,
             f'MRIP_{nth_run}': mrip_values
