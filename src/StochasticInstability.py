@@ -23,7 +23,9 @@ INSTABILITY_TYPE = 'Stochastic'
 MODEL_NAMES = ['LR', 'LSVC', 'XGB', 'RF', 'MLP']
 
 class StochasticInstability:
-    def __init__(self, dataset=None, force_reset=False):      
+    def __init__(self, dataset=None, force_reset=False):   
+        print('===== RUNNING STOCHASTIC INSTABILITY =====')   
+        
         # RNG 
         self.rng = np.random.default_rng(42)
         self.force_reset = force_reset # forces reset
@@ -56,6 +58,7 @@ class StochasticInstability:
         self.to_joblib(self.y_test, 'y_test')
         self.to_joblib(self.train_ids, 'train_ids')
         self.to_joblib(self.test_ids, 'test_ids')
+        print()
     
         # Either save the newly generated split data or use existing data
         split_data = None
@@ -73,6 +76,7 @@ class StochasticInstability:
         self.to_joblib(self.X_val_arr, 'X_val_arr')
         self.to_joblib(self.y_val_arr, 'y_val_arr')
         self.to_joblib(self.val_ids_fold_arr, 'val_ids_fold_arr')
+        print()
 
         [
             self.scaled_X_train_split_arr,

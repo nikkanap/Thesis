@@ -25,6 +25,8 @@ MODEL_NAMES = ['LR', 'LSVC', 'XGB', 'RF', 'MLP']
 
 class DatasetInstability:
     def __init__(self, dataset, force_reset=False):      
+        print('===== RUNNING DATASET INSTABILITY =====')
+        
         # RNG 
         self.rng = np.random.default_rng(RANDOM_SEED)
         self.force_reset = force_reset # forces the program to start from scratch
@@ -56,6 +58,7 @@ class DatasetInstability:
         self.to_joblib(self.y_test, 'y_test')
         self.to_joblib(self.train_ids, 'train_ids')
         self.to_joblib(self.test_ids, 'test_ids')
+        print()
 
         # Either save the newly generated split data or use existing data
         split_data = None
@@ -73,6 +76,7 @@ class DatasetInstability:
         self.to_joblib(self.X_val_arr, 'X_val_arr')
         self.to_joblib(self.y_val_arr, 'y_val_arr')
         self.to_joblib(self.val_ids_fold_arr, 'val_ids_fold_arr')
+        print()
         
         bootstrap_data = None
         if force_reset:

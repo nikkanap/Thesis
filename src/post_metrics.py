@@ -323,9 +323,7 @@ class PostMetrics:
                     mean_errors.append(mean_error)
                     median_errors.append(median_error)
 
-                # ------------------------------------------------------
-                # Box plot: Prediction Error per Fold
-                # ------------------------------------------------------
+                # Box plot
                 plt.figure(figsize=(12, 6))
 
                 plt.boxplot(
@@ -864,13 +862,11 @@ class PostMetrics:
                 # Each column = one run
                 # Each row = one defendant
                 shap_mean = shap_values.mean(axis=1)
-                shap_std = shap_values.std(axis=1, ddof=1)
 
                 output = pd.DataFrame({
                     'defendant_id': defendant_ids,
                     'feature': features,
-                    'SHAP_Mean': shap_mean,
-                    'SHAP_STD': shap_std
+                    'SHAP_Mean': shap_mean
                 })
 
                 csv_file_path = (
