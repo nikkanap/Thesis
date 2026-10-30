@@ -23,7 +23,7 @@ RACE_NAMES = [
 ]
 DFPR_THRESHOLD = 0.5
 MODEL_NAMES = [ 'LR', 'RF', 'LSVC', 'XGB', 'MLP' ]
-TEST_NAMES = [ 'Validation', 'Test'] 
+EVAL_NAMES = [ 'Validation', 'Test'] 
 
 class PostMetrics:
     def __init__(
@@ -74,43 +74,108 @@ class PostMetrics:
     # Saves data to csv files
     def save_to_csv(
         self, 
-        csv_file_path,
-        metric_column_name,
-        metric_column_data
+        csv_path,
+        metric_name,
+        metric_data=None,
+        orientation='column'
     ):
-        if os.path.isfile(csv_file_path):
-            df = pd.read_csv(csv_file_path)
-            df[metric_column_name] = metric_column_data
+        if isinstance(metric_name, (dict, pd.DataFrame)):
+            data_frame = pd.DataFrame(metric_name)
+            for column_name in data_frame.columns:
+                self.save_to_csv(
+                    csv_path,
+                    column_name,
+                    data_frame[column_name],
+                    orientation,
+                )
+            return
+
+        if orientation not in {'column', 'row'}:
+            raise ValueError("orientation must be either 'column' or 'row'")
+
+        values = list(metric_data)
+        if orientation == 'column':
+            if os.path.isfile(csv_path):
+                df = pd.read_csv(csv_path)
+                df[metric_name] = values
+            else:
+                df = pd.DataFrame({metric_name: values})
         else:
-            df = pd.DataFrame({
-                metric_column_name: metric_column_data
-            })
-        df.to_csv(csv_file_path, index=False) 
+            index_name = 'Metric'
+            if os.path.isfile(csv_path):
+                df = pd.read_csv(csv_path).set_index(index_name)
+            else:
+                df = pd.DataFrame()
+                df.index.name = index_name
+
+            # Pad rows to a consistent width while allowing metrics to have
+            # different numbers of values.
+            width = max(len(df.columns), len(values))
+            columns = [f'Value_{i + 1}' for i in range(width)]
+            
+            df = df.reindex(columns=columns)
+            df.loc[metric_name] = values + [np.nan] * (width - len(values))
+            df.to_csv(csv_path)
+            return
+
+        df.to_csv(csv_path, index=False)
+
+    def print_metric_progress(
+        self, eval_name, model_name, fold_id, metric_name=None,
+        completed=None, total=None
+    ):
+        progress = f'{eval_name}, {model_name}, Fold {fold_id}/{self.no_of_folds}'
+        if metric_name is not None:
+            progress += (
+                f' - Getting {metric_name}s... '
+                f'{round((completed / total) * 100)}%'
+            )
+        print(progress, end='\r')
     
     # ================
     # GETTER FUNCTIONS
     # ================
     
     # Gets the defendant ids from the test or validation data
-    def get_defendant_ids(self, test_name, fold_id=None):
+    def get_defendant_ids(self, eval_name, fold_id=None):
         return (
             self.test_defendant_ids
-            if test_name == 'Test'
+            if eval_name == 'Test'
             else self.val_defendant_ids_list[fold_id-1]
         )
     
     # Gets the y_values from the test or validation data
-    def get_y_values(self, test_name, fold_id=None):        
+    def get_y_values(self, eval_name, fold_id=None):        
         return (
             self.y_test 
-            if test_name == 'Test' 
+            if eval_name == 'Test' 
             else self.y_val_list[fold_id-1]
         )
                      
     # Gets the predictions per fold
-    def get_predictions(self, model_name, test_name, fold_id):
-        return pd.read_csv(f'{self.predictions_dir}/{model_name}_Predictions_{test_name}_{fold_id}.csv')                           
+    def get_predictions(self, model_name, eval_name, fold_id):
+        return pd.read_csv(f'{self.predictions_dir}/{model_name}_Predictions_{eval_name}_{fold_id}.csv')                           
+
+    def get_shap_values(self, shap_values_dir, model_name, eval_name, fold_id):
+        csv_path = self.get_csv_path(
+            shap_values_dir,
+            model_name,
+            'SHAP_Analysis',
+            eval_name,
+            custom_title='SHAP',
+            fold_id=fold_id,
+        )
+        return pd.read_csv(csv_path)
     
+    # Returns the csv file path
+    def get_csv_path(
+        self, metric_dir, model_name, metric_name, eval_name, custom_title=None, fold_id=None,
+    ):
+        return (
+            f'{metric_dir}/{custom_title if custom_title != None else 'Summary'}_{metric_name}_{model_name}_{self.instability_type}.csv'
+            if fold_id == None
+            else f'{metric_dir}/{f'{custom_title}_' if custom_title != None else ''}{metric_name}_{model_name}_{self.instability_type}_{eval_name}_Fold_{fold_id}.csv'
+        )
     
     
     # =======
@@ -121,216 +186,124 @@ class PostMetrics:
         print(f'Metric: ROC-AUC')
         metric_name = 'ROC_AUC'
         
-        for test_name in TEST_NAMES:
+        for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
-                roc_auc_dir = f'{self.metrics_dir}/roc_auc/{model_name}'
+                roc_auc_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
                 create_nested_directory(roc_auc_dir)
                 
-                roc_auc_means = []
-                roc_auc_stds = []
+                summary_dict = {
+                    'Fold': range(1, self.no_of_folds + 1),
+                    f'Mean_{metric_name}': [],
+                    f'STD_{metric_name}': [],
+                }
                 
                 for fold_id in range(1, self.no_of_folds + 1):
-                    # Gets the predictions
-                    predictions = self.get_predictions(model_name, test_name, fold_id)
+                    predictions = self.get_predictions(model_name, eval_name, fold_id)
+                    y_eval = self.get_y_values(eval_name, fold_id)
                     
-                    # Saves the 
-                    fold_csv_file_path = f'{roc_auc_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'Run',
-                        predictions.columns
-                    )
-                    
-                    # Getting the y_values of test/validation
-                    y_eval = self.get_y_values(test_name, fold_id)
+                    fold_csv_path = self.get_csv_path(roc_auc_dir, model_name, metric_name, eval_name, fold_id)
+                    self.save_to_csv(fold_csv_path, 'Run', predictions.columns)
                     
                     roc_aucs = []
                     for col in predictions.columns:
-                        print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting ROC-AUCs... {round((len(roc_aucs)/len(predictions.columns))*100)}%', end='\r')
-                        
-                        # Get the predictions per bootstrap
+                        self.print_metric_progress(eval_name, model_name, fold_id, 'ROC-AUC', len(roc_aucs), len(predictions.columns))
                         y_pred_proba = predictions[col].values
                         
-                        # Get the ROC-AUC scores for that specific run
                         roc_auc = roc_auc_score(y_eval, y_pred_proba)
-                        roc_aucs.append(roc_auc)
+                        roc_aucs.append(roc_auc)    
                         
-                    print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting ROC-AUCs... 100%')
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'ROC_AUC_Score',
-                        roc_aucs
-                    )
+                    self.save_to_csv(fold_csv_path, 'ROC_AUC_Score', roc_aucs)
+                
+                    summary_dict[f'Mean_{metric_name}'].append(np.mean(roc_aucs))
+                    summary_dict[f'STD_{metric_name}'].append(np.std(roc_aucs, ddof=1))
                     
-                    # Get the mean ROC-AUC Values
-                    roc_auc_mean = np.mean(roc_aucs)
-                    roc_auc_means.append(roc_auc_mean)
-                                       
-                    # Get the mean  
-                    roc_auc_std = np.std(roc_aucs, ddof=1)
-                    roc_auc_stds.append(roc_auc_std)
+                summary_csv_path = self.get_csv_path(roc_auc_dir, model_name, metric_name, eval_name)
+                self.save_to_csv(summary_csv_path, summary_dict)
                 
-                agg_csv_file_path = f'{roc_auc_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv'
-                if test_name == 'Validation':
-                    self.save_to_csv(
-                        agg_csv_file_path,
-                        'Fold',
-                        [i for i in range(1, self.no_of_folds + 1)]                   
-                    )
-                
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    f'Mean_{metric_name}',
-                    roc_auc_means
-                )
-                
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    f'STD_{metric_name}',
-                    roc_auc_stds
-                )
             print()
         
     # Performance metric
     def brier_score(self):
+        print('Metric: Brier Score')
         metric_name = 'Brier_Score'
         
-        print('Metric: Brier Score')
-        for test_name in TEST_NAMES:            
+        for eval_name in EVAL_NAMES:            
             for model_name in MODEL_NAMES:         
-                brier_score_dir = f'{self.metrics_dir}/brier_score/{model_name}'
+                brier_score_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
                 create_nested_directory(brier_score_dir)
                 
-                brier_score_means = []
-                brier_score_stds = []
+                summary_dict = {
+                    'Fold': range(1, self.no_of_folds + 1),
+                    f'Mean_{metric_name}': [],
+                    f'STD_{metric_name}': [],
+                }
                 
                 for fold_id in range(1, self.no_of_folds + 1):
-                    fold_csv_file_path = f'{brier_score_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'       
-                    y_eval = self.get_y_values(test_name, fold_id)
-                                                                   
-                    predictions = self.get_predictions(
-                        model_name,
-                        test_name,
-                        fold_id=fold_id
-                    )
+                    y_eval = self.get_y_values(eval_name, fold_id)             
+                    predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
                     
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'run',
-                        predictions.columns
-                    )
+                    fold_csv_path = self.get_csv_path(brier_score_dir, model_name, metric_name, eval_name, fold_id)
+                    self.save_to_csv(fold_csv_path, 'Run', predictions.columns)
                     
-                    brier_scores = []
+                    brier_score_list = []
                     for col in predictions.columns:
-                        print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting Brier Scores... {round((len(brier_scores)/len(predictions.columns))*100)}%', end='\r')
+                        self.print_metric_progress(eval_name, model_name, fold_id, 'Brier Score', len(brier_score_list), len(predictions.columns))
                         y_pred_proba = predictions[col].values
                         
                         brier_score = brier_score_loss(y_eval, y_pred_proba)
-                        brier_scores.append(brier_score)
-                    print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting Brier Scores... 100%')
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'brier_score',
-                        brier_scores
-                    )
+                        brier_score_list.append(brier_score)
+                        
+                    self.save_to_csv(fold_csv_path, metric_name, brier_score_list)
                     
-                    # Compute mean and STD of Brier scores across runs
-                    brier_score_mean = np.mean(brier_scores)
-                    brier_score_means.append(brier_score_mean)
+                    summary_dict[f'Mean_{metric_name}'].append(np.mean(brier_score_list))
+                    summary_dict[f'STD_{metric_name}'].append(np.std(brier_score_list, ddof=1))
                 
-                    brier_score_std = np.std(brier_scores, ddof=1)
-                    brier_score_stds.append(brier_score_std)
+                summary_csv_path = self.get_csv_path(brier_score_dir, model_name, metric_name, eval_name)
+                self.save_to_csv(summary_csv_path, summary_dict)
                 
-                agg_csv_file_path = f'{brier_score_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv'     
-                if test_name == 'Validation':
-                    self.save_to_csv(
-                        agg_csv_file_path,
-                        'fold',
-                        [i for i in range(1, self.no_of_folds + 1)]                   
-                    )
-                
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    f'Mean_{metric_name}_{test_name}',
-                    brier_score_means                   
-                )    
-                    
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    f'STD_{metric_name}_{test_name}',
-                    brier_score_stds
-                )
             print()
 
     # Instability metric
-    def ninety_five_prediction_interval(self):
-        metric_name = '95_Prediction_Interval'
-        print('Metric: 95 Prediction Interval')
-
-        for test_name in TEST_NAMES:
+    def ninety_five_prediction_error(self):
+        print('Metric: 95 Prediction Error')
+        metric_name = '95_Prediction_Error'
+        
+        for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
-                si_dir = f'{self.metrics_dir}/95_prediction_interval/{model_name}'
+                si_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
                 create_nested_directory(si_dir)
 
-                agg_csv_file_path = (
-                    f'{si_dir}/Aggregated_{metric_name}_'
-                    f'{model_name}_{self.instability_type}_{test_name}.csv'
-                )
-
-                folds = []
-                lower_95_errors = []
-                upper_95_errors = []
-                mean_errors = []
-                median_errors = []
+                summary_csv_path = self.get_csv_path(si_dir, model_name, metric_name, eval_name)
+                summary_dict = {
+                    'Fold': [],
+                    'Lower_95_Error': [],
+                    'Upper_95_Error': [],
+                    'Mean_Error': [],
+                    'Median_Error': [],
+                }
 
                 # Store errors for the final box plot
                 all_fold_errors = []
 
                 for fold_id in range(1, self.no_of_folds + 1):
-                    print(
-                        f'{test_name}, {model_name}, '
-                        f'Fold {fold_id}/{self.no_of_folds}',
-                        end='\r'
-                    )
+                    self.print_metric_progress(eval_name, model_name, fold_id)
 
-                    # Predictions:
-                    # rows    = defendants
-                    # columns = bootstrap runs
-                    predictions = self.get_predictions(
-                        model_name,
-                        test_name,
-                        fold_id
-                    )
+                    predictions = self.get_predictions(model_name, eval_name, fold_id)
+                    y_eval = self.get_y_values(eval_name, fold_id)
 
-                    # Actual y values
-                    y_true = self.get_y_values(
-                        test_name,
-                        fold_id
-                    )
+                    errors = np.abs(y_eval[:, np.newaxis] - predictions)
 
-                    errors = np.abs(y_true[:, np.newaxis] - predictions)
-
-                    # Flatten all defendant-bootstrap errors for this fold
                     fold_errors = errors.to_numpy().flatten()
-
-                    # Store for final box plot
                     all_fold_errors.append(fold_errors)
 
-                    lower_95 = np.percentile(fold_errors, 2.5)
-                    upper_95 = np.percentile(fold_errors, 97.5)
-
-                    mean_error = np.mean(fold_errors)
-                    median_error = np.median(fold_errors)
-
-                    folds.append(fold_id)
-                    lower_95_errors.append(lower_95)
-                    upper_95_errors.append(upper_95)
-                    mean_errors.append(mean_error)
-                    median_errors.append(median_error)
+                    summary_dict['Fold'].append(fold_id)
+                    summary_dict['Lower_95_Error'].append(np.percentile(fold_errors, 2.5))
+                    summary_dict['Upper_95_Error'].append(np.percentile(fold_errors, 97.5))
+                    summary_dict['Mean_Error'].append(np.mean(fold_errors))
+                    summary_dict['Median_Error'].append(np.median(fold_errors))
 
                 # Box plot
                 plt.figure(figsize=(12, 6))
-
                 plt.boxplot(
                     all_fold_errors,
                     tick_labels=[
@@ -352,145 +325,84 @@ class PostMetrics:
 
                 plt.title(
                     f'{self.instability_type} - {model_name} - '
-                    f'95% Prediction Error Distribution - {test_name}'
+                    f'95% Prediction Error Distribution - {eval_name}'
                 )
 
-                plt.tight_layout()
-
-                plot_path = agg_csv_file_path.replace(
-                    '.csv',
-                    '_Prediction_Error_Boxplot.png'
-                )
+                #plt.tight_layout()
+                plot_path = summary_csv_path.replace('.csv', '_Boxplot.png')
 
                 plt.savefig(plot_path)
                 plt.close()
 
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    'Fold',
-                    folds
-                )
-
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    'Lower_95_Error',
-                    lower_95_errors
-                )
-
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    'Upper_95_Error',
-                    upper_95_errors
-                )
-
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    'Mean_Error',
-                    mean_errors
-                )
-
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    'Median_Error',
-                    median_errors
-                )
-
-                print(
-                    f'{test_name}, {model_name}, '
-                    f'Fold {self.no_of_folds}/{self.no_of_folds}'
-                )
+                self.save_to_csv(summary_csv_path, summary_dict)
             print()
         
     # Instability metric
     def mean_absolute_prediction_error(self): 
-        metric_name = 'MAPE'
-        
         print('Metric: Mean Absolute Prediction Error (MAPE)')
+        metric_name = 'MAPE'
             
-        for test_name in TEST_NAMES:
+        for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 mape_dir = f'{self.metrics_dir}/mape/{model_name}'
-                
                 create_nested_directory(mape_dir)
-            
-                mean_mapes = []
+
+                summary_dict = {
+                    'Fold': [f'Fold_{i}' for i in range(1, self.no_of_folds + 1)],
+                    'Mean_MAPE': [],
+                }
+                
                 for fold_id in range(1, self.no_of_folds + 1):
-                    print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds}', end='\r')
-                    fold_csv_file_path = f'{mape_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
-                            
-                    predictions = self.get_predictions(
-                        model_name, 
-                        test_name, 
-                        fold_id=fold_id
-                    ).to_numpy()  
-                    
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'defendant_id',
-                        self.get_defendant_ids(test_name, fold_id)
-                    )
+                    self.print_metric_progress(eval_name, model_name, fold_id)
+                    predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
                         
-                    mean_prediction = np.mean(predictions, axis=1) 
-                    mape_per_defendant = np.mean(
-                        np.abs(predictions - mean_prediction[:, None]),
-                        axis=1
-                    )
+                    mape_per_defendant = predictions.sub(
+                        predictions.mean(axis=1), 
+                        axis=0
+                    ).abs().mean(axis=1)
                     
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'MAPE',
-                        mape_per_defendant
-                    )
+                    fold_csv_path = self.get_csv_path(mape_dir, model_name, metric_name, eval_name, fold_id)
+                    self.save_to_csv(fold_csv_path, 'Defendant_ID', self.get_defendant_ids(eval_name, fold_id))
+                    self.save_to_csv(fold_csv_path, 'MAPE', mape_per_defendant)
                     
-                    mape_mean = np.mean(mape_per_defendant)
-                    mean_mapes.append(mape_mean)
-                print(f'{test_name}, {model_name}, Fold {self.no_of_folds}/{self.no_of_folds}')
+                    summary_dict['Mean_MAPE'].append(np.mean(mape_per_defendant))
+                    
+                summary_csv_path = self.get_csv_path(mape_dir, model_name, metric_name, eval_name)
+                self.save_to_csv(summary_csv_path, summary_dict)
                 
-                agg_csv_file_path = f'{mape_dir}/Mean_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'
-                # Save the fold numbers
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    'folds',
-                    [f'fold_{i}' for i in range(1, self.no_of_folds + 1)]
-                )
-                
-                self.save_to_csv(
-                    agg_csv_file_path,
-                    'Mean_MAPE',
-                    mean_mapes,
-                )
             print()
             
     # Instability metric 
     def top_k_jaccard(self):
+        print('Metric: Top-K Jaccard')
         metric_name = 'Top_K_Jaccard'
         
-        for test_name in TEST_NAMES:
-            print(f'[Generating {self.instability_type}-{test_name} Top-K Jaccard]')
+        for eval_name in EVAL_NAMES:
+            print(f'[Generating {self.instability_type}-{eval_name} Top-K Jaccard]')
             
             for model_name in MODEL_NAMES:
                 tk_jaccard_dir = f'{self.metrics_dir}/top_k_jaccard/{model_name}'
                 create_nested_directory(tk_jaccard_dir)
-        
-                jaccard_scores_mean = []
-                jaccard_scores_std = []
-                
+
+                summary_dict = {
+                    'Fold': range(1, self.no_of_folds + 1),
+                    f'Mean_{metric_name}': [],
+                    f'STD_{metric_name}': [],
+                }
+
                 for fold_id in range(1, self.no_of_folds + 1):                    
-                    fold_csv_file_path = f'{tk_jaccard_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'     
-                    run_1_list = []
-                    run_2_list = []
-                    jaccard_scores_list = []
-                    
-                    predictions = self.get_predictions(
-                        model_name, 
-                        test_name, 
-                        fold_id=fold_id
-                    )
+                    jaccard_fold_dict = {
+                        'Run_1': [],
+                        'Run_2': [],
+                        'Jaccard': []
+                    }
+
+                    predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
                         
                     k = int(0.10 * len(predictions))
                     for col1, col2 in combinations(predictions.columns, 2):
-                        run_1_list.append(col1)
-                        run_2_list.append(col2)
+                        jaccard_fold_dict['Run_1'].append(col1)
+                        jaccard_fold_dict['Run_2'].append(col2)
                         
                         run1 = predictions[col1]
                         run2 = predictions[col2]
@@ -502,127 +414,66 @@ class PostMetrics:
                         union = len(set(top_k_1) | set(top_k_2))
 
                         jaccard = intersection / union
-                        jaccard_scores_list.append(jaccard)
-                                    
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                       'run_1',
-                       run_1_list
-                    )
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'run_2',
-                        run_2_list
-                    )
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'jaccard',
-                        jaccard_scores_list
-                    )
+                        jaccard_fold_dict['Jaccard'].append(jaccard)
                         
-                    mean_jaccard = np.mean(jaccard_scores_list)
-                    jaccard_scores_mean.append(mean_jaccard)
+                    fold_csv_path = self.get_csv_path(tk_jaccard_dir, model_name, metric_name, eval_name, fold_id)
+                    self.save_to_csv(fold_csv_path, jaccard_fold_dict)
+                        
+                    summary_dict[f'Mean_{metric_name}'].append(np.mean(jaccard_fold_dict['Jaccard']))
+                    summary_dict[f'STD_{metric_name}'].append(np.std(jaccard_fold_dict['Jaccard'], ddof=1))
                     
-                    std_jaccard = np.std(jaccard_scores_list, ddof=1)
-                    jaccard_scores_std.append(std_jaccard)
-                    
-                csv_file_path = f'{tk_jaccard_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv'
-                if test_name == 'Validation':
-                    self.save_to_csv(
-                        csv_file_path,
-                        'fold',
-                        [i for i in range(1, self.no_of_folds + 1)]
-                    )
-                    
-                self.save_to_csv(
-                    csv_file_path,
-                    f'Mean_{metric_name}_{test_name}',
-                    jaccard_scores_mean
-                )
-                self.save_to_csv(
-                    csv_file_path,
-                    f'STD_{metric_name}_{test_name}',
-                    jaccard_scores_std
-                )
+                summary_csv_path = self.get_csv_path(tk_jaccard_dir, model_name, metric_name, eval_name)
+                self.save_to_csv(summary_csv_path, summary_dict)
+                
             print()
             
     # Instability metric 
     def classification_instability_index(self):
+        print('Metric: Classification Instability Index (CII)')
         threshold = 0.5
         metric_name = 'CII'
-        
-        print('Metric: Classification Instability Index (CII)')
-        for test_name in TEST_NAMES:
+
+        for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 cii_dir = f'{self.metrics_dir}/cii/{model_name}'
                 create_nested_directory(cii_dir)
-        
-                mean_ciis = []
-                std_ciis = []
+
+                summary_dict = {
+                    'Fold': range(1, self.no_of_folds + 1),
+                    f'Mean_{metric_name}': [],
+                    f'STD_{metric_name}': [],
+                }
+                
                 for fold_id in range(1, self.no_of_folds + 1):
-                    print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds}', end='\r')
-                    fold_csv_file_path = f'{cii_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'    
-                    predictions = self.get_predictions(
-                        model_name, 
-                        test_name, 
-                        fold_id=fold_id
-                    )
-                    
-                    defendant_ids = self.get_defendant_ids(test_name, fold_id)
-                                    
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'defendant_id',
-                        defendant_ids
-                    )
+                    self.print_metric_progress(eval_name, model_name, fold_id)
+                    predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
                     
                     labels = (predictions >= threshold).astype(int)
-                    
                     n_1 = labels.sum(axis=1)
                     n_0 = labels.shape[1] - n_1
-                    
                     flips = n_0 * n_1
                     
-                    cii_individual = flips / (labels.shape[1] * (labels.shape[1] - 1) / 2)
-                    self.save_to_csv(
-                        fold_csv_file_path,
-                        'CII',
-                        cii_individual
-                    )
-                                  
-                    cii_mean = np.mean(cii_individual)
-                    mean_ciis.append(cii_mean)
+                    fold_csv_path = self.get_csv_path(cii_dir, model_name, metric_name, eval_name, fold_id)
                     
-                    cii_std = np.std(cii_individual, ddof=1)
-                    std_ciis.append(cii_std)
+                    defendant_ids = self.get_defendant_ids(eval_name, fold_id)
+                    self.save_to_csv(fold_csv_path, 'Defendant_ID', defendant_ids)
+                    
+                    cii_individual = flips / (labels.shape[1] * (labels.shape[1] - 1) / 2)
+                    self.save_to_csv(fold_csv_path, 'CII', cii_individual)
+                                  
+                    summary_dict[f'Mean_{metric_name}'].append(np.mean(cii_individual))
+                    summary_dict[f'STD_{metric_name}'].append(np.std(cii_individual, ddof=1))
                     
                     plt.hist(cii_individual, bins=20)
                     plt.xlabel('CII per Individual')
                     plt.ylabel('Count')
                     plt.title(f'Classification Instability Distribution ({self.instability_type} - {model_name}, Fold {fold_id})')
-                    plt.savefig(fold_csv_file_path.replace('csv', 'png'))
+                    plt.savefig(fold_csv_path.replace('csv', 'png'))
                     plt.close()
                     
-                print(f'{test_name}, {model_name}, Fold {self.no_of_folds}/{self.no_of_folds}')
-                csv_file_path = f'{cii_dir}/Aggregated_{metric_name}_{model_name}_{self.instability_type}.csv' 
-                if test_name == 'Validation':
-                    self.save_to_csv(
-                        csv_file_path,
-                        'fold',
-                        [i for i in range (1, self.no_of_folds + 1)]
-                    )
+                summary_csv_path = self.get_csv_path(cii_dir, model_name, metric_name, eval_name)
+                self.save_to_csv(summary_csv_path, summary_dict)
                 
-                self.save_to_csv(
-                    csv_file_path,
-                    f'Mean_{metric_name}_{test_name}',
-                    mean_ciis
-                )
-                
-                self.save_to_csv(
-                    csv_file_path,
-                    f'STD_{metric_name}_{test_name}',
-                    std_ciis
-                )
             print()
 
     # Performance metric 
@@ -630,42 +481,32 @@ class PostMetrics:
         print('Metric: Calibration Plot')
         
         metric_name = 'Calibration_Plot'
-        for test_name in TEST_NAMES:
+        for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 cal_plot_dir = f'{self.metrics_dir}/calibration_plot/{model_name}'
                 create_nested_directory(cal_plot_dir)
 
                 r2_summary_records = []
                 for fold_id in range(1, self.no_of_folds + 1):
-                    y_true = np.asarray(
-                        self.get_y_values(test_name, fold_id)
-                    ).ravel()
+                    y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()
 
                     img_file_path = (
                         f'{cal_plot_dir}/{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{test_name}_Fold_{fold_id}.png'
+                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
                     )
-                    predictions = self.get_predictions(
-                        model_name,
-                        test_name, 
-                        fold_id=fold_id
-                    )
+                    
+                    predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
 
                     plt.figure(figsize=(8, 6))
+                    
                     r2_scores = []
-                    run_names = list(predictions.columns)
-                    for run_index, run_name in enumerate(run_names, start=1):
-                        print(
-                            f'{test_name}, {model_name}, Fold '
-                            f'{fold_id}/{self.no_of_folds} - Getting Calibration Plots... '
-                            f'{round((run_index / len(run_names)) * 100)}%',
-                            end='\r'
-                        )
-                        y_pred = predictions[run_name].to_numpy()
+                    for run_index, run_name in enumerate(predictions.columns, start=1):
+                        self.print_metric_progress(eval_name, model_name, fold_id, 'Calibration Plot', run_index, len(predictions.columns))
+                        y_pred_proba = predictions[run_name].to_numpy()
 
                         prob_true, prob_pred = calibration_curve(
-                            y_true,
-                            y_pred,
+                            y_eval,
+                            y_pred_proba,
                             n_bins=10,
                             strategy='uniform'
                         )
@@ -676,20 +517,15 @@ class PostMetrics:
                             alpha=0.1
                         )
 
-                        # R2 is undefined when the observed outcome has no
-                        # variation in this fold.
                         run_r2 = (
-                            r2_score(y_true, y_pred)
-                            if np.unique(y_true).size > 1
+                            r2_score(y_eval, y_pred_proba)
+                            if np.unique(y_eval).size > 1
                             else np.nan
                         )
                         r2_scores.append(run_r2)
 
-                    print(
-                        f'{test_name}, {model_name}, Fold '
-                        f'{fold_id}/{self.no_of_folds} - '
-                        'Getting Calibration Plots... 100%'
-                    )
+                    self.print_metric_progress(eval_name, model_name, fold_id, 'Calibration Plot', len(predictions.columns), len(predictions.columns))
+                    print()
                     plt.plot(
                         [0, 1],
                         [0, 1],
@@ -700,7 +536,7 @@ class PostMetrics:
                     plt.xlabel('Mean Predicted Probability')
                     plt.ylabel('Fraction of Positives')
                     plt.title(
-                        f'{self.instability_type} - {model_name} - {test_name} - '
+                        f'{self.instability_type} - {model_name} - {eval_name} - '
                         f'Calibration Plot - Fold {fold_id}'
                     )
 
@@ -710,10 +546,12 @@ class PostMetrics:
                         float(np.mean(valid_r2_scores))
                         if len(valid_r2_scores) else np.nan
                     )
+                    
                     std_r2 = (
                         float(np.std(valid_r2_scores, ddof=1))
                         if len(valid_r2_scores) > 1 else np.nan
                     )
+                    
                     if np.isfinite(mean_r2) and np.isfinite(std_r2):
                         r2_label = (
                             'Outcome $R^2$ vs prevalence '
@@ -727,6 +565,7 @@ class PostMetrics:
                         )
                     else:
                         r2_label = 'Outcome $R^2$ undefined'
+                        
                     plt.text(
                         0.05, 0.95,
                         r2_label,
@@ -745,14 +584,13 @@ class PostMetrics:
                     )
                     plt.close()
 
-                    per_run_r2_path = (
-                        f'{cal_plot_dir}/R2_{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
-                    )
-                    pd.DataFrame({
-                        'Run': run_names,
+                    per_run_r2_path = self.get_csv_path(cal_plot_dir, model_name, metric_name, eval_name, custom_title='R2', fold_id=fold_id)
+                    r2_outcome_dict = pd.DataFrame({
+                        'Run': predictions.columns,
                         'Outcome_R2_vs_Prevalence': r2_scores,
-                    }).to_csv(per_run_r2_path, index=False)
+                    })
+                    self.save_to_csv(per_run_r2_path, r2_outcome_dict)
+                    
                     r2_summary_records.append({
                         'Fold': fold_id,
                         'Mean_Outcome_R2_vs_Prevalence': mean_r2,
@@ -760,10 +598,7 @@ class PostMetrics:
                         'Valid_Runs': len(valid_r2_scores),
                     })
 
-                r2_summary_path = (
-                    f'{cal_plot_dir}/R2_Summary_{metric_name}_{model_name}_'
-                    f'{self.instability_type}_{test_name}.csv'
-                )
+                r2_summary_path = self.get_csv_path(cal_plot_dir, model_name, metric_name, eval_name, custom_title='R2_Summary')
                 pd.DataFrame(r2_summary_records).to_csv(
                     r2_summary_path,
                     index=False
@@ -772,10 +607,9 @@ class PostMetrics:
                             
     # Fairness metric: subgroup false positive rates and their max-min gap.
     def demographic_false_positive_rate(self):
-        metric_name = 'DFPR'
-
         print('Metric: Race-specific FPR and Maximum FPR Difference (DFPR)')
-        for test_name in TEST_NAMES:
+        metric_name = 'DFPR'
+        for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 dfpr_dir = f'{self.metrics_dir}/dfpr/{model_name}'
                 create_nested_directory(dfpr_dir)
@@ -784,45 +618,34 @@ class PostMetrics:
                 std_values_by_fold = {}
 
                 for fold_id in range(1, self.no_of_folds + 1):
-                    fold_csv_file_path = (
-                        f'{dfpr_dir}/{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
-                    )
-                    test_df = self.X_val_list[fold_id - 1] if test_name == 'Validation' else self.X_test
-                    y_eval = self.get_y_values(test_name, fold_id)
-                    y_true = np.asarray(y_eval).ravel()
-                    predictions = self.get_predictions(
-                        model_name,
-                        test_name,
-                        fold_id=fold_id
-                    )
+                    fold_csv_path = self.get_csv_path(dfpr_dir, model_name, metric_name, eval_name, fold_id)
+                    eval_df = self.X_val_list[fold_id - 1] if eval_name == 'Validation' else self.X_test
+                    y_eval = self.get_y_values(eval_name, fold_id)
+                    y_eval = np.asarray(y_eval).ravel()
+                    predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
 
                     race_masks = {
-                        race: (test_df[race].to_numpy() == 1)
+                        race: (eval_df[race].to_numpy() == 1)
                         for race in RACE_NAMES
                     }
                     negative_counts = {
-                        race: int(np.sum(y_true[mask] == 0))
+                        race: int(np.sum(y_eval[mask] == 0))
                         for race, mask in race_masks.items()
                     }
+                    
                     run_columns = list(predictions.columns)
                     race_rates = {race: [] for race in RACE_NAMES}
                     run_disparities = []
 
                     for run_index, column_name in enumerate(run_columns, start=1):
-                        print(
-                            f'{test_name}, {model_name}, Fold '
-                            f'{fold_id}/{self.no_of_folds} - Getting DFPRs... '
-                            f'{round((run_index / len(run_columns)) * 100)}%',
-                            end='\r'
-                        )
-                        y_pred = predictions[column_name].to_numpy() >= DFPR_THRESHOLD
+                        self.print_metric_progress(eval_name, model_name, fold_id, 'DFPR', run_index, len(run_columns))
+                        y_pred_proba = predictions[column_name].to_numpy() >= DFPR_THRESHOLD
                         rates_for_run = {}
 
                         for race in RACE_NAMES:
                             mask = race_masks[race]
-                            y_group = y_true[mask]
-                            pred_group = y_pred[mask]
+                            y_group = y_eval[mask]
+                            pred_group = y_pred_proba[mask]
                             actual_negative = y_group == 0
                             negative_count = int(np.sum(actual_negative))
 
@@ -845,10 +668,8 @@ class PostMetrics:
                             'Groups Compared': len(rates_for_run),
                         })
 
-                    print(
-                        f'{test_name}, {model_name}, Fold '
-                        f'{fold_id}/{self.no_of_folds} - Getting DFPRs... 100%'
-                    )
+                    self.print_metric_progress(eval_name, model_name, fold_id, 'DFPR', len(run_columns), len(run_columns))
+                    print()
 
                     rates_df = pd.DataFrame({
                         'Race': RACE_NAMES,
@@ -858,23 +679,20 @@ class PostMetrics:
                             for run_index, column_name in enumerate(run_columns)
                         },
                     })
-                    rates_df.to_csv(fold_csv_file_path, index=False)
+                    rates_df.to_csv(fold_csv_path, index=False)
 
-                    delta_csv_file_path = (
-                        f'{dfpr_dir}/Delta_FPR_{model_name}_'
-                        f'{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
-                    )
-                    pd.DataFrame(run_disparities).to_csv(delta_csv_file_path, index=False)
+                    delta_csv_path = self.get_csv_path(dfpr_dir, model_name, metric_name, eval_name, custom_title='Delta_FPR', fold_id=fold_id)
+                    pd.DataFrame(run_disparities).to_csv(delta_csv_path, index=False)
 
-                    fold_means = {}
-                    fold_stds = {}
+                    fold_mean_list = {}
+                    fold_std_list = {}
                     for race in RACE_NAMES:
                         valid_scores = np.asarray(race_rates[race], dtype=float)
                         valid_scores = valid_scores[~np.isnan(valid_scores)]
-                        fold_means[race] = (
+                        fold_mean_list[race] = (
                             float(np.mean(valid_scores)) if len(valid_scores) else np.nan
                         )
-                        fold_stds[race] = (
+                        fold_std_list[race] = (
                             float(np.std(valid_scores, ddof=1))
                             if len(valid_scores) > 1 else np.nan
                         )
@@ -884,22 +702,22 @@ class PostMetrics:
                         dtype=float
                     )
                     valid_disparities = valid_disparities[~np.isnan(valid_disparities)]
-                    fold_means['Max-Min Delta FPR'] = (
+                    fold_mean_list['Max-Min Delta FPR'] = (
                         float(np.mean(valid_disparities))
                         if len(valid_disparities) else np.nan
                     )
-                    fold_stds['Max-Min Delta FPR'] = (
+                    fold_std_list['Max-Min Delta FPR'] = (
                         float(np.std(valid_disparities, ddof=1))
                         if len(valid_disparities) > 1 else np.nan
                     )
-                    mean_values_by_fold[f'fold_{fold_id}'] = fold_means
-                    std_values_by_fold[f'fold_{fold_id}'] = fold_stds
+                    mean_values_by_fold[f'Fold_{fold_id}'] = fold_mean_list
+                    std_values_by_fold[f'Fold_{fold_id}'] = fold_std_list
 
                 summary_rows = RACE_NAMES + ['Max-Min Delta FPR']
                 mean_df = pd.DataFrame({'Race': summary_rows})
                 std_df = pd.DataFrame({'Race': summary_rows})
                 for fold_id in range(1, self.no_of_folds + 1):
-                    fold_column = f'fold_{fold_id}'
+                    fold_column = f'Fold_{fold_id}'
                     mean_df[fold_column] = [
                         mean_values_by_fold[fold_column][race]
                         for race in summary_rows
@@ -909,58 +727,43 @@ class PostMetrics:
                         for race in summary_rows
                     ]
 
-                mean_csv_file_path = (
-                    f'{dfpr_dir}/Means_{metric_name}_{model_name}_'
-                    f'{self.instability_type}_{test_name}.csv'
-                )
-                std_csv_file_path = (
-                    f'{dfpr_dir}/STD_{metric_name}_{model_name}_'
-                    f'{self.instability_type}_{test_name}.csv'
-                )
-                mean_df.to_csv(mean_csv_file_path, index=False)
-                std_df.to_csv(std_csv_file_path, index=False)
+                mean_csv_path = self.get_csv_path(dfpr_dir, model_name, metric_name, eval_name, custom_title='Means')
+                std_csv_path = self.get_csv_path(dfpr_dir, model_name, metric_name, eval_name, custom_title='STD')
+                mean_df.to_csv(mean_csv_path, index=False)
+                std_df.to_csv(std_csv_path, index=False)
             print()
                 
     # SHAP ANALYSIS
     # Uses the runtime shap values per fold
     def shap_analysis(self, trained_models=None):
+        print('Metric: SHAP Analysis')
         metric_name = 'SHAP_Analysis'
         
-        print('Metric: SHAP Analysis')
-        for test_name in TEST_NAMES:
+        for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 shap_values_dir = f'{self.metrics_dir}/shap_values/{model_name}'
                 shap_dir = f'{self.metrics_dir}/shap_analysis/{model_name}'
                 create_nested_directory(shap_dir)
 
                 for fold_id in range(1, self.no_of_folds + 1):
-                    print(
-                        f'{test_name}, {model_name}, Fold '
-                        f'{fold_id}/{self.no_of_folds} - Getting SHAP...',
-                        end='\r'
-                    )
-                    shap_values = pd.read_csv(
-                        f'{shap_values_dir}/'
-                        f'SHAP_{model_name}_{test_name}_Fold_{fold_id}.csv'
-                    )
-                    run_columns = shap_values.columns.drop(
-                        ['defendant_id', 'feature', 'Mean SHAP'],
+                    print(f'{eval_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting SHAP...', end='\r')
+                    shap_values = self.get_shap_values(shap_values_dir, model_name, eval_name, fold_id)
+                    
+                    shap_columns = shap_values.columns
+                    shap_valid_columns = shap_columns.drop(
+                        ['Defendant_ID', 'Feature'],
                         errors='ignore'
                     )
-                    shap_mean = shap_values[run_columns].mean(axis=1)
+                    shap_mean = shap_values[shap_valid_columns].mean(axis=1)
 
                     output = pd.DataFrame({
-                        'defendant_id': shap_values['defendant_id'],
-                        'feature': shap_values['feature'],
+                        'Defendant_ID': shap_values['Defendant_ID'],
+                        'Feature': shap_values['Feature'],
                         'SHAP_Mean': shap_mean,
                     })
-                    output.to_csv(
-                        f'{shap_dir}/{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{test_name}_Fold_{fold_id}.csv',
-                        index=False
-                    )
-                print(
-                    f'{test_name}, {model_name} - '
-                    'Getting SHAP... Done'
-                )
+                    
+                    shap_csv_path = self.get_csv_path(shap_dir, model_name, metric_name, eval_name, fold_id)
+                    for column_name in output.columns:
+                        self.save_to_csv(shap_csv_path, column_name, output[column_name])
+                print(f'{eval_name}, {model_name} - ''Getting SHAP... Done')
         print()
