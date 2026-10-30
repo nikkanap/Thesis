@@ -98,9 +98,8 @@ def get_shap_values(
     model_name,
     nth_run,
     defendant_ids,
-    csv_file_path
+    run_label='Run'
 ):
-    print('')
     if model_name in ['RF', 'XGB']:
         explainer = shap.TreeExplainer(trained_model)
         shap_values = explainer.shap_values(X_val_test)
@@ -147,8 +146,44 @@ def get_shap_values(
     df = pd.DataFrame({
         'defendant_id': np.repeat(defendant_ids, len(feature_names)),
         'feature': np.tile(feature_names, len(defendant_ids)),
-        f'Bootstrap_{nth_run}': shap_values.flatten()
+        f'{run_label}_{nth_run}': shap_values.flatten()
     })
+    return df
 
-    print(f'getting shap values - csv_file_path: {csv_file_path}')
-    df.to_csv(csv_file_path, index=False)
+
+def save_shap_values(shap_run_frames, csv_file_path):
+    """Save SHAP values from multiple runs in aligned run-specific columns."""
+    if not shap_run_frames:
+        pd.DataFrame(columns=['defendant_id', 'feature']).to_csv(
+            csv_file_path,
+            index=False
+        )
+        return
+
+    indexed_run_frames = [
+        run_frame.set_index(['defendant_id', 'feature'])
+        for run_frame in shap_run_frames
+    ]
+    base_index = indexed_run_frames[0].index
+    if not base_index.is_unique:
+        raise ValueError('Each SHAP run must have one value per defendant and feature.')
+
+    for run_frame in indexed_run_frames:
+        if len(run_frame.columns) != 1 or not run_frame.index.equals(base_index):
+            raise ValueError('SHAP runs must contain the same defendant and feature rows.')
+
+    run_columns = [run_frame.columns[0] for run_frame in indexed_run_frames]
+    run_values = np.column_stack([
+        run_frame.iloc[:, 0].to_numpy()
+        for run_frame in indexed_run_frames
+    ])
+    combined_columns = {
+        'defendant_id': base_index.get_level_values('defendant_id'),
+        'feature': base_index.get_level_values('feature'),
+        **{
+            run_column: run_values[:, column_index]
+            for column_index, run_column in enumerate(run_columns)
+        },
+    }
+    combined = pd.DataFrame(combined_columns)
+    combined.to_csv(csv_file_path, index=False)
