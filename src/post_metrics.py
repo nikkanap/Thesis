@@ -5,7 +5,7 @@ import shutil
 import os
 
 from sklearn.calibration import calibration_curve
-from sklearn.metrics import roc_auc_score, brier_score_loss, confusion_matrix, r2_score
+from sklearn.metrics import roc_auc_score, brier_score_loss, r2_score
 
 from itertools import combinations
 from statsmodels.nonparametric.smoothers_lowess import lowess
@@ -20,6 +20,7 @@ RACE_NAMES = [
     'race:Hispanic',
     'race:Other'
 ]
+DFPR_THRESHOLD = 0.5
 MODEL_NAMES = [ 'LR', 'RF', 'LSVC', 'XGB', 'MLP' ]
 TEST_NAMES = [ 'Validation', 'Test'] 
 
@@ -181,7 +182,6 @@ class PostMetrics:
                     roc_auc_stds
                 )
             print()
-        print()
         
     # Performance metric
     # Gets the brier score (GOOD)
@@ -254,7 +254,6 @@ class PostMetrics:
                     brier_score_stds
                 )
             print()
-        print()
 
     # Instability metric
     # Gets the 95% Instability Percentile (GOOD)
@@ -394,9 +393,7 @@ class PostMetrics:
                     f'{test_name}, {model_name}, '
                     f'Fold {self.no_of_folds}/{self.no_of_folds}'
                 )
-
             print()
-        print()
         
     # Instability metric
     # Mean Absolute Prediction Error (GOOD)
@@ -458,7 +455,6 @@ class PostMetrics:
                     mean_mapes,
                 )
             print()
-        print()
             
     # Instability metric (GOOD)
     def top_k_jaccard(self):
@@ -544,7 +540,6 @@ class PostMetrics:
                     jaccard_scores_std
                 )
             print()
-        print()
             
     # Instability metric 
     # CII (GOOD)
@@ -625,7 +620,6 @@ class PostMetrics:
                     std_ciis
                 )
             print()
-        print()
 
     # Performance metric (GOOD)
     def calibration_plot(self):
@@ -701,129 +695,157 @@ class PostMetrics:
                     )
                     plt.close()
             print()
-        print()
                             
-    # Fairness metric 
-    # Focuses on getting the false positive rate per demographic (race) (GOOD)             
+    # Fairness metric: subgroup false positive rates and their max-min gap.
     def demographic_false_positive_rate(self):
         metric_name = 'DFPR'
 
-        print('Metric: Demographic False Positive Rate (DFPR)')
-        for i, test_name in enumerate(TEST_NAMES):
+        print('Metric: Race-specific FPR and Maximum FPR Difference (DFPR)')
+        for test_name in TEST_NAMES:
             for model_name in MODEL_NAMES:
                 dfpr_dir = f'{self.metrics_dir}/dfpr/{model_name}'
                 create_nested_directory(dfpr_dir)
-                
+
+                mean_values_by_fold = {}
+                std_values_by_fold = {}
+
                 for fold_id in range(1, self.no_of_folds + 1):
-                    by_fold_csv_file_path = f'{dfpr_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'             
+                    by_fold_csv_file_path = (
+                        f'{dfpr_dir}/{metric_name}_{model_name}_'
+                        f'{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
+                    )
                     test_df = self.X_val_arr[fold_id - 1] if test_name == 'Validation' else self.X_test
                     y_df = self.get_y_values(test_name, fold_id)
+                    y_true = np.asarray(y_df).ravel()
                     predictions = self.get_predictions(
                         model_name,
                         test_name,
                         fold_id=fold_id
                     )
-                    
-                    dfpr_scores_by_race = { race: [] for race in RACE_NAMES }
-                    dfpr_means = []
-                    dfpr_stds = []            
-                    
-                    self.save_to_csv(
-                        by_fold_csv_file_path,
-                        'race',
-                        RACE_NAMES
-                    )
-                    
-                    # 100 runs
-                    for i, column_name in enumerate(predictions.columns):
-                        print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting DFPRs... {round(((i+1)/len(predictions.columns))*100)}%', end='\r')
-                        dfpr_scores_by_run = []
-                        
-                        # per race
+
+                    race_masks = {
+                        race: (test_df[race].to_numpy() == 1)
+                        for race in RACE_NAMES
+                    }
+                    negative_counts = {
+                        race: int(np.sum(y_true[mask] == 0))
+                        for race, mask in race_masks.items()
+                    }
+                    run_columns = list(predictions.columns)
+                    race_rates = {race: [] for race in RACE_NAMES}
+                    run_disparities = []
+
+                    for run_index, column_name in enumerate(run_columns, start=1):
+                        print(
+                            f'{test_name}, {model_name}, Fold '
+                            f'{fold_id}/{self.no_of_folds} - Getting DFPRs... '
+                            f'{round((run_index / len(run_columns)) * 100)}%',
+                            end='\r'
+                        )
+                        y_pred = predictions[column_name].to_numpy() >= DFPR_THRESHOLD
+                        rates_for_run = {}
+
                         for race in RACE_NAMES:
-                            mask = test_df[race] == 1
-                            
-                            y_pred = (predictions[column_name].values >= 0.5).astype(int)
+                            mask = race_masks[race]
+                            y_group = y_true[mask]
+                            pred_group = y_pred[mask]
+                            actual_negative = y_group == 0
+                            negative_count = int(np.sum(actual_negative))
 
-                            if len(y_df[mask]) == 0:
-                                dfpr = np.nan
-                            else:
-                                tn, fp, fn, tp = confusion_matrix(
-                                    y_df[mask],
-                                    y_pred[mask],
-                                    labels=[0, 1]
-                                ).ravel()
+                            dfpr = (
+                                float(np.mean(pred_group[actual_negative]))
+                                if negative_count > 0
+                                else np.nan
+                            )
+                            race_rates[race].append(dfpr)
+                            if not np.isnan(dfpr):
+                                rates_for_run[race] = dfpr
 
-                                dfpr = (
-                                    fp / (fp + tn)
-                                    if (fp + tn) > 0
-                                    else np.nan
-                                )
-                            dfpr_scores_by_run.append(dfpr)
-                            dfpr_scores_by_race[race].append(dfpr)
-                            
-                        self.save_to_csv(
-                            by_fold_csv_file_path,
-                            column_name,
-                            dfpr_scores_by_run
-                        )
-                    print(f'{test_name}, {model_name}, Fold {fold_id}/{self.no_of_folds} - Getting DFPRs... 100%')
-                    
+                        if len(rates_for_run) >= 2:
+                            delta_fpr = max(rates_for_run.values()) - min(rates_for_run.values())
+                        else:
+                            delta_fpr = np.nan
+                        run_disparities.append({
+                            'Run': column_name,
+                            'Max-Min Delta FPR': delta_fpr,
+                            'Groups Compared': len(rates_for_run),
+                        })
+
+                    print(
+                        f'{test_name}, {model_name}, Fold '
+                        f'{fold_id}/{self.no_of_folds} - Getting DFPRs... 100%'
+                    )
+
+                    rates_df = pd.DataFrame({
+                        'Race': RACE_NAMES,
+                        'Non-Recidivists': [negative_counts[race] for race in RACE_NAMES],
+                        **{
+                            column_name: [race_rates[race][run_index] for race in RACE_NAMES]
+                            for run_index, column_name in enumerate(run_columns)
+                        },
+                    })
+                    rates_df.to_csv(by_fold_csv_file_path, index=False)
+
+                    delta_csv_file_path = (
+                        f'{dfpr_dir}/Delta_FPR_{model_name}_'
+                        f'{self.instability_type}_{test_name}_Fold_{fold_id}.csv'
+                    )
+                    pd.DataFrame(run_disparities).to_csv(delta_csv_file_path, index=False)
+
+                    fold_means = {}
+                    fold_stds = {}
                     for race in RACE_NAMES:
-                        scores = np.asarray(dfpr_scores_by_race[race])
-                        valid_scores = scores[~np.isnan(scores)]
+                        valid_scores = np.asarray(race_rates[race], dtype=float)
+                        valid_scores = valid_scores[~np.isnan(valid_scores)]
+                        fold_means[race] = (
+                            float(np.mean(valid_scores)) if len(valid_scores) else np.nan
+                        )
+                        fold_stds[race] = (
+                            float(np.std(valid_scores, ddof=1))
+                            if len(valid_scores) > 1 else np.nan
+                        )
 
-                        dfpr_mean = np.mean(valid_scores) if len(valid_scores) > 0 else np.nan
-                        dfpr_means.append(dfpr_mean)
-
-                        dfpr_std = (
-                            np.std(valid_scores, ddof=1)
-                            if len(valid_scores) > 1
-                            else np.nan
-                        )
-                        dfpr_stds.append(dfpr_std)
-                        
-                    mean_csv_file_path = f'{dfpr_dir}/Means_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'        
-                    std_csv_file_path = f'{dfpr_dir}/STD_{metric_name}_{model_name}_{self.instability_type}_{test_name}.csv'
-                    
-                    if fold_id == 1: 
-                        self.save_to_csv(
-                            mean_csv_file_path,
-                            'race',
-                            RACE_NAMES
-                        )
-                        
-                        self.save_to_csv(
-                            std_csv_file_path,
-                            'race',
-                            RACE_NAMES
-                        )
-                    
-                    self.save_to_csv(
-                        mean_csv_file_path,
-                        f'fold_{fold_id}',
-                        dfpr_means
+                    valid_disparities = np.asarray(
+                        [row['Max-Min Delta FPR'] for row in run_disparities],
+                        dtype=float
                     )
-
-                    self.save_to_csv(
-                        std_csv_file_path,
-                        f'fold_{fold_id}',
-                        dfpr_stds
+                    valid_disparities = valid_disparities[~np.isnan(valid_disparities)]
+                    fold_means['Max-Min Delta FPR'] = (
+                        float(np.mean(valid_disparities))
+                        if len(valid_disparities) else np.nan
                     )
-                    
-                self.save_to_csv(
-                    mean_csv_file_path,
-                    f'mean_{fold_id}',
-                    dfpr_means
-                )
+                    fold_stds['Max-Min Delta FPR'] = (
+                        float(np.std(valid_disparities, ddof=1))
+                        if len(valid_disparities) > 1 else np.nan
+                    )
+                    mean_values_by_fold[f'fold_{fold_id}'] = fold_means
+                    std_values_by_fold[f'fold_{fold_id}'] = fold_stds
 
-                self.save_to_csv(
-                    std_csv_file_path,
-                    f'std_{fold_id}',
-                    dfpr_stds
+                summary_rows = RACE_NAMES + ['Max-Min Delta FPR']
+                mean_df = pd.DataFrame({'Race': summary_rows})
+                std_df = pd.DataFrame({'Race': summary_rows})
+                for fold_id in range(1, self.no_of_folds + 1):
+                    fold_column = f'fold_{fold_id}'
+                    mean_df[fold_column] = [
+                        mean_values_by_fold[fold_column][race]
+                        for race in summary_rows
+                    ]
+                    std_df[fold_column] = [
+                        std_values_by_fold[fold_column][race]
+                        for race in summary_rows
+                    ]
+
+                mean_csv_file_path = (
+                    f'{dfpr_dir}/Means_{metric_name}_{model_name}_'
+                    f'{self.instability_type}_{test_name}.csv'
                 )
+                std_csv_file_path = (
+                    f'{dfpr_dir}/STD_{metric_name}_{model_name}_'
+                    f'{self.instability_type}_{test_name}.csv'
+                )
+                mean_df.to_csv(mean_csv_file_path, index=False)
+                std_df.to_csv(std_csv_file_path, index=False)
             print()
-        print()
                 
     # SHAP ANALYSIS
     # Uses the runtime shap values per fold
