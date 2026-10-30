@@ -48,7 +48,7 @@ def Linear_SVC(
             calibrated_svc = CalibratedClassifierCV(
                 model,
                 method='sigmoid',
-                cv=3,
+                cv=5,
             )
             calibrated_svc.fit(X_train, y_train)   
             joblib.dump(calibrated_svc, model_path)

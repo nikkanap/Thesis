@@ -41,7 +41,7 @@ def XGBoost(
                 objective='binary:logistic',
                 max_depth=3,
                 learning_rate=0.1,
-                n_estimators=50,
+                n_estimators=100,
                 random_state=(
                     random_seed
                     if instability_type == 'Dataset'
