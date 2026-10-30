@@ -1,84 +1,94 @@
 import pandas as pd
 import numpy as np
-import os
 import shap
 
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
 # Reliability Metric
-# (GOOD)
 def MRIP(
     X_train,
-    y_train,
+    X_reference,
+    y_reference,
     X_val_test,
     X_val_test_ids,
-    test_name,
     trained_model, 
     model_name,
     fold_id,
     nth_run,
-    csv_file_path,
     epsilon=0.1,
     delta=0.5
 ):
-    # Scale only for neighbor-distance calculation
+    # Use the fitted model's training representation for both distances and
+    # predictions. The reference examples must be held out from model fitting.
     scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_reference_scaled = scaler.transform(X_reference)
+    X_val_test_scaled = scaler.transform(X_val_test)
 
-    X_train_scaled = scaler.fit_transform(
-        X_train
-    )
-
-    X_val_test_scaled = scaler.transform(
-        X_val_test
-    )
-    
     nn = NearestNeighbors(radius=delta)
-    nn.fit(X_train_scaled)
+    nn.fit(X_reference_scaled)
 
     _, indices = nn.radius_neighbors(X_val_test_scaled)
-    
-    mrip_values = []
-    no_neighbor_count = 0
-    
+
+    records = []
+
     for i, defendant_id in enumerate(X_val_test_ids):
-        print(f'{test_name}, Fold {fold_id}, Run {nth_run} - Getting MRIP... {round((i/len(X_val_test_ids))*100)}%', end='\r')
         neighbor_indices = indices[i]
 
         if len(neighbor_indices) == 0:
-            no_neighbor_count += 1
             mrip_value = np.nan
-
         else:
-            # Use the representation the model was trained on
             if model_name in ['LR', 'LSVC', 'MLP']:
-                X_star = X_train_scaled[neighbor_indices]
+                X_star = X_reference_scaled[neighbor_indices]
             else:  # RF, XGB
-                X_star = X_train.iloc[neighbor_indices]
-            
-            y_star = y_train[neighbor_indices]
-            
-            # All models now provide predict_proba()
+                X_star = X_reference.iloc[neighbor_indices]
+
+            y_star = np.asarray(y_reference)[neighbor_indices]
             probabilities = trained_model.predict_proba(X_star)[:, 1]
             errors = np.abs(y_star - probabilities)
             mrip_value = np.mean(errors <= epsilon)
-        
-        mrip_values.append(mrip_value)
-    print(f'{test_name},  Fold {fold_id}, Run {nth_run} - Getting MRIP... 100%')
-    
-    # Create or update CSV
-    if os.path.isfile(csv_file_path):
-        df = pd.read_csv(csv_file_path)
-        df[f'MRIP_{nth_run}'] = mrip_values
 
-    else:
-        X_val_test_ids = list(X_val_test_ids)
-        df = pd.DataFrame({
-            'Defendant_ID': X_val_test_ids,
-            f'MRIP_{nth_run}': mrip_values
+        records.append({
+            'Defendant_ID': defendant_id,
+            'Fold': fold_id,
+            'Run': nth_run,
+            'MRIP': mrip_value,
+            'Neighbor_Count': len(neighbor_indices),
+            'Epsilon': epsilon,
+            'Delta': delta,
         })
+    return records
 
-    df.to_csv(csv_file_path, index=False)
+
+def save_mrip_results(records, csv_file_path, run_label='Run'):
+    """Save one row per evaluated defendant and fold, with runs as columns."""
+    if not records:
+        pd.DataFrame(columns=[
+            'Defendant_ID', 'Fold', 'Mean MRIP'
+        ]).to_csv(csv_file_path, index=False)
+        return
+
+    df = pd.DataFrame(records)
+    run_ids = sorted(df['Run'].dropna().unique())
+    run_columns = [f'{run_label} {run_id}' for run_id in run_ids]
+    df['Run column'] = df['Run'].map(
+        {run_id: column for run_id, column in zip(run_ids, run_columns)}
+    )
+
+    # Keep fold in the row key so test-set summaries are not averaged across
+    # folds. Validation defendants are already selected separately per fold.
+    summary = df.pivot(
+        index=['Fold', 'Defendant_ID'],
+        columns='Run column',
+        values='MRIP',
+    ).reset_index()
+    summary.columns.name = None
+    summary['Mean MRIP'] = summary[run_columns].mean(axis=1)
+    summary = summary[[
+        'Defendant_ID', 'Fold', *run_columns, 'Mean MRIP'
+    ]]
+    summary.to_csv(csv_file_path, index=False)
                        
 def get_shap_values(
     X_train,
