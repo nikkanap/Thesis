@@ -396,7 +396,7 @@ class PostMetrics:
 
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
                         
-                    k = int(0.10 * len(predictions))
+                    k = max(1, int(0.10 * len(predictions)))
                     for col1, col2 in combinations(predictions.columns, 2):
                         jaccard_fold_dict['Run_1'].append(col1)
                         jaccard_fold_dict['Run_2'].append(col2)
