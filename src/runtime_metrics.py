@@ -8,10 +8,8 @@ from sklearn.preprocessing import StandardScaler
 # Reliability Metric
 def MRIP(
     X_train,
-    X_reference,
-    y_reference,
-    X_val_test,
-    X_val_test_ids,
+    X_eval, y_eval,
+    X_val_test, X_val_test_ids,
     trained_model, 
     model_name,
     fold_id,
@@ -19,15 +17,13 @@ def MRIP(
     epsilon=0.1,
     delta=0.5
 ):
-    # Use the fitted model's training representation for both distances and
-    # predictions. The reference examples must be held out from model fitting.
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
-    X_reference_scaled = scaler.transform(X_reference)
+    X_eval_scaled = scaler.transform(X_eval)
     X_val_test_scaled = scaler.transform(X_val_test)
 
     nn = NearestNeighbors(radius=delta)
-    nn.fit(X_reference_scaled)
+    nn.fit(X_eval_scaled)
 
     _, indices = nn.radius_neighbors(X_val_test_scaled)
 
@@ -40,11 +36,11 @@ def MRIP(
             mrip_value = np.nan
         else:
             if model_name in ['LR', 'LSVC', 'MLP']:
-                X_star = X_reference_scaled[neighbor_indices]
+                X_star = X_eval_scaled[neighbor_indices]
             else:  # RF, XGB
-                X_star = X_reference.iloc[neighbor_indices]
+                X_star = X_eval.iloc[neighbor_indices]
 
-            y_star = np.asarray(y_reference)[neighbor_indices]
+            y_star = np.asarray(y_eval)[neighbor_indices]
             probabilities = trained_model.predict_proba(X_star)[:, 1]
             errors = np.abs(y_star - probabilities)
             mrip_value = np.mean(errors <= epsilon)
@@ -62,7 +58,6 @@ def MRIP(
 
 
 def save_mrip_results(records, csv_file_path, run_label='Run'):
-    """Save one row per evaluated defendant and fold, with runs as columns."""
     if not records:
         pd.DataFrame(columns=[
             'Defendant_ID', 'Fold', 'Mean MRIP'
@@ -71,13 +66,9 @@ def save_mrip_results(records, csv_file_path, run_label='Run'):
 
     df = pd.DataFrame(records)
     run_ids = sorted(df['Run'].dropna().unique())
-    run_columns = [f'{run_label} {run_id}' for run_id in run_ids]
-    df['Run column'] = df['Run'].map(
-        {run_id: column for run_id, column in zip(run_ids, run_columns)}
-    )
+    run_columns = [ f'{run_label} {run_id}' for run_id in run_ids ]
+    df['Run column'] = df['Run'].map({ run_id: column for run_id, column in zip(run_ids, run_columns) })
 
-    # Keep fold in the row key so test-set summaries are not averaged across
-    # folds. Validation defendants are already selected separately per fold.
     summary = df.pivot(
         index=['Fold', 'Defendant_ID'],
         columns='Run column',
