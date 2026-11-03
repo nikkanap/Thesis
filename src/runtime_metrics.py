@@ -5,81 +5,95 @@ import shap
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
-# Reliability Metric
+# Constant variables
+MRIP_EPSILON = 0.1
+MRIP_DELTA = 0.5
+
+# ==================================================
+# MODEL RELIABILITY FOR INDIVIDUAL PREDICTION (MRIP)
+# ==================================================
+
 def MRIP(
-    X_train,
-    X_eval, y_eval,
-    X_val_test, X_val_test_ids,
+    X_ref,
+    y_ref,
+    chosen_X_eval, 
+    chosen_eval_ids,
+    model_name, 
     trained_model, 
-    model_name,
-    fold_id,
-    nth_run,
-    epsilon=0.1,
-    delta=0.5
+    fold_id, 
+    nth_run
 ):
+    # Scale the X_ref and chosen_X_eval
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_eval_scaled = scaler.transform(X_eval)
-    X_val_test_scaled = scaler.transform(X_val_test)
+    X_ref_scaled = scaler.transform(X_ref)
+    chosen_X_eval_scaled = scaler.transform(chosen_X_eval)
 
-    nn = NearestNeighbors(radius=delta)
-    nn.fit(X_eval_scaled)
+    # Fit the nearest neighbors on the actual training data
+    nn = NearestNeighbors(radius=MRIP_DELTA)
+    nn.fit(X_ref_scaled)
 
-    _, indices = nn.radius_neighbors(X_val_test_scaled)
+    _, indices = nn.radius_neighbors(chosen_X_eval_scaled)
 
-    records = []
-
-    for i, defendant_id in enumerate(X_val_test_ids):
+    mrip_list = []
+    for i, defendant_id in enumerate(chosen_eval_ids):
         neighbor_indices = indices[i]
 
         if len(neighbor_indices) == 0:
             mrip_value = np.nan
         else:
-            if model_name in ['LR', 'LSVC', 'MLP']:
-                X_star = X_eval_scaled[neighbor_indices]
-            else:  # RF, XGB
-                X_star = X_eval.iloc[neighbor_indices]
-
-            y_star = np.asarray(y_eval)[neighbor_indices]
+            X_star = (
+                X_ref_scaled[neighbor_indices]
+                if model_name in ['LR', 'LSVC', 'MLP']
+                else X_ref.iloc[neighbor_indices]
+            )
+            y_star = np.asarray(y_ref)[neighbor_indices]
             probabilities = trained_model.predict_proba(X_star)[:, 1]
+            
             errors = np.abs(y_star - probabilities)
-            mrip_value = np.mean(errors <= epsilon)
+            mrip_value = np.mean(errors <= MRIP_EPSILON)
 
-        records.append({
+        mrip_list.append({
             'Defendant_ID': defendant_id,
             'Fold': fold_id,
             'Run': nth_run,
             'MRIP': mrip_value,
             'Neighbor_Count': len(neighbor_indices),
-            'Epsilon': epsilon,
-            'Delta': delta,
         })
-    return records
+    return mrip_list
 
 
-def save_mrip_results(records, csv_file_path, run_label='Run'):
-    if not records:
-        pd.DataFrame(columns=[
-            'Defendant_ID', 'Fold', 'Mean MRIP'
-        ]).to_csv(csv_file_path, index=False)
-        return
-
+# Saves the MRIP results in csv files
+def save_mrip_results(
+    records, 
+    csv_file_path, 
+    run_label='Run'
+):
     df = pd.DataFrame(records)
-    run_ids = sorted(df['Run'].dropna().unique())
-    run_columns = [ f'{run_label} {run_id}' for run_id in run_ids ]
-    df['Run column'] = df['Run'].map({ run_id: column for run_id, column in zip(run_ids, run_columns) })
 
-    summary = df.pivot(
+    # Get run IDs and their corresponding column names
+    run_ids = sorted(df['Run'].unique())
+    run_columns = [f'{run_label} {run_id}' for run_id in run_ids]
+
+    # Convert rows into columns for each run
+    mrip_summary = df.pivot(
         index=['Fold', 'Defendant_ID'],
-        columns='Run column',
-        values='MRIP',
+        columns='Run',
+        values='MRIP'
     ).reset_index()
-    summary.columns.name = None
-    summary['Mean MRIP'] = summary[run_columns].mean(axis=1)
-    summary = summary[[
-        'Defendant_ID', 'Fold', *run_columns, 'Mean MRIP'
-    ]]
-    summary.to_csv(csv_file_path, index=False)
+
+    # Rename run ID columns and clean the column's axis name (runs)
+    mrip_summary = mrip_summary.rename(
+        columns=dict(zip(run_ids, run_columns))
+    )
+    mrip_summary.columns.name = None
+
+    # Calculate mean MRIP across runs
+    mrip_summary['Mean MRIP'] = mrip_summary[run_columns].mean(axis=1)
+    mrip_summary.to_csv(csv_file_path, index=False)
+                  
+# ====================================
+# SHAPLEY ADDITIVE EXPLANATIONS (SHAP)
+# ====================================
                        
 def get_shap_values(
     X_train,
@@ -142,8 +156,8 @@ def get_shap_values(
     return df
 
 
+# Save SHAP values from multiple runs in aligned run-specific columns.
 def save_shap_values(shap_run_frames, csv_file_path):
-    """Save SHAP values from multiple runs in aligned run-specific columns."""
     if not shap_run_frames:
         pd.DataFrame(columns=['defendant_id', 'feature']).to_csv(
             csv_file_path,
