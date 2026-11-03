@@ -10,7 +10,11 @@ from sklearn.metrics import roc_auc_score, brier_score_loss, r2_score
 from itertools import combinations
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
-from create_dir import create_nested_directory
+import directory as dir
+import csv_actions as csva
+
+# Constant Variables
+DFPR_THRESHOLD = 0.5
 
 RACE_NAMES = [
     'race:African-American',
@@ -20,7 +24,6 @@ RACE_NAMES = [
     'race:Hispanic',
     'race:Other'
 ]
-DFPR_THRESHOLD = 0.5
 MODEL_NAMES = [ 'LR', 'RF', 'LSVC', 'XGB', 'MLP' ]
 EVAL_NAMES = [ 'Validation', 'Test'] 
 
@@ -70,53 +73,6 @@ class PostMetrics:
         except Exception as e:
             print(f"An error occurred: ", e)
     
-    # Saves data to csv files
-    def save_to_csv(
-        self, 
-        csv_path,
-        metric_name,
-        metric_data=None,
-        orientation='column'
-    ):
-        if isinstance(metric_name, (dict, pd.DataFrame)):
-            data_frame = pd.DataFrame(metric_name)
-            for column_name in data_frame.columns:
-                self.save_to_csv(
-                    csv_path,
-                    column_name,
-                    data_frame[column_name],
-                    orientation,
-                )
-            return
-
-        if orientation not in {'column', 'row'}:
-            raise ValueError("orientation must be either 'column' or 'row'")
-
-        values = list(metric_data)
-        if orientation == 'column':
-            if os.path.isfile(csv_path):
-                df = pd.read_csv(csv_path)
-                df[metric_name] = values
-            else:
-                df = pd.DataFrame({metric_name: values})
-        else:
-            index_name = 'Metric'
-            if os.path.isfile(csv_path):
-                df = pd.read_csv(csv_path).set_index(index_name)
-            else:
-                df = pd.DataFrame()
-                df.index.name = index_name
-
-            width = max(len(df.columns), len(values))
-            columns = [f'Value_{i + 1}' for i in range(width)]
-            
-            df = df.reindex(columns=columns)
-            df.loc[metric_name] = values + [np.nan] * (width - len(values))
-            df.to_csv(csv_path)
-            return
-
-        df.to_csv(csv_path, index=False)
-
     def print_metric_progress(
         self, eval_name, model_name, fold_id, metric_name=None,
         completed=None, total=None
@@ -156,6 +112,7 @@ class PostMetrics:
             else self.y_val_list[fold_id-1]
         )
     
+    # Gets the eval (test or validation) values requested
     def get_eval_values(self, eval_name, fold_id=None):
         return (
             self.X_test 
@@ -166,7 +123,8 @@ class PostMetrics:
     # Gets the predictions per fold
     def get_predictions(self, model_name, eval_name, fold_id):
         return pd.read_csv(f'{self.predictions_dir}/{model_name}_Predictions_{eval_name}_{fold_id}.csv')                           
-
+    
+    # Gets the shap values
     def get_shap_values(self, shap_values_dir, model_name, eval_name, fold_id):
         csv_path = (
             f'{shap_values_dir}/SHAP_{model_name}_'
@@ -200,7 +158,7 @@ class PostMetrics:
         for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 roc_auc_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(roc_auc_dir)
+                dir.create_nested(roc_auc_dir)
                 
                 summary_dict = {
                     'Fold': range(1, self.no_of_folds + 1),
@@ -213,7 +171,7 @@ class PostMetrics:
                     y_eval = self.get_y_values(eval_name, fold_id)
                     
                     fold_csv_path = self.get_csv_path(roc_auc_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    self.save_to_csv(fold_csv_path, 'Run', predictions.columns)
+                    csva.save_to_csv(fold_csv_path, 'Run', predictions.columns)
                     
                     roc_aucs = []
                     for i, col in enumerate(predictions.columns, start=1):
@@ -223,13 +181,13 @@ class PostMetrics:
                         roc_auc = roc_auc_score(y_eval, y_pred_proba)
                         roc_aucs.append(roc_auc)    
                         
-                    self.save_to_csv(fold_csv_path, 'ROC_AUC_Score', roc_aucs)
+                    csva.save_to_csv(fold_csv_path, 'ROC_AUC_Score', roc_aucs)
                 
                     summary_dict[f'Mean_{metric_name}'].append(np.mean(roc_aucs))
                     summary_dict[f'STD_{metric_name}'].append(np.std(roc_aucs, ddof=1))
                     
                 summary_csv_path = self.get_csv_path(roc_auc_dir, model_name, metric_name, eval_name)
-                self.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, summary_dict)
                 print()
         
     # Performance metric
@@ -240,7 +198,7 @@ class PostMetrics:
         for eval_name in EVAL_NAMES:            
             for model_name in MODEL_NAMES:         
                 brier_score_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(brier_score_dir)
+                dir.create_nested(brier_score_dir)
                 
                 summary_dict = {
                     'Fold': range(1, self.no_of_folds + 1),
@@ -253,7 +211,7 @@ class PostMetrics:
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
                     
                     fold_csv_path = self.get_csv_path(brier_score_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    self.save_to_csv(fold_csv_path, 'Run', predictions.columns)
+                    csva.save_to_csv(fold_csv_path, 'Run', predictions.columns)
                     
                     brier_score_list = []
                     for i, col in enumerate(predictions.columns, start=1):
@@ -263,13 +221,13 @@ class PostMetrics:
                         brier_score = brier_score_loss(y_eval, y_pred_proba)
                         brier_score_list.append(brier_score)
                         
-                    self.save_to_csv(fold_csv_path, metric_name, brier_score_list)
+                    csva.save_to_csv(fold_csv_path, metric_name, brier_score_list)
                     
                     summary_dict[f'Mean_{metric_name}'].append(np.mean(brier_score_list))
                     summary_dict[f'STD_{metric_name}'].append(np.std(brier_score_list, ddof=1))
                 
                 summary_csv_path = self.get_csv_path(brier_score_dir, model_name, metric_name, eval_name)
-                self.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, summary_dict)
                 print()
 
     # Instability metric
@@ -280,7 +238,7 @@ class PostMetrics:
         for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 si_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(si_dir)
+                dir.create_nested(si_dir)
 
                 summary_csv_path = self.get_csv_path(si_dir, model_name, metric_name, eval_name)
                 summary_dict = {
@@ -334,7 +292,7 @@ class PostMetrics:
                 plt.savefig(plot_path)
                 plt.close()
                 
-                self.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, summary_dict)
         
     # Instability metric
     def mean_absolute_prediction_error(self): 
@@ -344,7 +302,7 @@ class PostMetrics:
         for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 mape_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(mape_dir)
+                dir.create_nested(mape_dir)
 
                 summary_dict = {
                     'Fold': [f'Fold_{i}' for i in range(1, self.no_of_folds + 1)],
@@ -361,14 +319,14 @@ class PostMetrics:
                     ).abs().mean(axis=1)
                     
                     fold_csv_path = self.get_csv_path(mape_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    self.save_to_csv(fold_csv_path, 'Defendant_ID', self.get_defendant_ids(eval_name, fold_id))
-                    self.save_to_csv(fold_csv_path, 'MAPE', mape_per_defendant)
+                    csva.save_to_csv(fold_csv_path, 'Defendant_ID', self.get_defendant_ids(eval_name, fold_id))
+                    csva.save_to_csv(fold_csv_path, 'MAPE', mape_per_defendant)
                     
                     summary_dict['Mean_MAPE'].append(np.mean(mape_per_defendant))
                     print()
                     
                 summary_csv_path = self.get_csv_path(mape_dir, model_name, metric_name, eval_name)
-                self.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, summary_dict)
             
     # Instability metric 
     def top_k_jaccard(self):
@@ -378,7 +336,7 @@ class PostMetrics:
         for eval_name in EVAL_NAMES:            
             for model_name in MODEL_NAMES:
                 tk_jaccard_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(tk_jaccard_dir)
+                dir.create_nested(tk_jaccard_dir)
 
                 summary_dict = {
                     'Fold': range(1, self.no_of_folds + 1),
@@ -414,14 +372,14 @@ class PostMetrics:
                         jaccard_fold_dict['Jaccard'].append(jaccard)
                         
                     fold_csv_path = self.get_csv_path(tk_jaccard_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    self.save_to_csv(fold_csv_path, jaccard_fold_dict)
+                    csva.save_to_csv(fold_csv_path, jaccard_fold_dict)
                         
                     summary_dict[f'Mean_{metric_name}'].append(np.mean(jaccard_fold_dict['Jaccard']))
                     summary_dict[f'STD_{metric_name}'].append(np.std(jaccard_fold_dict['Jaccard'], ddof=1))
                     print()
                     
                 summary_csv_path = self.get_csv_path(tk_jaccard_dir, model_name, metric_name, eval_name)
-                self.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, summary_dict)
                 
             
     # Instability metric 
@@ -433,7 +391,7 @@ class PostMetrics:
         for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 cii_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(cii_dir)
+                dir.create_nested(cii_dir)
 
                 summary_dict = {
                     'Fold': range(1, self.no_of_folds + 1),
@@ -453,10 +411,10 @@ class PostMetrics:
                     fold_csv_path = self.get_csv_path(cii_dir, model_name, metric_name, eval_name, fold_id=fold_id)
                     
                     defendant_ids = self.get_defendant_ids(eval_name, fold_id)
-                    self.save_to_csv(fold_csv_path, 'Defendant_ID', defendant_ids)
+                    csva.save_to_csv(fold_csv_path, 'Defendant_ID', defendant_ids)
                     
                     cii_individual = flips / (labels.shape[1] * (labels.shape[1] - 1) / 2)
-                    self.save_to_csv(fold_csv_path, 'CII', cii_individual)
+                    csva.save_to_csv(fold_csv_path, 'CII', cii_individual)
                                   
                     summary_dict[f'Mean_{metric_name}'].append(np.mean(cii_individual))
                     summary_dict[f'STD_{metric_name}'].append(np.std(cii_individual, ddof=1))
@@ -470,7 +428,7 @@ class PostMetrics:
                     print()
                     
                 summary_csv_path = self.get_csv_path(cii_dir, model_name, metric_name, eval_name)
-                self.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, summary_dict)
                 
 
     # Performance metric 
@@ -481,7 +439,7 @@ class PostMetrics:
         for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 cal_plot_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(cal_plot_dir)
+                dir.create_nested(cal_plot_dir)
 
                 r2_summary_records = []
                 for fold_id in range(1, self.no_of_folds + 1):                    
@@ -583,7 +541,7 @@ class PostMetrics:
                         'Run': predictions.columns,
                         'Outcome_R2_vs_Prevalence': r2_scores,
                     })
-                    self.save_to_csv(per_run_r2_path, r2_outcome_dict)
+                    csva.save_to_csv(per_run_r2_path, r2_outcome_dict)
                     
                     r2_summary_records.append({
                         'Fold': fold_id,
@@ -607,7 +565,7 @@ class PostMetrics:
         for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 dfpr_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(dfpr_dir)
+                dir.create_nested(dfpr_dir)
 
                 mean_values_by_fold = {}
                 std_values_by_fold = {}
@@ -732,7 +690,7 @@ class PostMetrics:
                 
     # SHAP ANALYSIS
     # Uses the runtime shap values per fold
-    def shap_analysis(self, trained_models=None):
+    def shap_analysis(self):
         print('Metric: SHAP Analysis')
         metric_name = 'SHAP_Analysis'
         
@@ -740,7 +698,7 @@ class PostMetrics:
             for model_name in MODEL_NAMES:
                 shap_values_dir = f'{self.metrics_dir}/shap_values/{model_name}'
                 shap_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                create_nested_directory(shap_dir)
+                dir.create_nested(shap_dir)
 
                 for fold_id in range(1, self.no_of_folds + 1):
                     self.print_metric_progress(eval_name, model_name, fold_id, 'SHAP', 100)
@@ -760,6 +718,5 @@ class PostMetrics:
                     }
                     
                     shap_csv_path = self.get_csv_path(shap_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    self.save_to_csv(shap_csv_path, output)
-                    
+                    csva.save_to_csv(shap_csv_path, output)    
         print()
