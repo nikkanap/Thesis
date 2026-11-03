@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import shutil
 import joblib
 import os
 
@@ -20,12 +19,16 @@ from runtime_metrics import (
     save_shap_values,
 )
 from post_metrics import PostMetrics
-from generate_prediction_csv import generate_prediction_csv
+import csv_actions as csva
+import joblib_actions as jla
+
+import directory as dir
 
 RANDOM_SEEDS = 10
 NO_OF_FOLDS = 10
 INSTABILITY_TYPE = 'Stochastic'
 MODEL_NAMES = ['LR', 'LSVC', 'XGB', 'RF', 'MLP']
+EVAL_NAMES = ['Validation', 'Test']
 
 class StochasticInstability:
     def __init__(self, dataset=None, force_reset=False):   
@@ -33,7 +36,6 @@ class StochasticInstability:
         
         # RNG 
         self.rng = np.random.default_rng(42)
-        self.force_reset = force_reset # forces reset
         
         # K-fold
         self.k_fold = KFold(
@@ -43,44 +45,44 @@ class StochasticInstability:
         )
         
         self.data_dir = f'data/{INSTABILITY_TYPE}'
-        if self.force_reset: 
-            self.delete_dirs(self.data_dir)
+        if force_reset: 
+            dir.delete_nested(self.data_dir)
             
-        self.create_nested_directory(self.data_dir)
+        dir.create_nested(self.data_dir)
         
         # Initializing the dataset to training and testing data + ids
-        self.X_train = self.get_data(dataset, 'X_train')
-        self.y_train = np.asarray(self.get_data(dataset, 'y_train')).ravel()
-        self.X_test = self.get_data(dataset, 'X_test')
-        self.y_test = np.asarray(self.get_data(dataset, 'y_test')).ravel()
-        self.train_ids = np.asarray(self.get_data(dataset, 'train_ids')).ravel()
-        self.test_ids = np.asarray(self.get_data(dataset, 'test_ids')).ravel()    
+        self.X_train = jla.get_data(dataset, 'X_train')
+        self.y_train = np.asarray(jla.get_data(dataset, 'y_train')).ravel()
+        self.X_test = jla.get_data(dataset, 'X_test')
+        self.y_test = np.asarray(jla.get_data(dataset, 'y_test')).ravel()
+        self.train_ids = np.asarray(jla.get_data(dataset, 'train_ids')).ravel()
+        self.test_ids = np.asarray(jla.get_data(dataset, 'test_ids')).ravel()    
         
         # Save initialized data to csvs (for later recreation)
-        """self.to_joblib(self.X_train, 'X_train')
-        self.to_joblib(self.y_train, 'y_train')
-        self.to_joblib(self.X_test, 'X_test')
-        self.to_joblib(self.y_test, 'y_test')
-        self.to_joblib(self.train_ids, 'train_ids')
-        self.to_joblib(self.test_ids, 'test_ids')"""
+        jla.to_joblib(self.X_train, 'X_train')
+        jla.to_joblib(self.y_train, 'y_train')
+        jla.to_joblib(self.X_test, 'X_test')
+        jla.to_joblib(self.y_test, 'y_test')
+        jla.to_joblib(self.train_ids, 'train_ids')
+        jla.to_joblib(self.test_ids, 'test_ids')
         print()
     
         # Either save the newly generated split data or use existing data
         split_data = None
         if force_reset:
             split_data = self.get_k_split_data()
-        self.X_train_split_arr = self.get_data(split_data, 'X_train_split_arr')
-        self.y_train_split_arr = self.get_data(split_data, 'y_train_split_arr')
-        self.X_val_arr = self.get_data(split_data, 'X_val_arr')
-        self.y_val_arr = self.get_data(split_data, 'y_val_arr')
-        self.val_ids_fold_arr = self.get_data(split_data, 'val_ids_fold_arr')
+        self.X_train_split_arr = jla.get_data(split_data, 'X_train_split_arr')
+        self.y_train_split_arr = jla.get_data(split_data, 'y_train_split_arr')
+        self.X_val_arr = jla.get_data(split_data, 'X_val_arr')
+        self.y_val_arr = jla.get_data(split_data, 'y_val_arr')
+        self.val_ids_fold_arr = jla.get_data(split_data, 'val_ids_fold_arr')
         
         # Save initialized array data to csvs (for later recreation)
-        """self.to_joblib(self.X_train_split_arr, 'X_train_split_arr')
-        self.to_joblib(self.y_train_split_arr, 'y_train_split_arr')
-        self.to_joblib(self.X_val_arr, 'X_val_arr')
-        self.to_joblib(self.y_val_arr, 'y_val_arr')
-        self.to_joblib(self.val_ids_fold_arr, 'val_ids_fold_arr')"""
+        jla.to_joblib(self.X_train_split_arr, 'X_train_split_arr')
+        jla.to_joblib(self.y_train_split_arr, 'y_train_split_arr')
+        jla.to_joblib(self.X_val_arr, 'X_val_arr')
+        jla.to_joblib(self.y_val_arr, 'y_val_arr')
+        jla.to_joblib(self.val_ids_fold_arr, 'val_ids_fold_arr')
         print()
 
         [
@@ -90,62 +92,21 @@ class StochasticInstability:
         ] = self.get_X_scaled()
         
         self.models_dir = f'models/{INSTABILITY_TYPE}'
-        # running the model
         
+        # running the model
         self.predictions_dir = f'predictions/{INSTABILITY_TYPE}'
         if force_reset:
             self.train_models()
-            self.delete_dirs(self.predictions_dir)
-            self.create_nested_directory(self.predictions_dir)
+            dir.delete_nested(self.predictions_dir)
+            dir.create_nested(self.predictions_dir)
             self.get_predictions()
-        self.get_metrics()
-    
-    def data_exists(self, data_name):
-        csv_file_path = f'{self.data_dir}/{data_name}.joblib'
-        return os.path.isfile(csv_file_path)
-    
-    def get_data(self, generated_data, data_name):
-        path = f'{self.data_dir}/{data_name}.joblib'
-
-        if self.force_reset or not os.path.isfile(path):
-            data = generated_data[data_name]
-            joblib.dump(data, path)
-            return data
-
-        return joblib.load(path)
-    
-    def to_joblib(self, data, data_name):
-        print(f'Saving data: {data_name}')
-
-        joblib.dump(
-            data,
-            f'{self.data_dir}/{data_name}.joblib'
-        )
-        
-    # Creates nested directories
-    def create_nested_directory(self, directory_name):
-        try:
-            os.makedirs(directory_name)
-            print(f"Directory '{directory_name}' created successfully.")
-        except FileExistsError:
-            print(f"Directory '{directory_name}' already exists.")
-        except PermissionError:
-            print(f"Permission denied: Unable to create '{directory_name}'.")
-        except Exception as e:
-            print(f"An error occurred: {e}")
-    
-    # Deletes directories
-    def delete_dirs(self, directory_name):
-        try:
-            shutil.rmtree(directory_name, ignore_errors=True)
-        except Exception as e:
-            print(f"An error occurred: {e}")
+        self.get_metrics(force_reset)
             
     # ================
     # GETTER FUNCTIONS
     # ================
     
-    # Gets the k fold split data
+    # 🗹 Gets the k fold split data
     def get_k_split_data(self):
         print('===== SPLITTING DATA TO K FOLDS =====')
         
@@ -179,7 +140,7 @@ class StochasticInstability:
             'val_ids_fold_arr': val_ids_fold_arr 
         }
 
-    # Gets scaled version of the data as an array
+    # 🗹 Gets scaled version of the data as an array
     def get_X_scaled(self):
         print('===== SCALED VERSIONS =====')
         scaled_X_train_split_arr = []
@@ -193,13 +154,13 @@ class StochasticInstability:
             scaler = StandardScaler()
 
             scaled_X_train = scaler.fit_transform(X_train_fold)
-            scaled_X_train_split_arr.append(scaled_X_train)
-
             transf_X_val = scaler.transform(X_val_fold)
-            transf_X_val_arr.append(transf_X_val)
-
             transf_X_test = scaler.transform(self.X_test)
+            
+            scaled_X_train_split_arr.append(scaled_X_train)
+            transf_X_val_arr.append(transf_X_val)
             transf_X_test_arr.append(transf_X_test)
+
             print(f'Fold {fold_id}/{NO_OF_FOLDS}', end="\r")
         print(f'Fold {NO_OF_FOLDS}/{NO_OF_FOLDS}')
         print()
@@ -210,7 +171,7 @@ class StochasticInstability:
             transf_X_test_arr
         ]
     
-    # Gets the trained models as an array
+    # 🗹 Gets the trained models as an array
     def train_models(self):
         print('===== TRAINING MODELS =====')
         
@@ -222,7 +183,7 @@ class StochasticInstability:
             RANDOM_SEEDS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            self.force_reset
+            force_reset
         )
         
         # XGBoost
@@ -233,7 +194,7 @@ class StochasticInstability:
             RANDOM_SEEDS,
             INSTABILITY_TYPE,
             self.models_dir,
-            self.force_reset
+            force_reset
         )
             
         # Logistic Regression
@@ -244,7 +205,7 @@ class StochasticInstability:
             RANDOM_SEEDS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            self.force_reset
+            force_reset
         )
         
         # Linear SVC (SVM)
@@ -255,7 +216,7 @@ class StochasticInstability:
             RANDOM_SEEDS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            self.force_reset
+            force_reset
         )
         
         # Multilayer Perceptron
@@ -266,80 +227,64 @@ class StochasticInstability:
             RANDOM_SEEDS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            self.force_reset
+            force_reset
         )
 
-    # Gets the predictions from the trained models
+    # 🗹 sGets the predictions from the trained models
     def get_predictions(self):
-        for model_name in MODEL_NAMES:
-            print(f'Model: {model_name}')
-            
-            for fold_id in range(1, NO_OF_FOLDS + 1):
-                if model_name in ['LR', 'LSVC', 'MLP']:
-                    X_val = self.transf_X_val_arr[fold_id - 1]
-                    X_test = self.transf_X_test_arr[fold_id - 1]
-                else:
-                    X_val = self.X_val_arr[fold_id - 1]
-                    X_test = self.X_test
+        for eval_name in EVAL_NAMES:
+            for model_name in MODEL_NAMES:
+                print(f'Model: {model_name}')
+                
+                for fold_id in range(1, NO_OF_FOLDS + 1):
+                    if model_name in ['LR', 'LSVC', 'MLP']:
+                        X_eval = (
+                            self.transf_X_val_arr[fold_id - 1]
+                            if eval_name == 'Validation'
+                            else self.transf_X_test_arr[fold_id - 1]
+                        )
+                    else:
+                        X_eval = (
+                            self.X_val_arr[fold_id - 1]
+                            if eval_name == 'Validation'
+                            else self.X_test
+                        )
 
-                for random_seed in range(1, RANDOM_SEEDS + 1):
-                    print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting predictions... {round((random_seed/RANDOM_SEEDS)*100)}%', end='\r')
+                    for random_seed in range(1, RANDOM_SEEDS + 1):
+                        print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting predictions... {round((random_seed/RANDOM_SEEDS)*100)}%', end='\r')
+                        
+                        model = jla.get_model(self.models_dir, model_name, fold_id, random_seed)
+                        y_pred_proba = model.predict_proba(X_eval)[:, 1]
 
-                    model = joblib.load(f"{self.models_dir}/{model_name}/Fold_{fold_id}_Random_Seed_{random_seed}.joblib")
-                    y_pred_proba = model.predict_proba(X_val)[:, 1]
-
-                    column_name = f'Random_Seed_{random_seed}'
-                    csv_file_path = (
-                        f'{self.predictions_dir}/'
-                        f'{model_name}_Predictions_Validation_{fold_id}.csv'
-                    )
-                    generate_prediction_csv(
-                        y_pred_proba,
-                        column_name,
-                        csv_file_path
-                    )
-
-                    y_test_pred_proba = model.predict_proba(X_test)[:, 1]
-                    test_csv_file_path = (
-                        f'{self.predictions_dir}/'
-                        f'{model_name}_Predictions_Test_{fold_id}.csv'
-                    )
-                    generate_prediction_csv(
-                        y_test_pred_proba,
-                        column_name,
-                        test_csv_file_path
-                    )
-                print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting predictions... 100%')
-            print()
+                        column_name = f'Random_Seed_{random_seed}'
+                        csv_path = (f'{self.predictions_dir}/{model_name}_Predictions_{eval_name}_{fold_id}.csv')
+                        
+                        csva.save_to_csv(csv_path, y_pred_proba, column_name)
+                    print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting predictions... 100%')
+                print()
                   
-    # Gets the metric results  
-    def get_metrics(self):
+    # 🗹 Gets the metric results  
+    def get_metrics(self, force_reset=False):
         pm = PostMetrics(
-            self.X_train,
-            self.y_train,
-            self.X_val_arr,
-            self.y_val_arr,
-            self.val_ids_fold_arr,
-            self.X_test,
-            self.y_test,
-            self.test_ids,
+            self.X_train, self.y_train,
+            self.X_val_arr, self.y_val_arr, self.val_ids_fold_arr,
+            self.X_test, self.y_test, self.test_ids,
             NO_OF_FOLDS,
             self.predictions_dir,
             INSTABILITY_TYPE,
-            self.force_reset
+            force_reset
         )
-        """
+        
         pm.roc_auc()
         pm.brier_score()
         pm.calibration_plot()
-        pm.ninety_five_prediction_interval()
+        pm.ninety_five_prediction_error()
         pm.mean_absolute_prediction_error()
         pm.classification_instability_index()
         pm.top_k_jaccard()
-        """
         pm.demographic_false_positive_rate()
         
-        #self.get_mrip()
+        self.get_mrip()
         self.generate_shap_values()
         
         pm.shap_analysis(self.trained_models)
@@ -350,9 +295,6 @@ class StochasticInstability:
     
     # Gets the mrip       
     def get_mrip(self):
-        # Adviser-review preview: one validation defendant per
-        # fold across that fold's seeds, and one fixed test defendant across
-        # every fold and seed for each configured model.
         X_test_reference = self.X_test.iloc[1:]
         y_test_reference = self.y_test[1:]
         X_test_query = self.X_test.iloc[[0]]
@@ -361,7 +303,7 @@ class StochasticInstability:
         for model_name in MODEL_NAMES:
             print(f'MRIP for {model_name}')
             mrip_dir = f'metrics/{INSTABILITY_TYPE}/MRIP/{model_name}'
-            self.create_nested_directory(mrip_dir)
+            dir.create_nested(mrip_dir)
 
             validation_records = []
             test_records = []
@@ -405,7 +347,6 @@ class StochasticInstability:
                         seed_id
                     ))
 
-            print(f'MRIP {model_name}: completed all folds and random seeds')
             save_mrip_results(
                 validation_records,
                 f'{mrip_dir}/MRIP_{model_name}_Validation.csv',
@@ -423,7 +364,7 @@ class StochasticInstability:
             print(f'SHAP for {model_name}')
             feature_names = self.X_train.columns
             shap_dir = f'metrics/{INSTABILITY_TYPE}/shap_values/{model_name}'
-            self.create_nested_directory(shap_dir)
+            dir.create_nested(shap_dir)
 
             for fold_id in range(1, NO_OF_FOLDS + 1):
                 val_id = [self.val_ids_fold_arr[fold_id - 1][0]]
@@ -478,20 +419,6 @@ class StochasticInstability:
                         'random_seed': seed_id,
                     })
 
-                save_shap_values(
-                    validation_shap_runs,
-                    f'{shap_dir}/SHAP_{model_name}_Validation_Fold_{fold_id}.csv'
-                )
-                save_shap_values(
-                    test_shap_runs,
-                    f'{shap_dir}/SHAP_{model_name}_Test_Fold_{fold_id}.csv'
-                )
-            print(f'SHAP values for {model_name}: completed all folds and seeds')
- 
-    def get_random_fold(self):
-        random_fold = self.rng.choice(NO_OF_FOLDS) + 1
-        return random_fold
-    
-    def get_random_seed(self):
-        random_seed = self.rng.choice(RANDOM_SEEDS) + 1
-        return random_seed
+                save_shap_values(validation_shap_runs, f'{shap_dir}/SHAP_{model_name}_Validation_Fold_{fold_id}.csv')
+                save_shap_values(test_shap_runs, f'{shap_dir}/SHAP_{model_name}_Test_Fold_{fold_id}.csv')
+
