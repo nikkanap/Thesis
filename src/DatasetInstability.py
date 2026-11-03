@@ -205,6 +205,7 @@ class DatasetInstability:
             'y_boot_list': y_boot_list 
         }
     
+    # 🗹 Initializes the class' variables through a provided dictionary
     def init_data_dict(self, data, force_reset=False):
         if force_reset:
             for key, value in data.items():
@@ -315,7 +316,7 @@ class DatasetInstability:
                             else X_eval_fold
                         )
 
-                        model = jla.get_model(self.models_dir, model_name, fold_id, b)
+                        model = jla.get_model(self.models_dir, model_name, fold_id, b, 'Bootstrap')
                         y_pred_proba = model.predict_proba(X_eval)[:, 1]
                                             
                         csv_path = (f'{self.predictions_dir}/{model_name}_Predictions_{eval_name}_{fold_id}.csv')
@@ -385,7 +386,7 @@ class DatasetInstability:
                         X_ref = self.X_boot_list[fold_id-1][b-1]
                         y_ref = self.y_boot_list[fold_id-1][b-1]
                         
-                        model = jla.get_model(self.models_dir, model_name, fold_id, b)
+                        model = jla.get_model(self.models_dir, model_name, fold_id, b, 'Bootstrap')
 
                         records.extend(rm.MRIP(
                             X_ref,
@@ -445,7 +446,7 @@ class DatasetInstability:
                                 else self.X_test.iloc[[0]]
                             )
                         
-                        trained_model = jla.get_model(self.models_dir, model_name, fold_id, b)
+                        trained_model = jla.get_model(self.models_dir, model_name, fold_id, b, 'Bootstrap')
                         shap_records.append(rm.get_shap_values(
                             X_ref,
                             chosen_X_eval,
