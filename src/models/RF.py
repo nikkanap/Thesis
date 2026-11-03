@@ -4,8 +4,8 @@ import joblib
 import os
 
 def Random_Forest(
-    X_train_arr,
-    y_train_arr,
+    X_train_list,
+    y_train_list,
     no_of_folds,
     no_of_runs,
     instability_type,
@@ -18,8 +18,8 @@ def Random_Forest(
     create_nested_directory(final_model_dir)
     
     for fold_id in range(1, no_of_folds + 1):
-        X_train_fold = X_train_arr[fold_id-1]
-        y_train_fold = y_train_arr[fold_id-1]
+        X_train_fold = X_train_list[fold_id-1]
+        y_train_fold = y_train_list[fold_id-1]
         
         for nth_run in range(1, no_of_runs + 1):
             print(f'Fold {fold_id}/{no_of_folds} ({round(((nth_run)/no_of_runs)*100)}%)', end='\r')

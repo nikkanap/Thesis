@@ -27,7 +27,7 @@ class PostMetrics:
     def __init__(
         self, 
         X_train, y_train,   # Training data (not split)
-        X_val_arr, y_val_arr, val_defendant_ids_arr,
+        X_val_list, y_val_list, val_defendant_ids_list,
         X_test, y_test, test_defendant_ids,     # Testing data  
         no_of_folds,        
         predictions_dir,  
@@ -46,9 +46,9 @@ class PostMetrics:
         self.test_defendant_ids = test_defendant_ids
         
         # Validation Data Arrays
-        self.X_val_arr = X_val_arr
-        self.y_val_arr = y_val_arr
-        self.val_defendant_ids_arr = val_defendant_ids_arr
+        self.X_val_list = X_val_list
+        self.y_val_list = y_val_list
+        self.val_defendant_ids_list = val_defendant_ids_list
         
         # Directory for predictions
         self.predictions_dir = predictions_dir
@@ -76,7 +76,7 @@ class PostMetrics:
             return self.test_defendant_ids
 
         # Validation defendant_ids
-        return self.val_defendant_ids_arr[fold_id-1]
+        return self.val_defendant_ids_list[fold_id-1]
     
     # Gets the y_values from the test or validation data
     def get_y_values(self, test_name, fold_id=None):
@@ -84,7 +84,7 @@ class PostMetrics:
             return self.y_test
         
         # Validation y values
-        return self.y_val_arr[fold_id-1]
+        return self.y_val_list[fold_id-1]
                         
     # Gets the predictions per fold
     def get_predictions(self, model_name, test_name, fold_id):
@@ -473,8 +473,8 @@ class PostMetrics:
                 
                 for fold_id in range(1, self.no_of_folds + 1):                    
                     by_fold_csv_file_path = f'{tk_jaccard_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'     
-                    run_1_arr = []
-                    run_2_arr = []
+                    run_1_list = []
+                    run_2_list = []
                     jaccard_scores = []
                     
                     predictions = self.get_predictions(
@@ -485,8 +485,8 @@ class PostMetrics:
                         
                     k = int(0.10 * len(predictions))
                     for col1, col2 in combinations(predictions.columns, 2):
-                        run_1_arr.append(col1)
-                        run_2_arr.append(col2)
+                        run_1_list.append(col1)
+                        run_2_list.append(col2)
                         
                         run1 = predictions[col1]
                         run2 = predictions[col2]
@@ -503,12 +503,12 @@ class PostMetrics:
                     self.save_to_csv(
                         by_fold_csv_file_path,
                        'run_1',
-                       run_1_arr
+                       run_1_list
                     )
                     self.save_to_csv(
                         by_fold_csv_file_path,
                         'run_2',
-                        run_2_arr
+                        run_2_list
                     )
                     self.save_to_csv(
                         by_fold_csv_file_path,
@@ -692,7 +692,7 @@ class PostMetrics:
                 
                 for fold_id in range(1, self.no_of_folds + 1):
                     by_fold_csv_file_path = f'{dfpr_dir}/{metric_name}_{model_name}_{self.instability_type}_{test_name}_Fold_{fold_id}.csv'             
-                    test_df = self.X_val_arr[fold_id - 1] if test_name == 'Validation' else self.X_test
+                    test_df = self.X_val_list[fold_id - 1] if test_name == 'Validation' else self.X_test
                     y_df = self.get_y_values(test_name, fold_id)
                     predictions = self.get_predictions(
                         model_name,

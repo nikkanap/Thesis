@@ -54,22 +54,22 @@ class DatasetInstability:
         self.to_csv(self.test_ids, 'test_ids', 'defendant_id')
         
         [   
-            self.X_train_split_arr,
-            self.y_train_split_arr,
-            self.X_val_arr,
-            self.y_val_arr,
-            self.val_ids_fold_arr,
+            self.X_train_split_list,
+            self.y_train_split_list,
+            self.X_val_list,
+            self.y_val_list,
+            self.val_ids_fold_list,
         ] = self.get_k_split_data()
         
         [
-            self.X_boot_arr,
-            self.y_boot_arr
+            self.X_boot_list,
+            self.y_boot_list
         ] = self.get_bootstrap_data()
 
         [
-            self.scaled_X_boot_arr,
-            self.scaled_X_val_arr,
-            self.scaled_X_test_arr
+            self.scaled_X_boot_list,
+            self.scaled_X_val_list,
+            self.scaled_X_test_list
         ] = self.get_X_scaled()
         
         self.trained_models = self.get_trained_models()
@@ -79,9 +79,9 @@ class DatasetInstability:
         self.create_nested_directory(self.predictions_dir)
         self.get_predictions()
         
-        self.to_csv(self.X_val_arr, 'X_val_arr')
-        self.to_csv(self.y_val_arr, 'y_val_arr')
-        self.to_csv(self.val_ids_fold_arr, 'val_ids_fold_arr')
+        self.to_csv(self.X_val_list, 'X_val_list')
+        self.to_csv(self.y_val_list, 'y_val_list')
+        self.to_csv(self.val_ids_fold_list, 'val_ids_fold_list')
         
         self.get_metrics()
         
@@ -105,39 +105,39 @@ class DatasetInstability:
             print(f"An error occurred: {e}")
             
     def get_k_split_data(self):
-        X_train_split_arr = []
-        y_train_split_arr = []
+        X_train_split_list = []
+        y_train_split_list = []
         
-        X_val_arr = []
-        y_val_arr = []
-        val_ids_fold_arr = []
+        X_val_list = []
+        y_val_list = []
+        val_ids_fold_list = []
         
         for train_idx, val_idx in self.k_fold.split(self.X_train):
             X_train_split = self.X_train.iloc[train_idx]
-            X_train_split_arr.append(X_train_split)
+            X_train_split_list.append(X_train_split)
             
             y_train_split = self.y_train[train_idx]
-            y_train_split_arr.append(y_train_split)
+            y_train_split_list.append(y_train_split)
 
             X_val = self.X_train.iloc[val_idx]
-            X_val_arr.append(X_val)
+            X_val_list.append(X_val)
             
             y_val = self.y_train[val_idx]
-            y_val_arr.append(y_val)
+            y_val_list.append(y_val)
 
             val_ids_fold = self.train_ids[val_idx]
-            val_ids_fold_arr.append(val_ids_fold)
+            val_ids_fold_list.append(val_ids_fold)
         
-        return [ X_train_split_arr, y_train_split_arr, X_val_arr, y_val_arr, val_ids_fold_arr ]
+        return [ X_train_split_list, y_train_split_list, X_val_list, y_val_list, val_ids_fold_list ]
 
     def get_X_scaled(self):
-        scaled_X_boot_arr = []
-        transf_X_val_arr = []
-        transf_X_test_arr = []
+        scaled_X_boot_list = []
+        transf_X_val_list = []
+        transf_X_test_list = []
 
         for fold_id in range(1, NO_OF_FOLDS + 1):
-            X_boot_fold = self.X_boot_arr[fold_id - 1]
-            X_val_fold = self.X_val_arr[fold_id - 1]
+            X_boot_fold = self.X_boot_list[fold_id - 1]
+            X_val_fold = self.X_val_list[fold_id - 1]
 
             scaled_X_boot_fold = []
             transf_X_val_fold = []
@@ -155,27 +155,27 @@ class DatasetInstability:
                 transf_X_test = scaler.transform(self.X_test)
                 transf_X_test_fold.append(transf_X_test)
 
-            scaled_X_boot_arr.append(scaled_X_boot_fold)
-            transf_X_val_arr.append(transf_X_val_fold)
-            transf_X_test_arr.append(transf_X_test_fold)
+            scaled_X_boot_list.append(scaled_X_boot_fold)
+            transf_X_val_list.append(transf_X_val_fold)
+            transf_X_test_list.append(transf_X_test_fold)
 
         return [
-            scaled_X_boot_arr,
-            transf_X_val_arr,
-            transf_X_test_arr
+            scaled_X_boot_list,
+            transf_X_val_list,
+            transf_X_test_list
         ]
     
     def get_bootstrap_data(self):
-        X_boot_arr = []
-        y_boot_arr = []
+        X_boot_list = []
+        y_boot_list = []
         rng = np.random.default_rng(RANDOM_SEED)
         
         for fold_id in range(1, NO_OF_FOLDS+1):
-            X_train_split = self.X_train_split_arr[fold_id-1]
-            y_train_split = self.y_train_split_arr[fold_id-1]
+            X_train_split = self.X_train_split_list[fold_id-1]
+            y_train_split = self.y_train_split_list[fold_id-1]
             
-            X_boot_fold_arr = []
-            y_boot_fold_arr = []
+            X_boot_fold_list = []
+            y_boot_fold_list = []
             for _ in range(BOOTSTRAPS):    
                 n_samples = len(X_train_split)
         
@@ -186,20 +186,20 @@ class DatasetInstability:
                 )
         
                 X_boot = X_train_split.iloc[boot_idx]
-                X_boot_fold_arr.append(X_boot)
+                X_boot_fold_list.append(X_boot)
                 
                 y_boot = y_train_split[boot_idx]
-                y_boot_fold_arr.append(y_boot)
+                y_boot_fold_list.append(y_boot)
                 
-            X_boot_arr.append(X_boot_fold_arr)
-            y_boot_arr.append(y_boot_fold_arr)
+            X_boot_list.append(X_boot_fold_list)
+            y_boot_list.append(y_boot_fold_list)
             
-        return [ X_boot_arr, y_boot_arr ]
+        return [ X_boot_list, y_boot_list ]
     
     def get_trained_models(self):
         rf_trained_models = Random_Forest(
-            self.X_boot_arr,
-            self.y_boot_arr,
+            self.X_boot_list,
+            self.y_boot_list,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
@@ -207,8 +207,8 @@ class DatasetInstability:
         )
         
         xgb_trained_models = XGBoost(
-            self.X_boot_arr,
-            self.y_boot_arr,
+            self.X_boot_list,
+            self.y_boot_list,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
@@ -216,8 +216,8 @@ class DatasetInstability:
         )
             
         lr_trained_models = Logistic_Regression(
-            self.scaled_X_boot_arr,
-            self.y_boot_arr,
+            self.scaled_X_boot_list,
+            self.y_boot_list,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
@@ -225,8 +225,8 @@ class DatasetInstability:
         )
         
         lsvc_trained_models = Linear_SVC(
-            self.scaled_X_boot_arr,
-            self.y_boot_arr,
+            self.scaled_X_boot_list,
+            self.y_boot_list,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
@@ -234,8 +234,8 @@ class DatasetInstability:
         )
         
         mlp_trained_models = Multilayer_Perceptron(
-            self.scaled_X_boot_arr,
-            self.y_boot_arr,
+            self.scaled_X_boot_list,
+            self.y_boot_list,
             NO_OF_FOLDS,
             BOOTSTRAPS,
             INSTABILITY_TYPE, 
@@ -272,16 +272,16 @@ class DatasetInstability:
                 len(trained_model["models"])
             )
 
-            print("X_val_arr:", len(self.X_val_arr))
+            print("X_val_list:", len(self.X_val_list))
 
             for fold_id, models_by_fold in enumerate(trained_model['models'],start=1):
                 print(f'Fold_{fold_id}')
 
                 if trained_model['name'] in ['LR', 'LSVC', 'MLP']:
-                    X_val_fold = self.scaled_X_val_arr[fold_id - 1]
-                    X_test_fold = self.scaled_X_test_arr[fold_id - 1]
+                    X_val_fold = self.scaled_X_val_list[fold_id - 1]
+                    X_test_fold = self.scaled_X_test_list[fold_id - 1]
                 else:
-                    X_val_fold = self.X_val_arr[fold_id - 1]
+                    X_val_fold = self.X_val_list[fold_id - 1]
                     X_test_fold = self.X_test
 
                 for nth_run, model in enumerate(models_by_fold, start=1):
@@ -326,9 +326,9 @@ class DatasetInstability:
         pm = PostMetrics(
             self.X_train,
             self.y_train,
-            self.X_val_arr,
-            self.y_val_arr,
-            self.val_ids_fold_arr,
+            self.X_val_list,
+            self.y_val_list,
+            self.val_ids_fold_list,
             self.X_test,
             self.y_test,
             self.test_ids,
@@ -357,10 +357,10 @@ class DatasetInstability:
             
             for fold_id, models_by_fold in enumerate(trained_model['models'], start=1):
                 print(f'Fold_{fold_id}')
-                y_train_fold = self.y_boot_arr[fold_id-1]
-                val_ids_fold = self.val_ids_fold_arr[fold_id-1]
-                X_train_fold = self.X_boot_arr[fold_id-1]
-                X_val_fold = self.X_val_arr[fold_id - 1]
+                y_train_fold = self.y_boot_list[fold_id-1]
+                val_ids_fold = self.val_ids_fold_list[fold_id-1]
+                X_train_fold = self.X_boot_list[fold_id-1]
+                X_val_fold = self.X_val_list[fold_id - 1]
                 
                 mrip_dir = f'metrics/{INSTABILITY_TYPE}/MRIP/{trained_model["name"]}'
                 self.create_nested_directory(mrip_dir)
@@ -403,14 +403,14 @@ class DatasetInstability:
             
             for fold_id, models_by_fold in enumerate(trained_model['models'], start=1):
                 print(f'Fold_{fold_id}')
-                val_ids_fold = self.val_ids_fold_arr[fold_id-1]
+                val_ids_fold = self.val_ids_fold_list[fold_id-1]
                 
                 if trained_model['name'] in ['LR', 'LSVC', 'MLP']:
-                    X_train_fold = self.scaled_X_boot_arr[fold_id-1]
-                    X_val_fold = self.scaled_X_val_arr[fold_id - 1]
+                    X_train_fold = self.scaled_X_boot_list[fold_id-1]
+                    X_val_fold = self.scaled_X_val_list[fold_id - 1]
                 else:
-                    X_train_fold = self.X_boot_arr[fold_id-1]
-                    X_val_fold = self.X_val_arr[fold_id - 1]
+                    X_train_fold = self.X_boot_list[fold_id-1]
+                    X_val_fold = self.X_val_list[fold_id - 1]
                 
                 shap_dir = f'metrics/{INSTABILITY_TYPE}/shap_values/{trained_model["name"]}'
                 self.create_nested_directory(shap_dir)
@@ -426,7 +426,7 @@ class DatasetInstability:
 
                     if trained_model['name'] in ['LR', 'LSVC', 'MLP']:
                         X_val = X_val_fold[nth_run-1]
-                        X_test = self.scaled_X_test_arr[fold_id - 1][nth_run - 1]
+                        X_test = self.scaled_X_test_list[fold_id - 1][nth_run - 1]
                     else:
                         X_val = X_val_fold
                         X_test = self.X_test

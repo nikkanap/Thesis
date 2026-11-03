@@ -71,24 +71,24 @@ class StochasticInstability:
         split_data = None
         if force_reset:
             split_data = self.get_k_split_data()
-        self.X_train_split_arr = jla.get_data(split_data, 'X_train_split_arr')
-        self.y_train_split_arr = jla.get_data(split_data, 'y_train_split_arr')
-        self.X_val_arr = jla.get_data(split_data, 'X_val_arr')
-        self.y_val_arr = jla.get_data(split_data, 'y_val_arr')
-        self.val_ids_fold_arr = jla.get_data(split_data, 'val_ids_fold_arr')
+        self.X_train_split_list = jla.get_data(split_data, 'X_train_split_list')
+        self.y_train_split_list = jla.get_data(split_data, 'y_train_split_list')
+        self.X_val_list = jla.get_data(split_data, 'X_val_list')
+        self.y_val_list = jla.get_data(split_data, 'y_val_list')
+        self.val_ids_fold_list = jla.get_data(split_data, 'val_ids_fold_list')
         
         # Save initialized array data to csvs (for later recreation)
-        jla.to_joblib(self.X_train_split_arr, 'X_train_split_arr')
-        jla.to_joblib(self.y_train_split_arr, 'y_train_split_arr')
-        jla.to_joblib(self.X_val_arr, 'X_val_arr')
-        jla.to_joblib(self.y_val_arr, 'y_val_arr')
-        jla.to_joblib(self.val_ids_fold_arr, 'val_ids_fold_arr')
+        jla.to_joblib(self.X_train_split_list, 'X_train_split_list')
+        jla.to_joblib(self.y_train_split_list, 'y_train_split_list')
+        jla.to_joblib(self.X_val_list, 'X_val_list')
+        jla.to_joblib(self.y_val_list, 'y_val_list')
+        jla.to_joblib(self.val_ids_fold_list, 'val_ids_fold_list')
         print()
 
         [
-            self.scaled_X_train_split_arr,
-            self.transf_X_val_arr,
-            self.transf_X_test_arr
+            self.scaled_X_train_split_list,
+            self.transf_X_val_list,
+            self.transf_X_test_list
         ] = self.get_X_scaled()
         
         self.models_dir = f'models/{INSTABILITY_TYPE}'
@@ -110,46 +110,46 @@ class StochasticInstability:
     def get_k_split_data(self):
         print('===== SPLITTING DATA TO K FOLDS =====')
         
-        X_train_split_arr = []
-        y_train_split_arr = []
-        X_val_arr = []
-        y_val_arr = []
-        val_ids_fold_arr = []
+        X_train_split_list = []
+        y_train_split_list = []
+        X_val_list = []
+        y_val_list = []
+        val_ids_fold_list = []
         
         for count, (train_idx, val_idx) in enumerate(
             self.k_fold.split(self.X_train), start=1
         ):
             print(f'Splitting.... ({count}/{NO_OF_FOLDS})', end="\r")
             
-            X_train_split_arr.append(self.X_train.iloc[train_idx].copy())
-            y_train_split_arr.append(self.y_train[train_idx])
+            X_train_split_list.append(self.X_train.iloc[train_idx].copy())
+            y_train_split_list.append(self.y_train[train_idx])
 
-            X_val_arr.append(self.X_train.iloc[val_idx].copy())
-            y_val_arr.append(self.y_train[val_idx])
+            X_val_list.append(self.X_train.iloc[val_idx].copy())
+            y_val_list.append(self.y_train[val_idx])
 
-            val_ids_fold_arr.append(self.train_ids[val_idx])
+            val_ids_fold_list.append(self.train_ids[val_idx])
             
         print(f'Splitting.... ({NO_OF_FOLDS}/{NO_OF_FOLDS})')
         print()
         
         return {
-            'X_train_split_arr': X_train_split_arr, 
-            'y_train_split_arr': y_train_split_arr, 
-            'X_val_arr': X_val_arr, 
-            'y_val_arr': y_val_arr, 
-            'val_ids_fold_arr': val_ids_fold_arr 
+            'X_train_split_list': X_train_split_list, 
+            'y_train_split_list': y_train_split_list, 
+            'X_val_list': X_val_list, 
+            'y_val_list': y_val_list, 
+            'val_ids_fold_list': val_ids_fold_list 
         }
 
     # 🗹 Gets scaled version of the data as an array
     def get_X_scaled(self):
         print('===== SCALED VERSIONS =====')
-        scaled_X_train_split_arr = []
-        transf_X_val_arr = []
-        transf_X_test_arr = []
+        scaled_X_train_split_list = []
+        transf_X_val_list = []
+        transf_X_test_list = []
 
         for fold_id in range(1, NO_OF_FOLDS + 1):
-            X_train_fold = self.X_train_split_arr[fold_id - 1]
-            X_val_fold = self.X_val_arr[fold_id - 1]
+            X_train_fold = self.X_train_split_list[fold_id - 1]
+            X_val_fold = self.X_val_list[fold_id - 1]
 
             scaler = StandardScaler()
 
@@ -157,18 +157,18 @@ class StochasticInstability:
             transf_X_val = scaler.transform(X_val_fold)
             transf_X_test = scaler.transform(self.X_test)
             
-            scaled_X_train_split_arr.append(scaled_X_train)
-            transf_X_val_arr.append(transf_X_val)
-            transf_X_test_arr.append(transf_X_test)
+            scaled_X_train_split_list.append(scaled_X_train)
+            transf_X_val_list.append(transf_X_val)
+            transf_X_test_list.append(transf_X_test)
 
             print(f'Fold {fold_id}/{NO_OF_FOLDS}', end="\r")
         print(f'Fold {NO_OF_FOLDS}/{NO_OF_FOLDS}')
         print()
                
         return [
-            scaled_X_train_split_arr,
-            transf_X_val_arr,
-            transf_X_test_arr
+            scaled_X_train_split_list,
+            transf_X_val_list,
+            transf_X_test_list
         ]
     
     # 🗹 Gets the trained models as an array
@@ -177,8 +177,8 @@ class StochasticInstability:
         
         # Random forest
         Random_Forest(
-            self.X_train_split_arr,
-            self.y_train_split_arr,
+            self.X_train_split_list,
+            self.y_train_split_list,
             NO_OF_FOLDS,
             RANDOM_SEEDS,
             INSTABILITY_TYPE, 
@@ -188,8 +188,8 @@ class StochasticInstability:
         
         # XGBoost
         XGBoost(
-            self.X_train_split_arr,
-            self.y_train_split_arr,
+            self.X_train_split_list,
+            self.y_train_split_list,
             NO_OF_FOLDS,
             RANDOM_SEEDS,
             INSTABILITY_TYPE,
@@ -199,8 +199,8 @@ class StochasticInstability:
             
         # Logistic Regression
         Logistic_Regression(
-            self.scaled_X_train_split_arr,
-            self.y_train_split_arr,
+            self.scaled_X_train_split_list,
+            self.y_train_split_list,
             NO_OF_FOLDS,
             RANDOM_SEEDS,
             INSTABILITY_TYPE, 
@@ -210,8 +210,8 @@ class StochasticInstability:
         
         # Linear SVC (SVM)
         Linear_SVC(
-            self.scaled_X_train_split_arr,
-            self.y_train_split_arr,
+            self.scaled_X_train_split_list,
+            self.y_train_split_list,
             NO_OF_FOLDS,
             RANDOM_SEEDS,
             INSTABILITY_TYPE, 
@@ -221,8 +221,8 @@ class StochasticInstability:
         
         # Multilayer Perceptron
         Multilayer_Perceptron(
-            self.scaled_X_train_split_arr,
-            self.y_train_split_arr,
+            self.scaled_X_train_split_list,
+            self.y_train_split_list,
             NO_OF_FOLDS,
             RANDOM_SEEDS,
             INSTABILITY_TYPE, 
@@ -239,13 +239,13 @@ class StochasticInstability:
                 for fold_id in range(1, NO_OF_FOLDS + 1):
                     if model_name in ['LR', 'LSVC', 'MLP']:
                         X_eval = (
-                            self.transf_X_val_arr[fold_id - 1]
+                            self.transf_X_val_list[fold_id - 1]
                             if eval_name == 'Validation'
-                            else self.transf_X_test_arr[fold_id - 1]
+                            else self.transf_X_test_list[fold_id - 1]
                         )
                     else:
                         X_eval = (
-                            self.X_val_arr[fold_id - 1]
+                            self.X_val_list[fold_id - 1]
                             if eval_name == 'Validation'
                             else self.X_test
                         )
@@ -267,7 +267,7 @@ class StochasticInstability:
     def get_metrics(self, force_reset=False):
         pm = PostMetrics(
             self.X_train, self.y_train,
-            self.X_val_arr, self.y_val_arr, self.val_ids_fold_arr,
+            self.X_val_list, self.y_val_list, self.val_ids_fold_list,
             self.X_test, self.y_test, self.test_ids,
             NO_OF_FOLDS,
             self.predictions_dir,
@@ -309,9 +309,9 @@ class StochasticInstability:
             test_records = []
 
             for fold_id in range(1, NO_OF_FOLDS + 1):
-                X_train = self.X_train_split_arr[fold_id - 1]
-                X_val_query = self.X_val_arr[fold_id - 1].iloc[[0]]
-                val_query_ids = [self.val_ids_fold_arr[fold_id - 1][0]]
+                X_train = self.X_train_split_list[fold_id - 1]
+                X_val_query = self.X_val_list[fold_id - 1].iloc[[0]]
+                val_query_ids = [self.val_ids_fold_list[fold_id - 1][0]]
 
                 for seed_id in range(1, RANDOM_SEEDS + 1):
                     print(
@@ -367,8 +367,8 @@ class StochasticInstability:
             dir.create_nested(shap_dir)
 
             for fold_id in range(1, NO_OF_FOLDS + 1):
-                val_id = [self.val_ids_fold_arr[fold_id - 1][0]]
-                X_val_raw = self.X_val_arr[fold_id - 1].iloc[[0]]
+                val_id = [self.val_ids_fold_list[fold_id - 1][0]]
+                X_val_raw = self.X_val_list[fold_id - 1].iloc[[0]]
                 X_test_raw = self.X_test.iloc[[0]]
                 test_id = [self.test_ids[0]]
                 validation_shap_runs = []
@@ -381,11 +381,11 @@ class StochasticInstability:
                         end='\r'
                     )
                     if model_name in ['LR', 'LSVC', 'MLP']:
-                        X_train = self.scaled_X_train_split_arr[fold_id - 1]
-                        X_val = self.transf_X_val_arr[fold_id - 1][:1]
-                        X_test = self.transf_X_test_arr[fold_id - 1][:1]
+                        X_train = self.scaled_X_train_split_list[fold_id - 1]
+                        X_val = self.transf_X_val_list[fold_id - 1][:1]
+                        X_test = self.transf_X_test_list[fold_id - 1][:1]
                     else:
-                        X_train = self.X_train_split_arr[fold_id - 1]
+                        X_train = self.X_train_split_list[fold_id - 1]
                         X_val = X_val_raw
                         X_test = X_test_raw
 
