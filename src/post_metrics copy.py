@@ -10,7 +10,7 @@ from sklearn.metrics import roc_auc_score, brier_score_loss, confusion_matrix
 from itertools import combinations
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
-from create_dir import create_nested_directory
+from directory import create_nested_directory
 
 RACE_NAMES = [
     'race:African-American',

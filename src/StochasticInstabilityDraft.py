@@ -4,7 +4,7 @@ from models.XGB import XGBoost_Model
 from models.MLP import MLP_Model
 from models.LSVC import LinearSVC_Model
 from init_dataset import init_dataset
-from create_dir import create_nested_directory
+from directory import create_nested_directory
 
 import xgboost as xgb
 from sklearn.model_selection import KFold

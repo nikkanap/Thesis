@@ -15,7 +15,7 @@ from sklearn.preprocessing import StandardScaler
 
 from runtime_metrics import MRIP, get_shap_values
 from post_metrics import PostMetrics
-from generate_prediction_csv import generate_prediction_csv
+from csv import generate_prediction_csv
 
 RANDOM_SEED = 42
 NO_OF_FOLDS = 3
