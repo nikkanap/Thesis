@@ -11,7 +11,6 @@ def Random_Forest(
     no_of_runs,
     instability_type,
     models_dir,
-    force_reset,
     random_seed=None,
 ):
     print('Model: Random Forest')
@@ -28,8 +27,6 @@ def Random_Forest(
                 final_model_dir,
                 f"Fold_{fold_id}_{'Bootstrap' if instability_type == 'Dataset' else 'Random_Seed'}_{nth_run}.joblib"
             )
-            if os.path.exists(model_path) and not force_reset:
-                continue
             
             if instability_type == 'Dataset':
                 X_train = X_train_fold[nth_run-1]
