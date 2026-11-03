@@ -13,7 +13,7 @@ def get_data(data_dir, data_name):
     return joblib.load(f'{data_dir}/{data_name}.joblib')
 
 # Turns the data to a joblib file
-def to_joblib(data_dir, data, data_name):
+def to_joblib(data_dir, data_name, data):
     print(f'Saving data: {data_name}')
     joblib.dump(data,f'{data_dir}/{data_name}.joblib')
 

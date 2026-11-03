@@ -6,7 +6,7 @@ import os
 def save_to_csv(
     csv_path,
     column_name=None,
-    data=None,
+    data=None
 ):
     if isinstance(data, (dict, pd.DataFrame)):
         pd.DataFrame(data).to_csv(csv_path, index=False)

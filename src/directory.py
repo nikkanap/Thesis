@@ -12,6 +12,11 @@ def create(directory_name):
         print(f"Permission denied: Unable to create '{directory_name}'.")
     except Exception as e:
         print(f"An error occurred: {e}")
+
+# Force deletes and creates a nested directory
+def clear_nested(directory_name):     
+    delete_nested(directory_name)
+    create_nested(directory_name)
       
 # Creates nested directories
 def create_nested(directory_name):
@@ -26,8 +31,9 @@ def create_nested(directory_name):
         print(f"An error occurred: {e}")
 
 # Deletes directories
-def delete_nested(self, directory_name):
+def delete_nested(directory_name):
     try:
         shutil.rmtree(directory_name, ignore_errors=True)
     except Exception as e:
         print(f"An error occurred: {e}")
+        
