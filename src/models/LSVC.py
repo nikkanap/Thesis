@@ -1,6 +1,7 @@
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.svm import LinearSVC
-from directory import create_nested_directory
+
+import directory as dir
 import joblib
 import os
 
@@ -16,7 +17,7 @@ def Linear_SVC(
 ):
     print('Model: Linear Support Vector Machine')
     final_model_dir = f'{models_dir}/LSVC'
-    create_nested_directory(final_model_dir)
+    dir.create_nested(final_model_dir)
     
     for fold_id in range(1, no_of_folds + 1):
         X_train_fold = X_train_list[fold_id-1]

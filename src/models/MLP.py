@@ -1,5 +1,6 @@
 from sklearn.neural_network import MLPClassifier
-from directory import create_nested_directory
+
+import directory as dir
 import joblib
 import os
 
@@ -15,7 +16,7 @@ def Multilayer_Perceptron(
 ):
     print('Model: Multilayer Perceptron')
     final_model_dir = f'{models_dir}/MLP'
-    create_nested_directory(final_model_dir)
+    dir.create_nested(final_model_dir)
     
     for fold_id in range(1, no_of_folds + 1):
         X_train_fold = X_train_list[fold_id-1]

@@ -1,5 +1,6 @@
 import xgboost as xgb
-from directory import create_nested_directory
+
+import directory as dir
 import joblib
 import os
 
@@ -10,24 +11,22 @@ def XGBoost(
     no_of_runs,
     instability_type, 
     models_dir,
-    force_reset,
     random_seed=None
 ):
     print('Model: XGBoost')
     final_model_dir = f'{models_dir}/XGB'
-    create_nested_directory(final_model_dir)
+    dir.create_nested(final_model_dir)
     
     for fold_id in range(1, no_of_folds + 1):
         X_train_fold = X_train_list[fold_id-1]
         y_train_fold = y_train_list[fold_id-1]
+        
         for nth_run in range(1, no_of_runs + 1):
             print(f'Fold {fold_id}/{no_of_folds} ({round(((nth_run)/no_of_runs)*100)}%)', end='\r')
             model_path = os.path.join(
                 final_model_dir,
                 f"Fold_{fold_id}_{'Bootstrap' if instability_type == 'Dataset' else 'Random_Seed'}_{nth_run}.joblib"
             )
-            if os.path.exists(model_path) and not force_reset:
-                continue
             
             if instability_type == 'Dataset':
                 X_train = X_train_fold[nth_run-1]
@@ -42,6 +41,7 @@ def XGBoost(
                 max_depth=3,
                 learning_rate=0.1,
                 n_estimators=100,
+                enable_categorical=False,
                 random_state=(
                     random_seed
                     if instability_type == 'Dataset'

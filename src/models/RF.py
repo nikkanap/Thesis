@@ -1,5 +1,6 @@
 from sklearn.ensemble import RandomForestClassifier
-from directory import create_nested_directory
+
+import directory as dir
 import joblib
 import os
 
@@ -15,7 +16,7 @@ def Random_Forest(
 ):
     print('Model: Random Forest')
     final_model_dir = f'{models_dir}/RF'
-    create_nested_directory(final_model_dir)
+    dir.create_nested(final_model_dir)
     
     for fold_id in range(1, no_of_folds + 1):
         X_train_fold = X_train_list[fold_id-1]
@@ -47,7 +48,6 @@ def Random_Forest(
                 )
             )
             classifier.fit(X_train, y_train)
-            
             joblib.dump(classifier, model_path)
             
         print(f'Fold {fold_id}/{no_of_folds} (100%)')

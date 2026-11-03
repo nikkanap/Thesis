@@ -1,6 +1,6 @@
 
 from sklearn.linear_model import LogisticRegression
-from directory import create_nested_directory
+import directory as dir
 import joblib
 import os
 
@@ -11,12 +11,11 @@ def Logistic_Regression(
     no_of_runs,
     instability_type, 
     models_dir,
-    force_reset,
     random_seed=None
 ):
     print('Model: Logistic Regression')
     final_model_dir = f'{models_dir}/LR'
-    create_nested_directory(final_model_dir)
+    dir.create_nested(final_model_dir)
         
     for fold_id in range(1, no_of_folds + 1):
         X_train_fold = X_train_list[fold_id-1]
@@ -27,8 +26,6 @@ def Logistic_Regression(
                 final_model_dir,
                 f"Fold_{fold_id}_{'Bootstrap' if instability_type == 'Dataset' else 'Random_Seed'}_{nth_run}.joblib"
             )
-            if os.path.exists(model_path) and not force_reset:
-                continue
                         
             if instability_type == 'Dataset':
                 X_train = X_train_fold[nth_run-1]
