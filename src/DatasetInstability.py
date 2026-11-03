@@ -1,6 +1,7 @@
 import numpy as np
-import pandas as pd
-import joblib
+
+from sklearn.model_selection import KFold
+from sklearn.preprocessing import StandardScaler
 
 from models.LR import Logistic_Regression
 from models.RF import Random_Forest
@@ -8,91 +9,63 @@ from models.XGB import XGBoost
 from models.MLP import Multilayer_Perceptron
 from models.LSVC import Linear_SVC
 
-from sklearn.model_selection import KFold
-from sklearn.preprocessing import StandardScaler
-
-from runtime_metrics import (
-    MRIP,
-    get_shap_values,
-    save_mrip_results,
-    save_shap_values,
-)
+# Metrics
 from post_metrics import PostMetrics
+import runtime_metrics as rm
+
+# Helper imports
 import csv_actions as csva
 import joblib_actions as jla
 import directory as dir
 
-RANDOM_SEED = 42
-NO_OF_FOLDS = 10
-BOOTSTRAPS = 100
+# Constant variables
+FIXED_RANDOM_SEED = 42
+NO_OF_FOLDS = 3
+NO_OF_BOOTSTRAPS = 20
 INSTABILITY_TYPE = 'Dataset'
+
+# Constant lists
 MODEL_NAMES = ['LR', 'LSVC', 'XGB', 'RF', 'MLP']
 EVAL_NAMES = ['Validation', 'Test']
 
 class DatasetInstability:
     def __init__(self, dataset, force_reset=False):      
-        print('===== RUNNING DATASET INSTABILITY =====')
+        print('\n===== RUNNING DATASET INSTABILITY =====')
         
         # RNG 
-        self.rng = np.random.default_rng(RANDOM_SEED)
+        self.rng = np.random.default_rng(FIXED_RANDOM_SEED)
         
         # K-fold
         self.k_fold = KFold(
             n_splits=NO_OF_FOLDS,
             shuffle=True,
-            random_state=RANDOM_SEED
+            random_state=FIXED_RANDOM_SEED
         )
 
         self.data_dir = f'data/{INSTABILITY_TYPE}'
         if force_reset: 
-            dir.delete_nested(self.data_dir)
-        dir.create_nested(self.data_dir)
-        
-        # Initializing the dataset to training and testing data + ids
-        self.X_train = jla.get_data(dataset, 'X_train')
-        self.y_train = np.asarray(jla.get_data(dataset, 'y_train')).ravel()
-        
-        self.X_test = jla.get_data(dataset, 'X_test')
-        self.y_test = np.asarray(jla.get_data(dataset, 'y_test')).ravel()
-        
-        self.train_ids = np.asarray(jla.get_data(dataset, 'train_ids')).ravel()
-        self.test_ids = np.asarray(jla.get_data(dataset, 'test_ids')).ravel() 
-        
-        # Save initialized data to csvs (for later recreation)
-        jla.to_joblib(self.X_train, 'X_train')
-        jla.to_joblib(self.y_train, 'y_train')
-        jla.to_joblib(self.X_test, 'X_test')
-        jla.to_joblib(self.y_test, 'y_test')
-        jla.to_joblib(self.train_ids, 'train_ids')
-        jla.to_joblib(self.test_ids, 'test_ids')
-        print()
-
-        # Either save the newly generated split data or use existing data
-        split_data = None
-        if force_reset:
-            split_data = self.get_k_split_data()
-        self.X_train_split_list = jla.get_data(split_data, 'X_train_split_list')
-        self.y_train_split_list = jla.get_data(split_data, 'y_train_split_list')
-        self.X_val_list = jla.get_data(split_data, 'X_val_list')
-        self.y_val_list = jla.get_data(split_data, 'y_val_list')
-        self.val_ids_fold_list = jla.get_data(split_data, 'val_ids_fold_list')
-        
-        # Save initialized array data to csvs (for later recreation)
-        jla.to_joblib(self.X_train_split_list, 'X_train_split_list')
-        jla.to_joblib(self.y_train_split_list, 'y_train_split_list')
-        jla.to_joblib(self.X_val_list, 'X_val_list')
-        jla.to_joblib(self.y_val_list, 'y_val_list')
-        jla.to_joblib(self.val_ids_fold_list, 'val_ids_fold_list')
-        print()
-        
-        bootstrap_data = None
-        if force_reset:
-            bootstrap_data = self.get_bootstrap_data()
-            jla.to_joblib(self.X_boot_list, 'X_boot_list')
-            jla.to_joblib(self.y_boot_list, 'y_boot_list')
-        self.X_boot_list = jla.get_data(bootstrap_data, 'X_boot_list')
-        self.y_boot_list = jla.get_data(bootstrap_data, 'y_boot_list')
+            dir.clear_nested(self.data_dir)
             
+            self.init_data_dict(dataset, force_reset)
+            
+            split_data = self.get_k_split_data()
+            self.init_data_dict(split_data, force_reset)
+            
+            bootstrap_data = self.get_bootstrap_data()
+            self.init_data_dict(bootstrap_data, force_reset)
+            
+        else:
+            # Fetch only the existing data
+            keys = ['X_train', 'y_train', 
+                    'X_test', 'y_test', 
+                    'train_ids', 'test_ids',
+                    'X_train_split_list', 'y_train_split_list',
+                    'X_val_list', 'y_val_list',
+                    'val_ids_fold_list',
+                    'X_boot_list','y_boot_list'
+                ]
+            self.init_data_dict(keys)
+        
         [
             self.scaled_X_boot_list,
             self.transf_X_val_list,
@@ -100,15 +73,16 @@ class DatasetInstability:
         ] = self.get_X_scaled()
         
         self.models_dir = f'models/{INSTABILITY_TYPE}'
-        # running the model
-        
         self.predictions_dir = f'predictions/{INSTABILITY_TYPE}'
+        
         if force_reset:
+            # Train the models
             self.train_models()
-            dir.delete_nested(self.predictions_dir)
-            dir.create_nested(self.predictions_dir)
-            self.get_predictions()
-        self.get_metrics(force_reset)
+            dir.clear_nested(self.predictions_dir)
+            
+            # Generate model predictions
+            self.generate_predictions()
+        self.generate_metrics(force_reset)
    
             
     # ================
@@ -117,7 +91,7 @@ class DatasetInstability:
     
     # 🗹 Gets the k fold split data
     def get_k_split_data(self):
-        print('===== SPLITTING DATA TO K FOLDS =====')
+        print('\n===== SPLITTING DATA TO K FOLDS =====')
 
         X_train_split_list = []
         y_train_split_list = []
@@ -151,21 +125,20 @@ class DatasetInstability:
 
     # 🗹 Gets scaled version of the data as an array
     def get_X_scaled(self):
-        print()
-        print('===== SCALED VERSIONS =====')
+        print('\n===== SCALED VERSIONS =====')
         scaled_X_boot_list = []
         transf_X_val_list = []
         transf_X_test_list = []
 
         for fold_id in range(1, NO_OF_FOLDS + 1):            
-            X_boot_fold = self.X_boot_list[fold_id - 1]
-            X_val_fold = self.X_val_list[fold_id - 1]
+            X_boot_fold = self.X_boot_list[fold_id-1]
+            X_val_fold = self.X_val_list[fold_id-1]
 
             scaled_X_boot_fold = []
             transf_X_val_fold = []
             transf_X_test_fold = []
 
-            for run in range(BOOTSTRAPS):
+            for run in range(NO_OF_BOOTSTRAPS):
                 scaler = StandardScaler()
 
                 scaled_X_boot = scaler.fit_transform(X_boot_fold[run])
@@ -176,7 +149,7 @@ class DatasetInstability:
                 transf_X_val_fold.append(transf_X_val)
                 transf_X_test_fold.append(transf_X_test)
                 
-                print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting Scaled/Transformed Versions.... {round(((run+1)/BOOTSTRAPS)*100)}%', end="\r")
+                print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting Scaled/Transformed Versions.... {round(((run+1)/NO_OF_BOOTSTRAPS)*100)}%', end="\r")
             print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting Scaled/Transformed Versions.... 100%')
             
             scaled_X_boot_list.append(scaled_X_boot_fold)
@@ -192,7 +165,7 @@ class DatasetInstability:
     
     # 🗹 Gets the bootstrap training data as an array 
     def get_bootstrap_data(self):
-        print('===== BOOTSTRAPPING =====')
+        print('\n===== BOOTSTRAPPING =====')
         X_boot_list = []
         y_boot_list = []
         
@@ -202,9 +175,9 @@ class DatasetInstability:
             
             X_boot_fold_list = []
             y_boot_fold_list = []
-            for b in range(1, BOOTSTRAPS + 1):           
+            for b in range(1, NO_OF_BOOTSTRAPS + 1):           
                 print(
-                    f"Fold {fold_id}/{NO_OF_FOLDS} - Getting bootstrapped samples: {round((b/BOOTSTRAPS)*100)}%",
+                    f"Fold {fold_id}/{NO_OF_FOLDS} - Getting bootstrapped samples: {round((b/NO_OF_BOOTSTRAPS)*100)}%",
                     end="\r"
                 )         
                 n_samples = len(X_train_split)
@@ -232,6 +205,28 @@ class DatasetInstability:
             'y_boot_list': y_boot_list 
         }
     
+    def init_data_dict(self, data, force_reset=False):
+        if force_reset:
+            for key, value in data.items():
+                setattr(self, key, value)
+                
+                if not force_reset:
+                    continue
+                jla.to_joblib(self.data_dir, key, value) 
+            return
+        
+        for key in data:
+            value = jla.get_data(self.data_dir, key)
+            setattr(self, key, (
+                np.asarray(value).ravel()
+                if ('y_' in key or '_ids' in key) and not 'list' in key
+                else value
+            ))
+    
+    # =======================
+    # MODEL-RELATED FUNCTIONS
+    # =======================
+    
     # 🗹 Gets the trained models as an array
     def train_models(self):
         print('===== TRAINING MODELS =====')
@@ -241,11 +236,10 @@ class DatasetInstability:
             self.X_boot_list,
             self.y_boot_list,
             NO_OF_FOLDS,
-            BOOTSTRAPS,
+            NO_OF_BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            force_reset,
-            RANDOM_SEED
+            FIXED_RANDOM_SEED
         )
         
         # XGBoost
@@ -253,11 +247,10 @@ class DatasetInstability:
             self.X_boot_list,
             self.y_boot_list,
             NO_OF_FOLDS,
-            BOOTSTRAPS,
+            NO_OF_BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            force_reset,
-            RANDOM_SEED
+            FIXED_RANDOM_SEED
         )
             
         # Logistic Regression
@@ -265,11 +258,10 @@ class DatasetInstability:
             self.scaled_X_boot_list,
             self.y_boot_list,
             NO_OF_FOLDS,
-            BOOTSTRAPS,
+            NO_OF_BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            force_reset,
-            RANDOM_SEED
+            FIXED_RANDOM_SEED
         )
         
         # Linear SVC (SVM)
@@ -277,11 +269,10 @@ class DatasetInstability:
             self.scaled_X_boot_list,
             self.y_boot_list,
             NO_OF_FOLDS,
-            BOOTSTRAPS,
+            NO_OF_BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            force_reset,
-            RANDOM_SEED
+            FIXED_RANDOM_SEED
         )
         
         # Multilayer Perceptron
@@ -289,15 +280,14 @@ class DatasetInstability:
             self.scaled_X_boot_list,
             self.y_boot_list,
             NO_OF_FOLDS,
-            BOOTSTRAPS,
+            NO_OF_BOOTSTRAPS,
             INSTABILITY_TYPE, 
             self.models_dir,
-            force_reset,
-            RANDOM_SEED
+            FIXED_RANDOM_SEED
         )
 
     # 🗹 Gets the predictions from the trained models
-    def get_predictions(self):
+    def generate_predictions(self):
         for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 print(f'Model: {model_name}')
@@ -305,22 +295,22 @@ class DatasetInstability:
                 for fold_id in range(1, NO_OF_FOLDS+1):
                     if model_name in ['LR', 'LSVC', 'MLP']:
                         transf_X_eval_fold = (
-                            self.transf_X_val_list[fold_id - 1]
+                            self.transf_X_val_list[fold_id-1]
                             if eval_name == 'Validation'
-                            else self.transf_X_test_list[fold_id - 1]
+                            else self.transf_X_test_list[fold_id-1]
                         )
                     else:
                         X_eval_fold = (
-                            self.X_val_list[fold_id - 1]
+                            self.X_val_list[fold_id-1]
                             if eval_name == 'Validation'
                             else self.X_test
                         )
                     
-                    for b in range(1, BOOTSTRAPS + 1):
-                        print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting model predictions... {round((b/BOOTSTRAPS)*100)}%', end='\r')
+                    for b in range(1, NO_OF_BOOTSTRAPS + 1):
+                        print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting model predictions... {round((b/NO_OF_BOOTSTRAPS)*100)}%', end='\r')
                         
                         X_eval = (
-                            transf_X_eval_fold[b - 1]
+                            transf_X_eval_fold[b-1]
                             if model_name in ['LR', 'LSVC', 'MLP']
                             else X_eval_fold
                         )
@@ -329,13 +319,17 @@ class DatasetInstability:
                         y_pred_proba = model.predict_proba(X_eval)[:, 1]
                                             
                         csv_path = (f'{self.predictions_dir}/{model_name}_Predictions_{eval_name}_{fold_id}.csv')
-                        csva.save_to_csv(csv_path, y_pred_proba, f'Bootstrap_{b}')
+                        csva.save_to_csv(csv_path, f'Bootstrap_{b}', y_pred_proba)
                         
                     print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting model predictions... 100%')
                 print()
-            
-    # 🗹 Gets the metric results  
-    def get_metrics(self, force_reset=False):
+    
+    # =========================
+    # METRIC-SPECIFIC FUNCTIONS
+    # ========================= 
+      
+    # 🗹 Gets all metric results  
+    def generate_metrics(self, force_reset=False):
         print('===== METRICS =====')
         pm = PostMetrics(
             self.X_train, self.y_train,
@@ -347,160 +341,121 @@ class DatasetInstability:
             force_reset
         )
 
-        pm.roc_auc()
-        pm.brier_score()
-        pm.calibration_plot()
-        pm.ninety_five_prediction_error()
-        pm.mean_absolute_prediction_error()
-        pm.classification_instability_index()
-        pm.top_k_jaccard()
-        pm.demographic_false_positive_rate()
+        #pm.roc_auc()
+        #pm.brier_score()
+        #pm.calibration_plot()
+        #pm.ninety_five_prediction_error()
+        #pm.mean_absolute_prediction_error()
+        #pm.classification_instability_index()
+        #pm.top_k_jaccard()
+        #pm.demographic_false_positive_rate()
+        #self.generate_mrip_results()
         
-        self.get_mrip()
-        self.generate_shap_values()
-        
-        pm.shap_analysis(self.trained_models)
+        #self.generate_shap_values()
+        pm.shap_analysis()  
     
-    # ===============
-    # METRIC-SPECIFIC
-    # ===============      
-    
-    # Gets the mrip       
-    def get_mrip(self):
-        chosen_X_test = self.X_test.iloc[[0]]
-        
-        X_test_reference = self.X_test.iloc[1:]
-        y_test_reference = self.y_test[1:]
+    # 🗹 Gets the MRIP results       
+    def generate_mrip_results(self):                
+        for eval_name in EVAL_NAMES:
+            for model_name in MODEL_NAMES:
+                print(f'MRIP for {model_name}')
+                
+                mrip_dir = f'metrics/{INSTABILITY_TYPE}/MRIP/{model_name}'
+                dir.create_nested(mrip_dir)
 
-        for model_name in MODEL_NAMES:
-            print(f'MRIP for {model_name}')
-            mrip_dir = f'metrics/{INSTABILITY_TYPE}/MRIP/{model_name}'
-            dir.create_nested(mrip_dir)
-
-            validation_records = []
-            test_records = []
-
-            for fold_id in range(1, NO_OF_FOLDS + 1):
-                X_train_runs = self.X_boot_list[fold_id - 1]
-                X_val_query = self.X_val_list[fold_id - 1].iloc[[0]]
-                val_query_ids = [self.val_ids_fold_list[fold_id - 1][0]]
-
-                for run in range(1, len(X_train_runs) + 1):
-                    print(f'MRIP {model_name}: Fold {fold_id}/{NO_OF_FOLDS}, '
-                        f'Bootstrap {run}/{len(X_train_runs)}',
-                        end='\r'
+                records = []
+                for fold_id in range(1, NO_OF_FOLDS + 1):
+                    chosen_eval_ids = (
+                        [self.val_ids_fold_list[fold_id-1][0]]
+                        if eval_name == 'Validation'
+                        else [self.test_ids[0]]
+                    )
+                    chosen_X_eval = (
+                        self.X_val_list[fold_id-1].iloc[[0]]
+                        if eval_name == 'Validation'
+                        else self.X_test.iloc[[0]]
                     )
                     
-                    X_train = X_train_runs[run - 1]
-                    model = joblib.load(
-                        f'{self.models_dir}/{model_name}/'
-                        f'Fold_{fold_id}_Bootstrap_{run}.joblib'
-                    )
+                    for b in range(1, NO_OF_BOOTSTRAPS + 1):
+                        print(
+                            f'MRIP {model_name}: Fold {fold_id}/{NO_OF_FOLDS}, '
+                            f'Bootstrap {b}/{NO_OF_BOOTSTRAPS}',
+                            end='\r'
+                        )
+                        X_ref = self.X_boot_list[fold_id-1][b-1]
+                        y_ref = self.y_boot_list[fold_id-1][b-1]
+                        
+                        model = jla.get_model(self.models_dir, model_name, fold_id, b)
 
-                    validation_records.extend(MRIP(
-                        X_train,
-                        self.X_test,
-                        self.y_test,
-                        X_val_query,
-                        val_query_ids,
-                        model,
-                        model_name,
-                        fold_id,
-                        run
-                    ))
-                    test_records.extend(MRIP(
-                        X_train,
-                        X_test_reference,
-                        y_test_reference,
-                        chosen_X_test,
-                        self.test_ids,
-                        model,
-                        model_name,
-                        fold_id,
-                        run
-                    ))
-                print()
+                        records.extend(rm.MRIP(
+                            X_ref,
+                            y_ref,
+                            chosen_X_eval,
+                            chosen_eval_ids,
+                            model_name,
+                            model,
+                            fold_id,
+                            b
+                        ))
+                    print()
 
-            save_mrip_results(
-                validation_records,
-                f'{mrip_dir}/MRIP_{model_name}_Validation.csv',
-                run_label='Bootstrap'
-            )
-            
-            save_mrip_results(
-                test_records,
-                f'{mrip_dir}/MRIP_{model_name}_Test.csv',
-                run_label='Bootstrap'
-            )
-        
+                csv_path = f'{mrip_dir}/MRIP_{model_name}_{eval_name}.csv'
+                rm.save_mrip_results(records, csv_path, run_label='Bootstrap')
+    
+    # 🗹 Generates the raw SHAP values for SHAP analysis
     def generate_shap_values(self):
-        self.trained_models = []
-        for model_name in MODEL_NAMES:
-            print(f'SHAP values for {model_name}')
-            
-            feature_names = self.X_train.columns
-            shap_dir = f'metrics/{INSTABILITY_TYPE}/shap_values/{model_name}'
-            dir.create_nested(shap_dir)
-
-            for fold_id in range(1, NO_OF_FOLDS + 1):
-                val_id = [self.val_ids_fold_list[fold_id - 1][0]]
-                X_val_raw = self.X_val_list[fold_id - 1].iloc[[0]]
-                X_test_raw = self.X_test.iloc[[0]]
+        feature_names = self.X_train.columns
+        
+        for eval_name in EVAL_NAMES:
+            for model_name in MODEL_NAMES:
+                print(f'SHAP values for {model_name}')
                 
-                test_id = [self.test_ids[0]]
-                validation_shap_runs = []
-                test_shap_runs = []
+                shap_dir = f'metrics/{INSTABILITY_TYPE}/shap_values/{model_name}'
+                dir.create_nested(shap_dir)
 
-                for bootstrap_id in range(1, len(self.X_boot_list[fold_id - 1]) + 1):
-                    print(
-                        f'SHAP {model_name}: Fold {fold_id}/{NO_OF_FOLDS}, '
-                        f'Bootstrap {bootstrap_id}',
-                        end='\r'
+                for fold_id in range(1, NO_OF_FOLDS + 1):
+                    chosen_eval_ids = (
+                        [self.val_ids_fold_list[fold_id-1][0]]
+                        if eval_name == 'Validation'
+                        else [self.test_ids[0]]
                     )
-                    if model_name in ['LR', 'LSVC', 'MLP']:
-                        X_train = self.scaled_X_boot_list[fold_id - 1][bootstrap_id - 1]
-                        X_val = self.transf_X_val_list[fold_id - 1][bootstrap_id - 1][:1]
-                        X_test = self.transf_X_test_list[fold_id - 1][bootstrap_id - 1][:1]
-                    else:
-                        X_train = self.X_boot_list[fold_id - 1][bootstrap_id - 1]
-                        X_val = X_val_raw
-                        X_test = X_test_raw
+                    
+                    shap_records = []
+                    for b in range(1, NO_OF_BOOTSTRAPS + 1):
+                        print(
+                            f'SHAP {model_name}: Fold {fold_id}/{NO_OF_FOLDS}, '
+                            f'Bootstrap {b}',
+                            end='\r'
+                        )
+                        
+                        if model_name in ['LR', 'LSVC', 'MLP']:
+                            # Use scaled versions
+                            X_ref = self.scaled_X_boot_list[fold_id-1][b-1]
+                            chosen_X_eval = (
+                                self.transf_X_val_list[fold_id-1][b-1][:1]
+                                if eval_name == 'Validation' 
+                                else self.transf_X_test_list[fold_id-1][b-1][:1]
+                            )
+                        else:
+                            # Use raw versions
+                            X_ref = self.X_boot_list[fold_id-1][b-1]
+                            chosen_X_eval = (
+                                self.X_val_list[fold_id-1].iloc[[0]]
+                                if eval_name == 'Validation' 
+                                else self.X_test.iloc[[0]]
+                            )
+                        
+                        trained_model = jla.get_model(self.models_dir, model_name, fold_id, b)
+                        shap_records.append(rm.get_shap_values(
+                            X_ref,
+                            chosen_X_eval,
+                            chosen_eval_ids,
+                            feature_names,
+                            model_name,
+                            trained_model,
+                            b,
+                            run_label='Bootstrap'
+                        ))
 
-                    model = joblib.load(
-                        f'{self.models_dir}/{model_name}/'
-                        f'Fold_{fold_id}_Bootstrap_{bootstrap_id}.joblib'
-                    )
-                    validation_shap_runs.append(get_shap_values(
-                        X_train,
-                        X_val,
-                        feature_names,
-                        model,
-                        model_name,
-                        bootstrap_id,
-                        val_id,
-                        run_label='Bootstrap'
-                    ))
-                    test_shap_runs.append(get_shap_values(
-                        X_train,
-                        X_test,
-                        feature_names,
-                        model,
-                        model_name,
-                        bootstrap_id,
-                        test_id,
-                        run_label='Bootstrap'
-                    ))
-                    self.trained_models.append({
-                        'name': model_name,
-                        'fold': fold_id,
-                        'bootstrap': bootstrap_id,
-                    })
-
-                save_shap_values(
-                    validation_shap_runs,
-                    f'{shap_dir}/SHAP_{model_name}_Validation_Fold_{fold_id}.csv'
-                )
-                save_shap_values(
-                    test_shap_runs,
-                    f'{shap_dir}/SHAP_{model_name}_Test_Fold_{fold_id}.csv'
-                )
+                    csv_path = f'{shap_dir}/SHAP_{model_name}_{eval_name}_Fold_{fold_id}.csv'
+                    rm.save_shap_values(shap_records, csv_path)
