@@ -25,7 +25,7 @@ def MRIP(
 ):
     # Scale the X_ref and chosen_X_eval
     scaler = StandardScaler()
-    X_ref_scaled = scaler.transform(X_ref)
+    X_ref_scaled = scaler.fit_transform(X_ref)
     chosen_X_eval_scaled = scaler.transform(chosen_X_eval)
 
     # Fit the nearest neighbors on the actual training data
@@ -62,7 +62,7 @@ def MRIP(
     return mrip_list
 
 
-# Saves the MRIP results in csv files
+# 🗹 Saves the MRIP results in csv files
 def save_mrip_results(
     records, 
     csv_file_path, 
@@ -94,51 +94,63 @@ def save_mrip_results(
 # ====================================
 # SHAPLEY ADDITIVE EXPLANATIONS (SHAP)
 # ====================================
-                       
+
+# 🗹 Gets the raw shap values per run
 def get_shap_values(
-    X_train,
-    X_val_test,
+    X_ref,
+    chosen_X_eval,
+    chosen_eval_ids,
     feature_names,
-    trained_model,
     model_name,
+    trained_model,
     nth_run,
-    defendant_ids,
     run_label='Run'
 ):
     if model_name in ['RF', 'XGB']:
-        explainer = shap.TreeExplainer(trained_model)
-        shap_values = explainer.shap_values(X_val_test)
+        X_ref_sample = shap.sample(
+            X_ref,
+            min(100, len(X_ref)),
+            random_state=42,
+        )
+        explainer = shap.TreeExplainer(
+            trained_model,
+            data=X_ref_sample,
+            feature_perturbation="interventional",
+            model_output="probability"
+        )
+        shap_values = explainer.shap_values(chosen_X_eval)
 
     elif model_name in ['LR', 'LSVC']:        
         if model_name == 'LSVC':
             explainer = shap.Explainer(
                 trained_model.predict_proba,
-                X_train
+                X_ref,
+                seed=42
             )
-            shap_values = explainer(X_val_test).values
+            shap_values = explainer(chosen_X_eval).values
         else:
+            # LR
             explainer = shap.LinearExplainer(
                 trained_model,
-                X_train
+                X_ref
             )
-            shap_values = explainer.shap_values(X_val_test)
+            shap_values = explainer(chosen_X_eval).values
 
     elif model_name == 'MLP':
         # Smaller background dataset
-        background = shap.sample(
-            X_train,
-            min(50, len(X_train)),
+        X_ref_sample = shap.sample(
+            X_ref,
+            min(100, len(X_ref)),
             random_state=42
         )
 
         explainer = shap.KernelExplainer(
             trained_model.predict_proba,
-            background
+            X_ref_sample
         )
 
-        # Explicit computational budget
         shap_values = explainer.shap_values(
-            X_val_test,
+            chosen_X_eval,
             nsamples=100
         )
 
@@ -148,47 +160,35 @@ def get_shap_values(
     elif shap_values.ndim == 3:
         shap_values = shap_values[:, :, 1]
 
-    df = pd.DataFrame({
-        'defendant_id': np.repeat(defendant_ids, len(feature_names)),
-        'feature': np.tile(feature_names, len(defendant_ids)),
+    return {
+        'Defendant_ID': np.repeat(chosen_eval_ids, len(feature_names)),
+        'Feature': np.tile(feature_names, len(chosen_eval_ids)),
         f'{run_label}_{nth_run}': shap_values.flatten()
-    })
-    return df
-
-
-# Save SHAP values from multiple runs in aligned run-specific columns.
-def save_shap_values(shap_run_frames, csv_file_path):
-    if not shap_run_frames:
-        pd.DataFrame(columns=['defendant_id', 'feature']).to_csv(
-            csv_file_path,
-            index=False
-        )
-        return
-
-    indexed_run_frames = [
-        run_frame.set_index(['defendant_id', 'feature'])
-        for run_frame in shap_run_frames
-    ]
-    base_index = indexed_run_frames[0].index
-    if not base_index.is_unique:
-        raise ValueError('Each SHAP run must have one value per defendant and feature.')
-
-    for run_frame in indexed_run_frames:
-        if len(run_frame.columns) != 1 or not run_frame.index.equals(base_index):
-            raise ValueError('SHAP runs must contain the same defendant and feature rows.')
-
-    run_columns = [run_frame.columns[0] for run_frame in indexed_run_frames]
-    run_values = np.column_stack([
-        run_frame.iloc[:, 0].to_numpy()
-        for run_frame in indexed_run_frames
-    ])
-    combined_columns = {
-        'defendant_id': base_index.get_level_values('defendant_id'),
-        'feature': base_index.get_level_values('feature'),
-        **{
-            run_column: run_values[:, column_index]
-            for column_index, run_column in enumerate(run_columns)
-        },
     }
-    combined = pd.DataFrame(combined_columns)
-    combined.to_csv(csv_file_path, index=False)
+
+# 🗹 Saves the raw shap values in csv files
+def save_shap_values(
+    shap_records, 
+    csv_file_path
+):
+    # Convert first dict into a df
+    shap_df = pd.DataFrame(shap_records[0])
+
+    # Add the remaining runs' SHAP values
+    for record in shap_records[1:]:
+        run = pd.DataFrame(record)
+
+        # Check that defendants and features match
+        if not run[['Defendant_ID', 'Feature']].equals(
+            shap_df[['Defendant_ID', 'Feature']]
+        ):
+            raise ValueError('SHAP runs must contain the same defendants and features.')
+
+        # Get the SHAP column name
+        run_column = run.columns[2]
+
+        # Add the SHAP values to the combined DataFrame
+        shap_df[run_column] = run[run_column]
+
+    # Save to CSV
+    shap_df.to_csv(csv_file_path, index=False)

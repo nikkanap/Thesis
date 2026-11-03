@@ -718,5 +718,5 @@ class PostMetrics:
                     }
                     
                     shap_csv_path = self.get_csv_path(shap_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    csva.save_to_csv(shap_csv_path, output)    
+                    csva.save_to_csv(csv_path=shap_csv_path, data=output)    
         print()
