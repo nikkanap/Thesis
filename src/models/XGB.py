@@ -1,5 +1,5 @@
 import xgboost as xgb
-from create_dir import create_nested_directory
+from directory import create_nested_directory
 import joblib
 import os
 
