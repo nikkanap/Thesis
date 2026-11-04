@@ -120,13 +120,13 @@ class PostMetrics:
     
     # Gets the predictions per fold
     def get_predictions(self, model_name, eval_name, fold_id):
-        return pd.read_csv(f'{self.predictions_dir}/{model_name}_Predictions_{eval_name}_{fold_id}.csv')                           
+        csv_path = f'{self.predictions_dir}/{model_name}_Predictions_{eval_name}_{fold_id}.csv'
+        return csva.load_csv_data(csv_path)                       
     
     # Gets the shap values
     def get_shap_values(self, shap_values_dir, model_name, eval_name, fold_id):
         csv_path = f'{shap_values_dir}/SHAP_{model_name}_{eval_name}_Fold_{fold_id}.csv'
-        
-        shap_values = pd.read_csv(csv_path)
+        shap_values = csva.load_csv_data(csv_path)
         return shap_values.rename(columns={
             'defendant_id': 'Defendant_ID',
             'feature': 'Feature',
@@ -146,8 +146,14 @@ class PostMetrics:
     # =======
     # METRICS
     # =======
-    # 🗹 Performance metric
-    # Receiver Operating Characteristic - Area Under the Curve (ROC-AUC)
+    
+    """
+    🗹 Receiver Operating Characteristic - Area Under the Curve (ROC-AUC)
+    - Performance Metric
+    - AUC gives you an overall idea of how well your model is doing at sorting positives and negatives, 
+      without being affected by the threshold you set for classification. 
+    - A higher AUC means your model is doing good.
+    """
     def roc_auc(self):
         print(f'[Metric] ROC-AUC')
         metric_name = 'ROC_AUC'
@@ -171,6 +177,10 @@ class PostMetrics:
                     csva.save_to_csv(fold_csv_path, 'Run', predictions.columns)
                     
                     roc_aucs = []
+                    tpr_list = []
+
+                    # Common FPR values for all runs
+                    mean_fpr = np.linspace(0, 1, 100)
                     for i, col in enumerate(predictions.columns, start=1):
                         self.print_metric_progress(eval_name, model_name, fold_id, 'ROC-AUC', i, len(predictions.columns))
                         y_pred_proba = predictions[col]
@@ -179,25 +189,57 @@ class PostMetrics:
                         roc_aucs.append(roc_auc)    
                         
                         # Plotting the ROC-AUC 
-                        fpr, tpr, thresholds = roc_curve(y_eval, y_pred_proba)
-                        plt.plot(fpr, tpr, label=f'ROC Curve = {roc_auc:.4f}')
-                        plt.plot([0, 1], [0, 1], '--', label='Random Classifier')
-                        plt.xlabel('False Positive Rate')
-                        plt.ylabel('True Positive Rate')
-                        plt.title('ROC Curve')
-                        plt.legend()
-                        plt.show()
+                        fpr, tpr, _ = roc_curve(y_eval, y_pred_proba)
+                        
+                        # Interpolate TPR to common FPR values
+                        interp_tpr = np.interp(mean_fpr, fpr, tpr)
+                        interp_tpr[0] = 0.0
+                        tpr_list.append(interp_tpr)
                         
                     csva.save_to_csv(fold_csv_path, 'ROC_AUC_Score', roc_aucs)
+
+                    mean_auc = np.mean(roc_aucs)
+                    std_auc = np.std(roc_aucs, ddof=1)
+                    summary_dict[f'Mean_{metric_name}'].append(mean_auc)
+                    summary_dict[f'STD_{metric_name}'].append(std_auc)
+                    
+                    # ROC_AUC Curve
+                    mean_tpr = np.mean(tpr_list, axis=0)
+                    mean_tpr[-1] = 1.0
                 
-                    summary_dict[f'Mean_{metric_name}'].append(np.mean(roc_aucs))
-                    summary_dict[f'STD_{metric_name}'].append(np.std(roc_aucs, ddof=1))
+                    plt.plot(mean_fpr, mean_tpr, label=f'Mean ROC (AUC = {mean_auc:.4f} ± {std_auc:.4f})')
+                    plt.plot([0, 1], [0, 1], '--', label='Random Classifier')
+                    plt.xlabel('False Positive Rate')
+                    plt.ylabel('True Positive Rate')
+                    plt.title(
+                        f'{self.instability_type} - {model_name} - '
+                        f'{eval_name} - ROC Curve - Fold {fold_id}'
+                    )
+                    plt.legend()
+                    plt.tight_layout()
+                    
+                    img_file_path = (
+                        f'{roc_auc_dir}/{metric_name}_{model_name}_'
+                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}_{col}.png'
+                    )
+                    plt.savefig(
+                        img_file_path,
+                        dpi=300,
+                        bbox_inches='tight'
+                    )
+                    plt.close()
                     
                 summary_csv_path = self.generate_csv_path(roc_auc_dir, model_name, metric_name, eval_name)
-                csva.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, data=summary_dict)
                 print()
         
-    # Performance metric
+    """
+    🗹 Brier Score
+    - Performance metric
+    - Brier Score can take on any value between 0 and 1, with 0 being the best score 
+      achievable and 1 being the worst score achievable. 
+    - The lower the Brier Score, the more accurate the prediction(s).
+    """
     def brier_score(self):
         print('[Metric] Brier Score')
         metric_name = 'Brier_Score'
@@ -227,15 +269,132 @@ class PostMetrics:
                         
                         brier_score = brier_score_loss(y_eval, y_pred_proba)
                         brier_score_list.append(brier_score)
+                        
                     csva.save_to_csv(fold_csv_path, metric_name, brier_score_list)
                     
                     summary_dict[f'Mean_{metric_name}'].append(np.mean(brier_score_list))
                     summary_dict[f'STD_{metric_name}'].append(np.std(brier_score_list, ddof=1))
                 
                 summary_csv_path = self.generate_csv_path(brier_score_dir, model_name, metric_name, eval_name)
-                csva.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, data=summary_dict)
                 print()
+    
+    # Performance metric 
+    def calibration_curve(self):
+        print('[Metric] Calibration Curve')
+        
+        metric_name = 'Calibration_Curve'
+        for eval_name in EVAL_NAMES:
+            for model_name in MODEL_NAMES:
+                cal_curve_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
+                dir.create_nested(cal_curve_dir)
 
+                r2_summary_records = []
+                for fold_id in range(1, self.no_of_folds + 1):                    
+                    y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()
+                    predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
+
+                    # Set up the plot
+                    plt.figure(figsize=(8, 6))
+                    
+                    r2_scores = []
+                    for i, col in enumerate(predictions.columns, start=1):
+                        self.print_metric_progress(eval_name, model_name, fold_id, 'Calibration Curve', i, len(predictions.columns))
+                        y_pred_proba = predictions[col]
+
+                        prob_true, prob_pred = calibration_curve(
+                            y_eval,
+                            y_pred_proba,
+                            n_bins=10,
+                            strategy='uniform'
+                        )
+
+                        # Add a calibration_curve per run
+                        plt.plot(prob_pred, prob_true, alpha=0.1)
+
+                        run_r2 = (
+                            r2_score(y_eval, y_pred_proba)
+                            if np.unique(y_eval).size > 1
+                            else np.nan
+                        )
+                        r2_scores.append(run_r2)
+
+                    # Complete the graph's information
+                    plt.plot([0, 1], [0, 1], linestyle='--', label='Perfect Calibration')
+                    plt.xlabel('Mean Predicted Recidivism Probability')
+                    plt.ylabel('Proportion of Defendants with is_recid = 1')
+                    plt.title(f'{self.instability_type} - {model_name} - {eval_name} - Calibration Curve - Fold {fold_id}')
+
+                    # R-Squared
+                    valid_r2_scores = np.asarray(r2_scores, dtype=float)
+                    valid_r2_scores = valid_r2_scores[~np.isnan(valid_r2_scores)]
+                    mean_r2 = (
+                        float(np.mean(valid_r2_scores))
+                        if len(valid_r2_scores) else np.nan
+                    )
+                    
+                    std_r2 = (
+                        float(np.std(valid_r2_scores, ddof=1))
+                        if len(valid_r2_scores) > 1 else np.nan
+                    )
+                    
+                    if np.isfinite(mean_r2) and np.isfinite(std_r2):
+                        r2_label = (
+                            'Outcome $R^2$ vs prevalence '
+                            '(mean $\\pm$ SD across runs): '
+                            f'{mean_r2:.3f} $\\pm$ {std_r2:.3f}'
+                        )
+                    elif np.isfinite(mean_r2):
+                        r2_label = (
+                            'Outcome $R^2$ vs prevalence '
+                            f'(mean across runs): {mean_r2:.3f}'
+                        )
+                    else:
+                        r2_label = 'Outcome $R^2$ undefined'
+                        
+                    plt.text(
+                        0.05, 0.95,
+                        r2_label,
+                        transform=plt.gca().transAxes,
+                        verticalalignment='top',
+                        bbox=dict(facecolor='white', alpha=0.8)
+                    )
+
+                    plt.legend()
+                    plt.tight_layout()
+
+                    img_file_path = (
+                        f'{cal_curve_dir}/{metric_name}_{model_name}_'
+                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
+                    )
+                    
+                    plt.savefig(
+                        img_file_path,
+                        dpi=300,
+                        bbox_inches='tight'
+                    )
+                    plt.close()
+
+                    per_run_r2_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='R2', fold_id=fold_id)
+                    r2_outcome_dict = pd.DataFrame({
+                        'Run': predictions.columns,
+                        'Outcome_R2_vs_Prevalence': r2_scores,
+                    })
+                    csva.save_to_csv(per_run_r2_path, data=r2_outcome_dict)
+                    
+                    r2_summary_records.append({
+                        'Fold': fold_id,
+                        'Mean_Outcome_R2_vs_Prevalence': mean_r2,
+                        'SD_Outcome_R2_vs_Prevalence': std_r2
+                    })
+
+                r2_summary_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='R2_Summary')
+                pd.DataFrame(r2_summary_records).to_csv(
+                    r2_summary_path,
+                    index=False
+                )
+                print()
+    
     # Instability metric
     def ninety_five_prediction_error(self):
         print('[Metric] 95 Prediction Error')
@@ -298,7 +457,7 @@ class PostMetrics:
                 plt.savefig(plot_path)
                 plt.close()
                 
-                csva.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, data=summary_dict)
         
     # Instability metric
     def mean_absolute_prediction_error(self): 
@@ -332,7 +491,7 @@ class PostMetrics:
                     print()
                     
                 summary_csv_path = self.generate_csv_path(mape_dir, model_name, metric_name, eval_name)
-                csva.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, data=summary_dict)
             
     # Instability metric 
     def top_k_jaccard(self):
@@ -385,9 +544,8 @@ class PostMetrics:
                     print()
                     
                 summary_csv_path = self.generate_csv_path(tk_jaccard_dir, model_name, metric_name, eval_name)
-                csva.save_to_csv(summary_csv_path, summary_dict)
+                csva.save_to_csv(summary_csv_path, data=summary_dict)
                 
-            
     # Instability metric 
     def classification_instability_index(self):
         print('[Metric] Classification Instability Index (CII)')
@@ -434,134 +592,7 @@ class PostMetrics:
                     print()
                     
                 summary_csv_path = self.generate_csv_path(cii_dir, model_name, metric_name, eval_name)
-                csva.save_to_csv(summary_csv_path, summary_dict)
-                
-
-    # Performance metric 
-    def calibration_plot(self):
-        print('[Metric] Calibration Plot')
-        
-        metric_name = 'Calibration_Plot'
-        for eval_name in EVAL_NAMES:
-            for model_name in MODEL_NAMES:
-                cal_plot_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                dir.create_nested(cal_plot_dir)
-
-                r2_summary_records = []
-                for fold_id in range(1, self.no_of_folds + 1):                    
-                    y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()
-                    predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
-
-                    plt.figure(figsize=(8, 6))
-                    
-                    r2_scores = []
-                    for i, col in enumerate(predictions.columns, start=1):
-                        self.print_metric_progress(eval_name, model_name, fold_id, 'Calibration Plot', i, len(predictions.columns))
-                        y_pred_proba = predictions[col]
-
-                        prob_true, prob_pred = calibration_curve(
-                            y_eval,
-                            y_pred_proba,
-                            n_bins=10,
-                            strategy='uniform'
-                        )
-
-                        plt.plot(
-                            prob_pred,
-                            prob_true,
-                            alpha=0.1
-                        )
-
-                        run_r2 = (
-                            r2_score(y_eval, y_pred_proba)
-                            if np.unique(y_eval).size > 1
-                            else np.nan
-                        )
-                        r2_scores.append(run_r2)
-
-                    plt.plot(
-                        [0, 1],
-                        [0, 1],
-                        linestyle='--',
-                        label='Perfect Calibration'
-                    )
-
-                    plt.xlabel('Mean Predicted Probability')
-                    plt.ylabel('Fraction of Positives')
-                    plt.title(
-                        f'{self.instability_type} - {model_name} - {eval_name} - '
-                        f'Calibration Plot - Fold {fold_id}'
-                    )
-
-                    valid_r2_scores = np.asarray(r2_scores, dtype=float)
-                    valid_r2_scores = valid_r2_scores[~np.isnan(valid_r2_scores)]
-                    mean_r2 = (
-                        float(np.mean(valid_r2_scores))
-                        if len(valid_r2_scores) else np.nan
-                    )
-                    
-                    std_r2 = (
-                        float(np.std(valid_r2_scores, ddof=1))
-                        if len(valid_r2_scores) > 1 else np.nan
-                    )
-                    
-                    if np.isfinite(mean_r2) and np.isfinite(std_r2):
-                        r2_label = (
-                            'Outcome $R^2$ vs prevalence '
-                            '(mean $\\pm$ SD across runs): '
-                            f'{mean_r2:.3f} $\\pm$ {std_r2:.3f}'
-                        )
-                    elif np.isfinite(mean_r2):
-                        r2_label = (
-                            'Outcome $R^2$ vs prevalence '
-                            f'(mean across runs): {mean_r2:.3f}'
-                        )
-                    else:
-                        r2_label = 'Outcome $R^2$ undefined'
-                        
-                    plt.text(
-                        0.05, 0.95,
-                        r2_label,
-                        transform=plt.gca().transAxes,
-                        verticalalignment='top',
-                        bbox=dict(facecolor='white', alpha=0.8)
-                    )
-
-                    plt.legend()
-                    plt.tight_layout()
-
-                    img_file_path = (
-                        f'{cal_plot_dir}/{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
-                    )
-                    
-                    plt.savefig(
-                        img_file_path,
-                        dpi=300,
-                        bbox_inches='tight'
-                    )
-                    plt.close()
-
-                    per_run_r2_path = self.generate_csv_path(cal_plot_dir, model_name, metric_name, eval_name, custom_title='R2', fold_id=fold_id)
-                    r2_outcome_dict = pd.DataFrame({
-                        'Run': predictions.columns,
-                        'Outcome_R2_vs_Prevalence': r2_scores,
-                    })
-                    csva.save_to_csv(per_run_r2_path, r2_outcome_dict)
-                    
-                    r2_summary_records.append({
-                        'Fold': fold_id,
-                        'Mean_Outcome_R2_vs_Prevalence': mean_r2,
-                        'SD_Outcome_R2_vs_Prevalence': std_r2,
-                        'Valid_Runs': len(valid_r2_scores),
-                    })
-
-                r2_summary_path = self.generate_csv_path(cal_plot_dir, model_name, metric_name, eval_name, custom_title='R2_Summary')
-                pd.DataFrame(r2_summary_records).to_csv(
-                    r2_summary_path,
-                    index=False
-                )
-                print()
+                csva.save_to_csv(summary_csv_path, data=summary_dict)
                             
     # Fairness metric: subgroup false positive rates and their max-min gap.
     def demographic_false_positive_rate(self):
