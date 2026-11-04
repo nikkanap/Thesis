@@ -19,3 +19,8 @@ def save_to_csv(
     else:
         df = pd.DataFrame({ column_name: values })
     df.to_csv(csv_path, index=False)
+
+# 
+def load_csv_data(csv_path, column_name=None):
+    df = pd.read_csv(csv_path)
+    return df if column_name is None else df[column_name]
