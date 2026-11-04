@@ -276,9 +276,14 @@ class PostMetrics:
                 csva.save_to_csv(summary_csv_path, data=summary_dict)
                 print()
     
-    # Performance metric 
-    from sklearn.calibration import CalibrationDisplay
-
+    """
+    🗹 Calibration Curve
+    - Performance metric
+    - Calibration curves are used to evaluate how calibrated a classifier is i.e., how the probabilities of predicting each class label differ. 
+      The x-axis represents the average predicted probability in each bin. 
+      The y-axis is the ratio of positives (the proportion of positive predictions). 
+    - The curve of the ideal calibrated model is a linear straight line from (0, 0) moving linearly. 
+    """
     def calibration_curve(self):
         print('[Metric] Calibration Curve')
         metric_name = 'Calibration_Curve'
@@ -290,17 +295,13 @@ class PostMetrics:
 
                 r2_summary_records = []
                 for fold_id in range(1, self.no_of_folds + 1):
+                    img_file_path = f'{cal_curve_dir}/{metric_name}_{model_name}_{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
+                    
                     y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
 
                     # Set up the plot
                     fig, ax = plt.subplots(figsize=(8, 6))
-                    ax.set_xlabel('Mean Predicted Recidivism Probability')
-                    ax.set_ylabel('Proportion of Defendants with is_recid = 1')
-                    ax.set_title(
-                        f'{self.instability_type} - {model_name} - '
-                        f'{eval_name} - Calibration Curve - Fold {fold_id}'
-                    )
                     
                     r2_scores = []
                     for i, col in enumerate(predictions.columns, start=1):
@@ -319,7 +320,7 @@ class PostMetrics:
                             name='_nolegend_'
                         )
 
-                        # Calculate R²
+                        # Calculate R-Squared
                         run_r2 = (
                             r2_score(y_eval, y_pred_proba)
                             if np.unique(y_eval).size > 1
@@ -327,22 +328,22 @@ class PostMetrics:
                         )
                         r2_scores.append(run_r2)
 
+                    ax.set_xlabel('Mean Predicted Recidivism Probability')
+                    ax.set_ylabel('Proportion of Defendants with is_recid = 1')
+                    ax.set_title(
+                        f'{self.instability_type} Instability - {model_name} - '
+                        f'{eval_name} - Calibration Curve - Fold {fold_id}'
+                    )
+                    
                     # R-Squared
-                    valid_r2_scores = np.asarray(r2_scores, dtype=float)
-                    valid_r2_scores = valid_r2_scores[~np.isnan(valid_r2_scores)]
-                    mean_r2 = (
-                        float(np.mean(valid_r2_scores))
-                        if len(valid_r2_scores) else np.nan
-                    )
-                    std_r2 = (
-                        float(np.std(valid_r2_scores, ddof=1))
-                        if len(valid_r2_scores) > 1 else np.nan
-                    )
-
-                    if np.isfinite(mean_r2) and np.isfinite(std_r2):
-                        r2_label = f'Outcome $R^2$ vs prevalence (mean $\\pm$ SD across runs): {mean_r2:.3f} $\\pm$ {std_r2:.3f}'
-                    elif np.isfinite(mean_r2):
-                        r2_label = f'Outcome $R^2$ vs prevalence (mean across runs): {mean_r2:.3f}'
+                    mean_r2 = np.nanmean(r2_scores)
+                    std_r2 = np.nanstd(r2_scores, ddof=1)
+                    if np.isfinite(mean_r2):
+                        r2_label = 'Outcome $R^2$ vs prevalence' + (
+                            f'(mean $\\pm$ SD across runs): {mean_r2:.3f} $\\pm$ {std_r2:.3f}'
+                            if np.isfinite(std_r2)
+                            else f'(mean across runs): {mean_r2:.3f}'
+                        )
                     else:
                         r2_label = 'Outcome $R^2$ undefined'
 
@@ -353,34 +354,24 @@ class PostMetrics:
                         verticalalignment='top',
                         bbox=dict(facecolor='white', alpha=0.8)
                     )
-
                     ax.legend()
                     fig.tight_layout()
-
-                    img_file_path = (
-                        f'{cal_curve_dir}/{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
-                    )
-
-                    fig.savefig(
-                        img_file_path,
-                        dpi=300,
-                        bbox_inches='tight'
-                    )
+                    fig.savefig(img_file_path, dpi=300, bbox_inches='tight')
                     plt.close(fig)
 
                     # Save per-run R-Squared
+                    r2_label = 'Outcome_R2_vs_Prevalence'
                     per_run_r2_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='R2', fold_id=fold_id)
-                    r2_outcome_dict = pd.DataFrame({
+                    r2_outcome_dict = {
                         'Run': predictions.columns,
-                        'Outcome_R2_vs_Prevalence': r2_scores,
-                    })
+                        r2_label: r2_scores,
+                    }
                     csva.save_to_csv(per_run_r2_path, data=r2_outcome_dict)
                     
                     r2_summary_records.append({
                         'Fold': fold_id,
-                        'Mean_Outcome_R2_vs_Prevalence': mean_r2,
-                        'SD_Outcome_R2_vs_Prevalence': std_r2
+                        f'Mean_{r2_label}': mean_r2,
+                        f'SD_{r2_label}': std_r2
                     })
 
                 # Save R-Squared summary across folds
