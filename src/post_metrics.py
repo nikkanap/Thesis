@@ -1,10 +1,8 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
-import shutil
-import os
 
-from sklearn.calibration import calibration_curve
+from sklearn.calibration import CalibrationDisplay
 from sklearn.metrics import (
     roc_auc_score, roc_curve,
     brier_score_loss, 
@@ -12,7 +10,6 @@ from sklearn.metrics import (
 )
 
 from itertools import combinations
-from statsmodels.nonparametric.smoothers_lowess import lowess
 
 import directory as dir
 import csv_actions as csva
@@ -280,50 +277,55 @@ class PostMetrics:
                 print()
     
     # Performance metric 
+    from sklearn.calibration import CalibrationDisplay
+
     def calibration_curve(self):
         print('[Metric] Calibration Curve')
-        
         metric_name = 'Calibration_Curve'
+
         for eval_name in EVAL_NAMES:
             for model_name in MODEL_NAMES:
                 cal_curve_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
                 dir.create_nested(cal_curve_dir)
 
                 r2_summary_records = []
-                for fold_id in range(1, self.no_of_folds + 1):                    
+                for fold_id in range(1, self.no_of_folds + 1):
                     y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
 
                     # Set up the plot
-                    plt.figure(figsize=(8, 6))
+                    fig, ax = plt.subplots(figsize=(8, 6))
+                    ax.set_xlabel('Mean Predicted Recidivism Probability')
+                    ax.set_ylabel('Proportion of Defendants with is_recid = 1')
+                    ax.set_title(
+                        f'{self.instability_type} - {model_name} - '
+                        f'{eval_name} - Calibration Curve - Fold {fold_id}'
+                    )
                     
                     r2_scores = []
                     for i, col in enumerate(predictions.columns, start=1):
                         self.print_metric_progress(eval_name, model_name, fold_id, 'Calibration Curve', i, len(predictions.columns))
                         y_pred_proba = predictions[col]
 
-                        prob_true, prob_pred = calibration_curve(
+                        # Add a calibration curve per run
+                        CalibrationDisplay.from_predictions(
                             y_eval,
                             y_pred_proba,
                             n_bins=10,
-                            strategy='uniform'
+                            strategy='uniform',
+                            ax=ax,
+                            alpha=0.1,
+                            marker=None,
+                            name='_nolegend_'
                         )
 
-                        # Add a calibration_curve per run
-                        plt.plot(prob_pred, prob_true, alpha=0.1)
-
+                        # Calculate R²
                         run_r2 = (
                             r2_score(y_eval, y_pred_proba)
                             if np.unique(y_eval).size > 1
                             else np.nan
                         )
                         r2_scores.append(run_r2)
-
-                    # Complete the graph's information
-                    plt.plot([0, 1], [0, 1], linestyle='--', label='Perfect Calibration')
-                    plt.xlabel('Mean Predicted Recidivism Probability')
-                    plt.ylabel('Proportion of Defendants with is_recid = 1')
-                    plt.title(f'{self.instability_type} - {model_name} - {eval_name} - Calibration Curve - Fold {fold_id}')
 
                     # R-Squared
                     valid_r2_scores = np.asarray(r2_scores, dtype=float)
@@ -332,49 +334,42 @@ class PostMetrics:
                         float(np.mean(valid_r2_scores))
                         if len(valid_r2_scores) else np.nan
                     )
-                    
                     std_r2 = (
                         float(np.std(valid_r2_scores, ddof=1))
                         if len(valid_r2_scores) > 1 else np.nan
                     )
-                    
+
                     if np.isfinite(mean_r2) and np.isfinite(std_r2):
-                        r2_label = (
-                            'Outcome $R^2$ vs prevalence '
-                            '(mean $\\pm$ SD across runs): '
-                            f'{mean_r2:.3f} $\\pm$ {std_r2:.3f}'
-                        )
+                        r2_label = f'Outcome $R^2$ vs prevalence (mean $\\pm$ SD across runs): {mean_r2:.3f} $\\pm$ {std_r2:.3f}'
                     elif np.isfinite(mean_r2):
-                        r2_label = (
-                            'Outcome $R^2$ vs prevalence '
-                            f'(mean across runs): {mean_r2:.3f}'
-                        )
+                        r2_label = f'Outcome $R^2$ vs prevalence (mean across runs): {mean_r2:.3f}'
                     else:
                         r2_label = 'Outcome $R^2$ undefined'
-                        
-                    plt.text(
+
+                    ax.text(
                         0.05, 0.95,
                         r2_label,
-                        transform=plt.gca().transAxes,
+                        transform=ax.transAxes,
                         verticalalignment='top',
                         bbox=dict(facecolor='white', alpha=0.8)
                     )
 
-                    plt.legend()
-                    plt.tight_layout()
+                    ax.legend()
+                    fig.tight_layout()
 
                     img_file_path = (
                         f'{cal_curve_dir}/{metric_name}_{model_name}_'
                         f'{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
                     )
-                    
-                    plt.savefig(
+
+                    fig.savefig(
                         img_file_path,
                         dpi=300,
                         bbox_inches='tight'
                     )
-                    plt.close()
+                    plt.close(fig)
 
+                    # Save per-run R-Squared
                     per_run_r2_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='R2', fold_id=fold_id)
                     r2_outcome_dict = pd.DataFrame({
                         'Run': predictions.columns,
@@ -388,11 +383,9 @@ class PostMetrics:
                         'SD_Outcome_R2_vs_Prevalence': std_r2
                     })
 
+                # Save R-Squared summary across folds
                 r2_summary_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='R2_Summary')
-                pd.DataFrame(r2_summary_records).to_csv(
-                    r2_summary_path,
-                    index=False
-                )
+                csva.save_to_csv(r2_summary_path, data=r2_summary_records)
                 print()
     
     # Instability metric
