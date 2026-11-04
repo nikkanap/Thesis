@@ -28,14 +28,17 @@ def Random_Forest(
                 f"Fold_{fold_id}_{'Bootstrap' if instability_type == 'Dataset' else 'Random_Seed'}_{nth_run}.joblib"
             )
             
-            if instability_type == 'Dataset':
-                X_train = X_train_fold[nth_run-1]
-                y_train = y_train_fold[nth_run-1]
-            else:
-                X_train = X_train_fold
-                y_train = y_train_fold
+            X_train = (
+                X_train_fold[nth_run-1]
+                if instability_type == 'Dataset'
+                else X_train_fold
+            )
+            y_train = (
+                y_train_fold[nth_run-1]
+                if instability_type == 'Dataset'
+                else y_train_fold
+            )
             
-            # Training the model
             classifier = RandomForestClassifier(
                 n_estimators=100, 
                 random_state=(

@@ -28,14 +28,17 @@ def XGBoost(
                 f"Fold_{fold_id}_{'Bootstrap' if instability_type == 'Dataset' else 'Random_Seed'}_{nth_run}.joblib"
             )
             
-            if instability_type == 'Dataset':
-                X_train = X_train_fold[nth_run-1]
-                y_train = y_train_fold[nth_run-1]
-            else:
-                X_train = X_train_fold
-                y_train = y_train_fold
-    
-            # Setting up the parameters
+            X_train = (
+                X_train_fold[nth_run-1]
+                if instability_type == 'Dataset'
+                else X_train_fold
+            )
+            y_train = (
+                y_train_fold[nth_run-1]
+                if instability_type == 'Dataset'
+                else y_train_fold
+            )
+            
             model = xgb.XGBClassifier(
                 objective='binary:logistic',
                 max_depth=3,
@@ -48,8 +51,6 @@ def XGBoost(
                     else nth_run
                 )
             )
-            
-            # Training the model
             model.fit(X_train, y_train)
             joblib.dump(model, model_path)
             
