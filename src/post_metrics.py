@@ -1,12 +1,13 @@
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import shap
 
 from sklearn.calibration import CalibrationDisplay
 from sklearn.metrics import (
     roc_auc_score, roc_curve,
     brier_score_loss, 
-    r2_score
+    mean_squared_error
 )
 
 from itertools import combinations
@@ -168,7 +169,7 @@ class PostMetrics:
                 
                 for fold_id in range(1, self.no_of_folds + 1):
                     predictions = self.get_predictions(model_name, eval_name, fold_id)
-                    y_eval = self.get_y_values(eval_name, fold_id)
+                    y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()
                     
                     fold_csv_path = self.generate_csv_path(roc_auc_dir, model_name, metric_name, eval_name, fold_id=fold_id)
                     csva.save_to_csv(fold_csv_path, 'Run', predictions.columns)
@@ -253,7 +254,7 @@ class PostMetrics:
                 }
                 
                 for fold_id in range(1, self.no_of_folds + 1):
-                    y_eval = self.get_y_values(eval_name, fold_id)             
+                    y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()             
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
                     
                     fold_csv_path = self.generate_csv_path(brier_score_dir, model_name, metric_name, eval_name, fold_id=fold_id)
@@ -293,7 +294,7 @@ class PostMetrics:
                 cal_curve_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
                 dir.create_nested(cal_curve_dir)
 
-                r2_summary_records = []
+                mse_summary_records = []
                 for fold_id in range(1, self.no_of_folds + 1):
                     img_file_path = f'{cal_curve_dir}/{metric_name}_{model_name}_{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
                     
@@ -303,7 +304,7 @@ class PostMetrics:
                     # Set up the plot
                     fig, ax = plt.subplots(figsize=(8, 6))
                     
-                    r2_scores = []
+                    mse_scores = []
                     for i, col in enumerate(predictions.columns, start=1):
                         self.print_metric_progress(eval_name, model_name, fold_id, 'Calibration Curve', i, len(predictions.columns))
                         y_pred_proba = predictions[col]
@@ -321,12 +322,12 @@ class PostMetrics:
                         )
 
                         # Calculate R-Squared
-                        run_r2 = (
-                            r2_score(y_eval, y_pred_proba)
+                        run_mse = (
+                            mean_squared_error(y_eval, y_pred_proba)
                             if np.unique(y_eval).size > 1
                             else np.nan
                         )
-                        r2_scores.append(run_r2)
+                        mse_scores.append(run_mse)
 
                     ax.set_xlabel('Mean Predicted Recidivism Probability')
                     ax.set_ylabel('Proportion of Defendants with is_recid = 1')
@@ -336,20 +337,27 @@ class PostMetrics:
                     )
                     
                     # R-Squared
-                    mean_r2 = np.nanmean(r2_scores)
-                    std_r2 = np.nanstd(r2_scores, ddof=1)
-                    if np.isfinite(mean_r2):
-                        r2_label = 'Outcome $R^2$ vs prevalence' + (
-                            f'(mean $\\pm$ SD across runs): {mean_r2:.3f} $\\pm$ {std_r2:.3f}'
-                            if np.isfinite(std_r2)
-                            else f'(mean across runs): {mean_r2:.3f}'
+                    mean_mse = np.nanmean(mse_scores)
+                    std_mse = np.nanstd(mse_scores, ddof=1)
+                    if np.isfinite(mean_mse):
+                        mse_label = 'Outcome $R^2$ vs prevalence' + (
+                            f'(mean $\\pm$ SD across runs): {mean_mse:.3f} $\\pm$ {std_mse:.3f}'
+                            if np.isfinite(std_mse)
+                            else f'(mean across runs): {mean_mse:.3f}'
                         )
                     else:
-                        r2_label = 'Outcome $R^2$ undefined'
+                        mse_label = 'Outcome $R^2$ undefined'
 
                     ax.text(
                         0.05, 0.95,
-                        r2_label,
+                        mse_label,
+                        transform=ax.transAxes,
+                        verticalalignment='top',
+                        bbox=dict(facecolor='white', alpha=0.8)
+                    )
+                    ax.text(
+                        0.05, 0.85,
+                        'Prediction Groups (Bins): 10 (Uniform)',
                         transform=ax.transAxes,
                         verticalalignment='top',
                         bbox=dict(facecolor='white', alpha=0.8)
@@ -360,23 +368,23 @@ class PostMetrics:
                     plt.close(fig)
 
                     # Save per-run R-Squared
-                    r2_label = 'Outcome_R2_vs_Prevalence'
-                    per_run_r2_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='R2', fold_id=fold_id)
-                    r2_outcome_dict = {
+                    mse_label = 'Outcome_MSE'
+                    per_run_mse_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='MSE', fold_id=fold_id)
+                    mse_outcome_dict = {
                         'Run': predictions.columns,
-                        r2_label: r2_scores,
+                        mse_label: mse_scores,
                     }
-                    csva.save_to_csv(per_run_r2_path, data=r2_outcome_dict)
+                    csva.save_to_csv(per_run_mse_path, data=mse_outcome_dict)
                     
-                    r2_summary_records.append({
+                    mse_summary_records.append({
                         'Fold': fold_id,
-                        f'Mean_{r2_label}': mean_r2,
-                        f'SD_{r2_label}': std_r2
+                        f'Mean_{mse_label}': mean_mse,
+                        f'SD_{mse_label}': std_mse
                     })
 
                 # Save R-Squared summary across folds
-                r2_summary_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='R2_Summary')
-                csva.save_to_csv(r2_summary_path, data=r2_summary_records)
+                mse_summary_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='MSE_Summary')
+                csva.save_to_csv(mse_summary_path, data=mse_summary_records)
                 print()
     
     # Instability metric
@@ -385,11 +393,17 @@ class PostMetrics:
         metric_name = '95_Prediction_Error'
         
         for eval_name in EVAL_NAMES:
-            for model_name in MODEL_NAMES:
-                si_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
-                dir.create_nested(si_dir)
+            fold_model_errors = {
+                fold_id: {}
+                for fold_id in range(1, self.no_of_folds + 1)
+            }
 
-                summary_csv_path = self.generate_csv_path(si_dir, model_name, metric_name, eval_name)
+            for model_name in MODEL_NAMES:
+                pe_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
+                dir.create_nested(pe_dir)
+
+                summary_csv_path = self.generate_csv_path(pe_dir, model_name, metric_name, eval_name)
+                
                 summary_dict = {
                     'Fold': [],
                     'Lower_95_Error': [],
@@ -397,52 +411,57 @@ class PostMetrics:
                     'Mean_Error': [],
                     'Median_Error': [],
                 }
-                all_fold_errors = []
-
+                
                 for fold_id in range(1, self.no_of_folds + 1):
                     self.print_metric_progress(eval_name, model_name, fold_id, '95% Prediction Error', 100)
                     predictions = self.get_predictions(model_name, eval_name, fold_id)
-                    y_eval = self.get_y_values(eval_name, fold_id)
+                    y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()
 
                     errors = np.abs(y_eval[:, np.newaxis] - predictions)
-                    fold_errors = errors.to_numpy().flatten()
+                    raw_csv_path = self.generate_csv_path(pe_dir, model_name, metric_name, eval_name, fold_id=fold_id)
+                    csva.save_to_csv(raw_csv_path, data=errors)
                     
-                    all_fold_errors.append(fold_errors)
+                    # Get mean error each run
+                    mean_errors = np.mean(errors, axis=0)
+                    flat_mean_errors = mean_errors.to_numpy().flatten()
+                    fold_model_errors[fold_id][model_name] = flat_mean_errors
+                    
                     summary_dict['Fold'].append(fold_id)
-                    summary_dict['Lower_95_Error'].append(np.percentile(fold_errors, 2.5))
-                    summary_dict['Upper_95_Error'].append(np.percentile(fold_errors, 97.5))
-                    summary_dict['Mean_Error'].append(np.mean(fold_errors))
-                    summary_dict['Median_Error'].append(np.median(fold_errors))
-                    print()
-                
-                # Box plot
+                    summary_dict['Lower_95_Error'].append(np.percentile(flat_mean_errors, 2.5))
+                    summary_dict['Upper_95_Error'].append(np.percentile(flat_mean_errors, 97.5))
+                    summary_dict['Mean_Error'].append(np.mean(flat_mean_errors))
+                    summary_dict['Median_Error'].append(np.median(flat_mean_errors))
+                csva.save_to_csv(summary_csv_path, data=summary_dict)
+
+            # Compare each model's per-run mean absolute errors within each fold.
+            comparison_dir = f'{self.metrics_dir}/{metric_name}/By_Fold'
+            dir.create_nested(comparison_dir)
+            for fold_id, errors_by_model in fold_model_errors.items():
+                plot_path = (
+                    f'{comparison_dir}/{metric_name}_{self.instability_type}_'
+                    f'{eval_name}_Fold_{fold_id}_Boxplot.png'
+                )
+                model_errors = [errors_by_model[model_name] for model_name in MODEL_NAMES]
+
                 plt.figure(figsize=(12, 6))
                 plt.boxplot(
-                    all_fold_errors,
-                    tick_labels=[
-                        f'Fold {fold_id}'
-                        for fold_id in range(1, self.no_of_folds + 1)
-                    ],
+                    model_errors,
+                    tick_labels=MODEL_NAMES,
+                    whis=(2.5, 97.5),
                     notch=True
                 )
-
-                # Zero = no prediction error
-                plt.axhline(
-                    y=0,
-                    linestyle='--',
-                    linewidth=1
+                plt.xlabel('Model')
+                plt.ylabel('Mean Absolute Prediction Error per Run')
+                plt.title(
+                    f'{self.instability_type} - 95% Prediction Error - '
+                    f'{eval_name} - Fold {fold_id}'
                 )
-
-                plt.xlabel('Fold')
-                plt.ylabel('Prediction Error (y - predicted probability)')
-                plt.title(f'{self.instability_type} - {model_name} - 95% Prediction Error Distribution - {eval_name}')
                 plt.tight_layout()
-                plot_path = summary_csv_path.replace('.csv', '_Boxplot.png')
+                plt.autoscale(axis='y', tight=True)
                 plt.savefig(plot_path)
                 plt.close()
+            print()
                 
-                csva.save_to_csv(summary_csv_path, data=summary_dict)
-        
     # Instability metric
     def mean_absolute_prediction_error(self): 
         print('[Metric] Mean Absolute Prediction Error (MAPE)')
@@ -521,7 +540,7 @@ class PostMetrics:
                         jaccard_fold_dict['Jaccard'].append(jaccard)
                         
                     fold_csv_path = self.generate_csv_path(tk_jaccard_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    csva.save_to_csv(fold_csv_path, jaccard_fold_dict)
+                    csva.save_to_csv(fold_csv_path, data=jaccard_fold_dict)
                         
                     summary_dict[f'Mean_{metric_name}'].append(np.mean(jaccard_fold_dict['Jaccard']))
                     summary_dict[f'STD_{metric_name}'].append(np.std(jaccard_fold_dict['Jaccard'], ddof=1))
@@ -724,14 +743,33 @@ class PostMetrics:
                 for fold_id in range(1, self.no_of_folds + 1):
                     self.print_metric_progress(eval_name, model_name, fold_id, 'SHAP', 100)
                     shap_values = self.get_shap_values(shap_values_dir, model_name, eval_name, fold_id)
-                    
+
                     shap_columns = shap_values.columns
-                    shap_valid_columns = shap_columns.drop(
+                    run_columns = shap_columns.drop(
                         ['Defendant_ID', 'Feature'],
                         errors='ignore'
                     )
-                    shap_mean = shap_values[shap_valid_columns].mean(axis=1)
+                    explanation = shap.Explanation(
+                        values=shap_values[run_columns].to_numpy(dtype=float).T,
+                        feature_names=shap_values['Feature'].astype(str).tolist()
+                    )
 
+                    plt.figure(figsize=(10, 8))
+                    shap.plots.beeswarm(
+                        explanation,
+                        max_display=15,
+                        color='#1f77b4',
+                        color_bar=False,
+                        show=False
+                    )
+                    selected_id = shap_values['Defendant_ID'].iloc[0]
+                    plt.title(
+                        f'SHAP values across runs - {eval_name}, {model_name}, '
+                        f'Fold {fold_id}, Defendant {selected_id}'
+                    )
+                    plt.tight_layout()
+
+                    shap_mean = shap_values[run_columns].mean(axis=1)
                     output = {
                         'Defendant_ID': shap_values['Defendant_ID'],
                         'Feature': shap_values['Feature'],
@@ -739,5 +777,7 @@ class PostMetrics:
                     }
                     
                     shap_csv_path = self.generate_csv_path(shap_dir, model_name, metric_name, eval_name, fold_id=fold_id)
+                    plt.savefig(shap_csv_path.replace('.csv', '.png'), bbox_inches="tight")
+                    plt.close()
                     csva.save_to_csv(csv_path=shap_csv_path, data=output)    
         print()
