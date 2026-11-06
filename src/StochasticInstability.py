@@ -31,7 +31,7 @@ EVAL_NAMES = ['Validation', 'Test']
 
 class StochasticInstability:
     def __init__(self, dataset=None, force_reset=False):   
-        print('===== RUNNING STOCHASTIC INSTABILITY =====')   
+        print('\n===== RUNNING STOCHASTIC INSTABILITY =====')   
         
         # RNG 
         self.rng = np.random.default_rng(FIXED_RANDOM_SEED)
@@ -266,6 +266,7 @@ class StochasticInstability:
     # 🗹 Gets all metric results  
     def generate_metrics(self, force_reset=False):
         print('\n===== METRICS =====')
+        
         pm = PostMetrics(
             self.X_train, self.y_train,
             self.X_val_list, self.y_val_list, self.val_ids_fold_list,
@@ -276,14 +277,15 @@ class StochasticInstability:
             force_reset
         )
         
-        #pm.roc_auc()
-        #pm.brier_score()
-        #pm.calibration_plot()
-        #pm.ninety_five_prediction_error()
-        #pm.mean_absolute_prediction_error()
-        #pm.classification_instability_index()
-        #pm.top_k_jaccard()
-        #pm.demographic_false_positive_rate()
+        pm.roc_auc()
+        pm.brier_score()
+        pm.calibration_curve()
+        pm.supplementary_classification_metrics()
+        pm.ninety_five_prediction_error()
+        pm.mean_absolute_prediction_error()
+        pm.classification_instability_index()
+        pm.top_k_jaccard()
+        pm.demographic_false_positive_rate()
         self.generate_mrip_results()
         
         self.generate_shap_values()

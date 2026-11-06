@@ -21,7 +21,7 @@ import directory as dir
 # Constant variables
 FIXED_RANDOM_SEED = 42
 NO_OF_FOLDS = 3
-NO_OF_BOOTSTRAPS = 20
+NO_OF_BOOTSTRAPS = 100
 INSTABILITY_TYPE = 'Dataset'
 
 # Constant lists
@@ -331,7 +331,8 @@ class DatasetInstability:
       
     # 🗹 Gets all metric results  
     def generate_metrics(self, force_reset=False):
-        print('===== METRICS =====')
+        print('\n===== METRICS =====')
+        
         pm = PostMetrics(
             self.X_train, self.y_train,
             self.X_val_list, self.y_val_list, self.val_ids_fold_list,
@@ -342,17 +343,18 @@ class DatasetInstability:
             force_reset
         )
 
-        #pm.roc_auc()
-        #pm.brier_score()
-        #pm.calibration_plot()
-        #pm.ninety_five_prediction_error()
-        #pm.mean_absolute_prediction_error()
-        #pm.classification_instability_index()
-        #pm.top_k_jaccard()
-        #pm.demographic_false_positive_rate()
-        #self.generate_mrip_results()
+        pm.roc_auc()
+        pm.brier_score()
+        pm.calibration_curve()
+        pm.supplementary_classification_metrics()
+        pm.ninety_five_prediction_error()
+        pm.mean_absolute_prediction_error()
+        pm.classification_instability_index()
+        pm.top_k_jaccard()
+        pm.demographic_false_positive_rate()
+        self.generate_mrip_results()
         
-        #self.generate_shap_values()
+        self.generate_shap_values()
         pm.shap_analysis()  
     
     # 🗹 Gets the MRIP results       
