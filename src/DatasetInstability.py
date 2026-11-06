@@ -1,7 +1,15 @@
 import numpy as np
+import os
+import joblib
 
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import LinearSVC
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.neural_network import MLPClassifier
+import xgboost as xgb
 
 from models.LR import Logistic_Regression
 from models.RF import Random_Forest
@@ -74,6 +82,12 @@ class DatasetInstability:
         
         self.models_dir = f'models/{INSTABILITY_TYPE}'
         self.predictions_dir = f'predictions/{INSTABILITY_TYPE}'
+
+        [
+            self.original_scaled_X_train_list,
+            self.original_transf_X_val_list,
+            self.original_transf_X_test_list
+        ] = self.get_original_X_scaled()
         
         if force_reset:
             # Train the models
@@ -82,6 +96,8 @@ class DatasetInstability:
             
             # Generate model predictions
             self.generate_predictions()
+        else:
+            self.ensure_original_models_and_predictions()
         self.generate_metrics(force_reset)
    
             
@@ -162,6 +178,24 @@ class DatasetInstability:
             transf_X_val_list,
             transf_X_test_list
         ]
+
+    # Scale each original fold's training and evaluation data using a scaler
+    # fitted only on that fold's unbootstrapped training split.
+    def get_original_X_scaled(self):
+        scaled_X_train_list = []
+        transf_X_val_list = []
+        transf_X_test_list = []
+
+        for fold_id in range(1, NO_OF_FOLDS + 1):
+            scaler = StandardScaler()
+            X_train_fold = self.X_train_split_list[fold_id - 1]
+            scaled_X_train_list.append(scaler.fit_transform(X_train_fold))
+            transf_X_val_list.append(
+                scaler.transform(self.X_val_list[fold_id - 1])
+            )
+            transf_X_test_list.append(scaler.transform(self.X_test))
+
+        return scaled_X_train_list, transf_X_val_list, transf_X_test_list
     
     # 🗹 Gets the bootstrap training data as an array 
     def get_bootstrap_data(self):
@@ -287,6 +321,83 @@ class DatasetInstability:
             FIXED_RANDOM_SEED
         )
 
+        self.train_original_models(force=True)
+
+    def train_original_models(self, force=False):
+        """Fit one non-bootstrap reference model on each original fold split."""
+        model_factories = {
+            'LR': lambda: LogisticRegression(
+                max_iter=1000, random_state=FIXED_RANDOM_SEED
+            ),
+            'RF': lambda: RandomForestClassifier(
+                n_estimators=100, random_state=FIXED_RANDOM_SEED
+            ),
+            'XGB': lambda: xgb.XGBClassifier(
+                objective='binary:logistic',
+                max_depth=3,
+                learning_rate=0.1,
+                n_estimators=100,
+                enable_categorical=False,
+                random_state=FIXED_RANDOM_SEED,
+            ),
+            'LSVC': lambda: CalibratedClassifierCV(
+                LinearSVC(random_state=FIXED_RANDOM_SEED),
+                method='sigmoid',
+                cv=5,
+            ),
+            'MLP': lambda: MLPClassifier(
+                hidden_layer_sizes=(64, 32),
+                max_iter=1000,
+                random_state=FIXED_RANDOM_SEED,
+            ),
+        }
+        scaled_models = {'LR', 'LSVC', 'MLP'}
+
+        print('===== TRAINING ORIGINAL REFERENCE MODELS =====')
+        for model_name in MODEL_NAMES:
+            model_dir = f'{self.models_dir}/{model_name}'
+            dir.create_nested(model_dir)
+            for fold_id in range(1, NO_OF_FOLDS + 1):
+                model_path = f'{model_dir}/Fold_{fold_id}_Original.joblib'
+                if not force and os.path.isfile(model_path):
+                    continue
+
+                X_train = (
+                    self.original_scaled_X_train_list[fold_id - 1]
+                    if model_name in scaled_models
+                    else self.X_train_split_list[fold_id - 1]
+                )
+                y_train = self.y_train_split_list[fold_id - 1]
+                model = model_factories[model_name]()
+                model.fit(X_train, y_train)
+                joblib.dump(model, model_path)
+        print()
+
+    def ensure_original_models_and_predictions(self):
+        """Create the original-fit baseline when loading an older run."""
+        model_paths = [
+            f'{self.models_dir}/{model_name}/Fold_{fold_id}_Original.joblib'
+            for model_name in MODEL_NAMES
+            for fold_id in range(1, NO_OF_FOLDS + 1)
+        ]
+        if not all(os.path.isfile(path) for path in model_paths):
+            self.train_original_models()
+
+        original_prediction_paths = [
+            self.get_original_prediction_path(model_name, eval_name, fold_id)
+            for model_name in MODEL_NAMES
+            for eval_name in EVAL_NAMES
+            for fold_id in range(1, NO_OF_FOLDS + 1)
+        ]
+        if not all(os.path.isfile(path) for path in original_prediction_paths):
+            self.generate_original_predictions()
+
+    def get_original_prediction_path(self, model_name, eval_name, fold_id):
+        return (
+            f'{self.predictions_dir}/Original_{model_name}_Predictions_'
+            f'{eval_name}_{fold_id}.csv'
+        )
+
     # 🗹 Gets the predictions from the trained models
     def generate_predictions(self):
         for eval_name in EVAL_NAMES:
@@ -324,6 +435,41 @@ class DatasetInstability:
                         
                     print(f'Fold {fold_id}/{NO_OF_FOLDS} - Getting model predictions... 100%')
                 print()
+
+        self.generate_original_predictions()
+
+    def generate_original_predictions(self):
+        """Save reference-model probabilities on each fold's eval subjects."""
+        dir.create_nested(self.predictions_dir)
+        scaled_models = {'LR', 'LSVC', 'MLP'}
+        for eval_name in EVAL_NAMES:
+            for model_name in MODEL_NAMES:
+                for fold_id in range(1, NO_OF_FOLDS + 1):
+                    if model_name in scaled_models:
+                        X_eval = (
+                            self.original_transf_X_val_list[fold_id - 1]
+                            if eval_name == 'Validation'
+                            else self.original_transf_X_test_list[fold_id - 1]
+                        )
+                    else:
+                        X_eval = (
+                            self.X_val_list[fold_id - 1]
+                            if eval_name == 'Validation'
+                            else self.X_test
+                        )
+
+                    model_path = (
+                        f'{self.models_dir}/{model_name}/'
+                        f'Fold_{fold_id}_Original.joblib'
+                    )
+                    model = joblib.load(model_path)
+                    original_probabilities = model.predict_proba(X_eval)[:, 1]
+                    prediction_path = self.get_original_prediction_path(
+                        model_name, eval_name, fold_id
+                    )
+                    csva.save_to_csv(
+                        prediction_path, 'Original', original_probabilities
+                    )
     
     # =========================
     # METRIC-SPECIFIC FUNCTIONS
@@ -343,11 +489,16 @@ class DatasetInstability:
             force_reset
         )
 
-        pm.roc_auc()
+        """pm.roc_auc()
         pm.brier_score()
         pm.calibration_curve()
-        pm.supplementary_classification_metrics()
+        pm.supplementary_classification_metrics()"""
+        pm.per_defendant_prediction_variability()
         pm.ninety_five_prediction_error()
+        pm.mean_absolute_prediction_error()
+        pm.mape_instability_plot()
+        pm.prediction_instability_scatter()
+        """pm.ninety_five_prediction_error()
         pm.mean_absolute_prediction_error()
         pm.classification_instability_index()
         pm.top_k_jaccard()
@@ -355,7 +506,7 @@ class DatasetInstability:
         self.generate_mrip_results()
         
         self.generate_shap_values()
-        pm.shap_analysis()  
+        pm.shap_analysis()  """
     
     # 🗹 Gets the MRIP results       
     def generate_mrip_results(self):                
