@@ -7,7 +7,8 @@ from sklearn.calibration import CalibrationDisplay
 from sklearn.metrics import (
     roc_auc_score, roc_curve,
     brier_score_loss, 
-    mean_squared_error
+    mean_squared_error,
+    accuracy_score, f1_score, precision_score, confusion_matrix
 )
 
 from itertools import combinations
@@ -391,6 +392,83 @@ class PostMetrics:
                 plt.close(fig)
             print()
     
+    # Supplementary classification metrics
+    def supplementary_classification_metrics(self):
+        print('[Metric] Supplementary Classification Metrics')
+        metric_name = 'Supplementary_Classification_Metrics'
+        metric_columns = ['F1', 'Precision', 'Accuracy', 'FPR', 'TPR']
+
+        for eval_name in EVAL_NAMES:
+            for model_name in MODEL_NAMES:
+                metric_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
+                dir.create_nested(metric_dir)
+                summary_records = []
+
+                for fold_id in range(1, self.no_of_folds + 1):
+                    predictions = self.get_predictions(model_name, eval_name, fold_id)
+                    y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel().astype(int)
+                    run_records = []
+
+                    for i, col in enumerate(predictions.columns, start=1):
+                        self.print_metric_progress(
+                            eval_name,
+                            model_name,
+                            fold_id,
+                            'Supplementary Classification Metrics',
+                            i,
+                            len(predictions.columns),
+                        )
+                        y_pred = (predictions[col].to_numpy() >= DFPR_THRESHOLD).astype(int)
+                        tn, fp, fn, tp = confusion_matrix(
+                            y_eval,
+                            y_pred,
+                            labels=[0, 1],
+                        ).ravel()
+
+                        run_records.append({
+                            'Run': col,
+                            'Threshold': DFPR_THRESHOLD,
+                            'F1': f1_score(y_eval, y_pred, zero_division=0),
+                            'Precision': precision_score(y_eval, y_pred, zero_division=0),
+                            'Accuracy': accuracy_score(y_eval, y_pred),
+                            'FPR': fp / (fp + tn) if (fp + tn) else np.nan,
+                            'TPR': tp / (tp + fn) if (tp + fn) else np.nan,
+                        })
+
+                    run_path = self.generate_csv_path(
+                        metric_dir,
+                        model_name,
+                        metric_name,
+                        eval_name,
+                        custom_title='Per_Run',
+                        fold_id=fold_id,
+                    )
+                    run_df = pd.DataFrame(run_records)
+                    run_df.to_csv(run_path, index=False)
+
+                    summary_record = {'Fold': fold_id}
+                    for metric in metric_columns:
+                        values = run_df[metric].to_numpy(dtype=float)
+                        valid_values = values[np.isfinite(values)]
+                        summary_record[f'Mean_{metric}'] = (
+                            float(np.mean(valid_values)) if len(valid_values) else np.nan
+                        )
+                        summary_record[f'SD_{metric}'] = (
+                            float(np.std(valid_values, ddof=1))
+                            if len(valid_values) > 1 else np.nan
+                        )
+                    summary_records.append(summary_record)
+
+                summary_path = self.generate_csv_path(
+                    metric_dir,
+                    model_name,
+                    metric_name,
+                    eval_name,
+                    custom_title='Summary',
+                )
+                pd.DataFrame(summary_records).to_csv(summary_path, index=False)
+                print()
+
     # Instability metric
     def ninety_five_prediction_error(self):
         print('[Metric] 95 Prediction Error')
