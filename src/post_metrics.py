@@ -290,38 +290,32 @@ class PostMetrics:
         metric_name = 'Calibration_Curve'
 
         for eval_name in EVAL_NAMES:
+            pooled_predictions_by_fold = {
+                fold_id: {}
+                for fold_id in range(1, self.no_of_folds + 1)
+            }
+
             for model_name in MODEL_NAMES:
                 cal_curve_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
                 dir.create_nested(cal_curve_dir)
 
                 mse_summary_records = []
                 for fold_id in range(1, self.no_of_folds + 1):
-                    img_file_path = f'{cal_curve_dir}/{metric_name}_{model_name}_{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
-                    
                     y_eval = np.asarray(self.get_y_values(eval_name, fold_id)).ravel()
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
 
-                    # Set up the plot
-                    fig, ax = plt.subplots(figsize=(8, 6))
-                    
+                    # Pool all samples from all runs into one curve per model/fold.
+                    pooled_predictions_by_fold[fold_id][model_name] = (
+                        np.repeat(y_eval, predictions.shape[1]),
+                        predictions.to_numpy(dtype=float).ravel(),
+                    )
+
                     mse_scores = []
                     for i, col in enumerate(predictions.columns, start=1):
                         self.print_metric_progress(eval_name, model_name, fold_id, 'Calibration Curve', i, len(predictions.columns))
                         y_pred_proba = predictions[col]
 
-                        # Add a calibration curve per run
-                        CalibrationDisplay.from_predictions(
-                            y_eval,
-                            y_pred_proba,
-                            n_bins=10,
-                            strategy='uniform',
-                            ax=ax,
-                            alpha=0.1,
-                            marker=None,
-                            name='_nolegend_'
-                        )
-
-                        # Calculate R-Squared
+                        # Preserve per-run probability error summaries.
                         run_mse = (
                             mean_squared_error(y_eval, y_pred_proba)
                             if np.unique(y_eval).size > 1
@@ -329,45 +323,9 @@ class PostMetrics:
                         )
                         mse_scores.append(run_mse)
 
-                    ax.set_xlabel('Mean Predicted Recidivism Probability')
-                    ax.set_ylabel('Proportion of Defendants with is_recid = 1')
-                    ax.set_title(
-                        f'{self.instability_type} Instability - {model_name} - '
-                        f'{eval_name} - Calibration Curve - Fold {fold_id}'
-                    )
-                    
-                    # R-Squared
                     mean_mse = np.nanmean(mse_scores)
                     std_mse = np.nanstd(mse_scores, ddof=1)
-                    if np.isfinite(mean_mse):
-                        mse_label = 'Outcome $R^2$ vs prevalence' + (
-                            f'(mean $\\pm$ SD across runs): {mean_mse:.3f} $\\pm$ {std_mse:.3f}'
-                            if np.isfinite(std_mse)
-                            else f'(mean across runs): {mean_mse:.3f}'
-                        )
-                    else:
-                        mse_label = 'Outcome $R^2$ undefined'
 
-                    ax.text(
-                        0.05, 0.95,
-                        mse_label,
-                        transform=ax.transAxes,
-                        verticalalignment='top',
-                        bbox=dict(facecolor='white', alpha=0.8)
-                    )
-                    ax.text(
-                        0.05, 0.85,
-                        'Prediction Groups (Bins): 10 (Uniform)',
-                        transform=ax.transAxes,
-                        verticalalignment='top',
-                        bbox=dict(facecolor='white', alpha=0.8)
-                    )
-                    ax.legend()
-                    fig.tight_layout()
-                    fig.savefig(img_file_path, dpi=300, bbox_inches='tight')
-                    plt.close(fig)
-
-                    # Save per-run R-Squared
                     mse_label = 'Outcome_MSE'
                     per_run_mse_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='MSE', fold_id=fold_id)
                     mse_outcome_dict = {
@@ -382,10 +340,56 @@ class PostMetrics:
                         f'SD_{mse_label}': std_mse
                     })
 
-                # Save R-Squared summary across folds
                 mse_summary_path = self.generate_csv_path(cal_curve_dir, model_name, metric_name, eval_name, custom_title='MSE_Summary')
                 csva.save_to_csv(mse_summary_path, data=mse_summary_records)
-                print()
+
+            # Draw one pooled calibration curve per model for each fold.
+            comparison_dir = f'{self.metrics_dir}/{metric_name}/By_Fold'
+            dir.create_nested(comparison_dir)
+            n_bins = 10
+            for fold_id, predictions_by_model in pooled_predictions_by_fold.items():
+                fig, ax = plt.subplots(figsize=(8, 6))
+                ax.plot([0, 1], [0, 1], 'k:', label='Perfectly calibrated')
+
+                for model_name in MODEL_NAMES:
+                    y_pooled, p_pooled = predictions_by_model[model_name]
+                    pooled_mse = mean_squared_error(y_pooled, p_pooled)
+                    CalibrationDisplay.from_predictions(
+                        y_pooled,
+                        p_pooled,
+                        n_bins=n_bins,
+                        strategy='uniform',
+                        ax=ax,
+                        ref_line=False,
+                        name=f'{model_name} (MSE={pooled_mse:.3f})',
+                        marker='o',
+                    )
+
+                ax.set_xlabel('Mean Predicted Recidivism Probability')
+                ax.set_ylabel('Proportion of Defendants with is_recid = 1')
+                ax.set_title(
+                    f'{self.instability_type} Instability - '
+                    f'{eval_name} - Calibration Curve - Fold {fold_id} '
+                    f'(All Runs Pooled)'
+                )
+                ax.text(
+                    0.02, 0.98,
+                    f'Bins: {n_bins} (uniform)',
+                    transform=ax.transAxes,
+                    verticalalignment='top',
+                    bbox=dict(facecolor='white', alpha=0.8)
+                )
+                ax.set_xlim(0, 1)
+                ax.set_ylim(0, 1)
+                ax.legend()
+                fig.tight_layout()
+                img_file_path = (
+                    f'{comparison_dir}/{metric_name}_{self.instability_type}_'
+                    f'{eval_name}_Fold_{fold_id}.png'
+                )
+                fig.savefig(img_file_path, dpi=300, bbox_inches='tight')
+                plt.close(fig)
+            print()
     
     # Instability metric
     def ninety_five_prediction_error(self):
