@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import shap
+from matplotlib.patches import Patch
 
 from sklearn.calibration import CalibrationDisplay
 from sklearn.metrics import (
@@ -121,6 +122,13 @@ class PostMetrics:
     def get_predictions(self, model_name, eval_name, fold_id):
         csv_path = f'{self.predictions_dir}/{model_name}_Predictions_{eval_name}_{fold_id}.csv'
         return csva.load_csv_data(csv_path)                       
+
+    def get_original_predictions(self, model_name, eval_name, fold_id):
+        csv_path = (
+            f'{self.predictions_dir}/Original_{model_name}_Predictions_'
+            f'{eval_name}_{fold_id}.csv'
+        )
+        return csva.load_csv_data(csv_path)['Original']
     
     # Gets the shap values
     def get_shap_values(self, shap_values_dir, model_name, eval_name, fold_id):
@@ -469,6 +477,180 @@ class PostMetrics:
                 pd.DataFrame(summary_records).to_csv(summary_path, index=False)
                 print()
 
+    # Prediction instability across defendants and model runs
+    def per_defendant_prediction_variability(self):
+        print('[Metric] Per-Defendant Prediction Variability')
+        metric_name = 'Per_Defendant_Prediction_Variability'
+
+        for eval_name in EVAL_NAMES:
+            fold_model_instability = {
+                fold_id: {}
+                for fold_id in range(1, self.no_of_folds + 1)
+            }
+
+            for model_name in MODEL_NAMES:
+                metric_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
+                dir.create_nested(metric_dir)
+                summary_records = []
+
+                for fold_id in range(1, self.no_of_folds + 1):
+                    predictions = self.get_predictions(model_name, eval_name, fold_id)
+                    defendant_ids = np.asarray(
+                        self.get_defendant_ids(eval_name, fold_id)
+                    ).ravel()
+                    run_values = predictions.to_numpy(dtype=float)
+                    mean_predictions = np.mean(run_values, axis=1)
+                    sd_predictions = (
+                        np.std(run_values, axis=1, ddof=1)
+                        if run_values.shape[1] > 1
+                        else np.zeros(run_values.shape[0], dtype=float)
+                    )
+                    lower_95, upper_95 = np.percentile(
+                        run_values,
+                        [2.5, 97.5],
+                        axis=1,
+                    )
+                    interval_widths = upper_95 - lower_95
+                    fold_model_instability[fold_id][model_name] = sd_predictions
+
+                    raw_records = predictions.copy()
+                    raw_records.insert(0, 'Defendant_ID', defendant_ids)
+                    raw_records['Mean_Prediction'] = mean_predictions
+                    raw_records['SD_Prediction'] = sd_predictions
+                    raw_records['P2_5_Prediction'] = lower_95
+                    raw_records['P97_5_Prediction'] = upper_95
+                    raw_records['Prediction_Interval_Width'] = interval_widths
+                    raw_path = self.generate_csv_path(
+                        metric_dir,
+                        model_name,
+                        metric_name,
+                        eval_name,
+                        custom_title='Raw',
+                        fold_id=fold_id,
+                    )
+                    raw_records.to_csv(raw_path, index=False)
+
+                    summary_records.append({
+                        'Fold': fold_id,
+                        'Defendant_Count': len(defendant_ids),
+                        'Run_Count': run_values.shape[1],
+                        'Mean_Defendant_SD': float(np.mean(sd_predictions)),
+                        'Median_Defendant_SD': float(np.median(sd_predictions)),
+                        'P2_5_Defendant_SD': float(np.percentile(sd_predictions, 2.5)),
+                        'P97_5_Defendant_SD': float(np.percentile(sd_predictions, 97.5)),
+                        'Mean_95PI_Width': float(np.mean(interval_widths)),
+                        'Median_95PI_Width': float(np.median(interval_widths)),
+                    })
+
+                    fig, ax = plt.subplots(figsize=(6, 6))
+                    boxplot = ax.boxplot(
+                        [sd_predictions],
+                        tick_labels=[model_name],
+                        whis=(2.5, 97.5),
+                        patch_artist=True,
+                        showfliers=False,
+                    )
+                    boxplot['boxes'][0].set_facecolor(
+                        plt.get_cmap('tab10')(MODEL_NAMES.index(model_name))
+                    )
+                    boxplot['boxes'][0].set_alpha(0.45)
+                    ax.set_xlabel('Model')
+                    ax.set_ylabel('Per-Defendant SD Across Runs')
+                    ax.set_title(
+                        f'{self.instability_type} - {model_name} - {eval_name} '
+                        f'- Fold {fold_id} - All Defendants'
+                    )
+                    ax.text(
+                        0.02,
+                        0.98,
+                        'Each value is one defendant’s SD across runs',
+                        transform=ax.transAxes,
+                        verticalalignment='top',
+                        bbox=dict(facecolor='white', alpha=0.8),
+                    )
+                    ax.autoscale(axis='y', tight=True)
+                    fig.tight_layout()
+                    individual_plot_path = (
+                        f'{metric_dir}/{metric_name}_{model_name}_'
+                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}_Boxplot.png'
+                    )
+                    fig.savefig(individual_plot_path, dpi=300, bbox_inches='tight')
+                    plt.close(fig)
+
+                summary_path = self.generate_csv_path(
+                    metric_dir,
+                    model_name,
+                    metric_name,
+                    eval_name,
+                    custom_title='Summary',
+                )
+                pd.DataFrame(summary_records).to_csv(summary_path, index=False)
+
+            # Compare all models' per-defendant instability across folds.
+            plot_dir = f'{self.metrics_dir}/{metric_name}/By_Evaluation'
+            dir.create_nested(plot_dir)
+            colors = plt.get_cmap('tab10')
+            fold_ids = list(fold_model_instability)
+            group_width = 0.8
+            model_spacing = group_width / len(MODEL_NAMES)
+            model_offsets = (
+                np.arange(len(MODEL_NAMES)) - (len(MODEL_NAMES) - 1) / 2
+            ) * model_spacing
+            box_positions = []
+            model_predictions = []
+            fold_tick_labels = []
+
+            for fold_id in fold_ids:
+                fold_tick_labels.append(f'Fold {fold_id}')
+                for model_index, model_name in enumerate(MODEL_NAMES):
+                    model_predictions.append(fold_model_instability[fold_id][model_name])
+                    box_positions.append(fold_id + model_offsets[model_index])
+
+            fig, ax = plt.subplots(figsize=(max(10, 2.4 * len(fold_ids)), 6))
+            boxplot = ax.boxplot(
+                model_predictions,
+                positions=box_positions,
+                widths=model_spacing * 0.8,
+                whis=(2.5, 97.5),
+                patch_artist=True,
+                showfliers=False,
+            )
+            for i, box in enumerate(boxplot['boxes']):
+                box.set_facecolor(colors(i % len(MODEL_NAMES)))
+                box.set_alpha(0.45)
+
+            ax.set_xticks(fold_ids, fold_tick_labels)
+            ax.set_xlabel('Fold')
+            ax.set_ylabel('Per-Defendant SD Across Runs')
+            ax.set_title(
+                f'{self.instability_type} - {eval_name} - '
+                'Prediction Instability Across Defendants and Folds'
+            )
+            ax.text(
+                0.02,
+                0.98,
+                'Each box summarizes defendants’ SD across runs',
+                transform=ax.transAxes,
+                verticalalignment='top',
+                bbox=dict(facecolor='white', alpha=0.8),
+            )
+            ax.legend(
+                handles=[
+                    Patch(facecolor=colors(i), alpha=0.45, label=model_name)
+                    for i, model_name in enumerate(MODEL_NAMES)
+                ],
+                title='Model',
+            )
+            ax.autoscale(axis='y', tight=True)
+            fig.tight_layout()
+            plot_path = (
+                f'{plot_dir}/{metric_name}_{self.instability_type}_'
+                f'{eval_name}_Across_Folds.png'
+            )
+            fig.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close(fig)
+            print()
+
     # Instability metric
     def ninety_five_prediction_error(self):
         print('[Metric] 95 Prediction Error')
@@ -513,39 +695,94 @@ class PostMetrics:
                     summary_dict['Upper_95_Error'].append(np.percentile(flat_mean_errors, 97.5))
                     summary_dict['Mean_Error'].append(np.mean(flat_mean_errors))
                     summary_dict['Median_Error'].append(np.median(flat_mean_errors))
+
+                    fig, ax = plt.subplots(figsize=(6, 6))
+                    boxplot = ax.boxplot(
+                        [flat_mean_errors],
+                        tick_labels=[model_name],
+                        whis=(2.5, 97.5),
+                        notch=True,
+                        patch_artist=True,
+                        showfliers=False,
+                    )
+                    boxplot['boxes'][0].set_facecolor(
+                        plt.get_cmap('tab10')(MODEL_NAMES.index(model_name))
+                    )
+                    boxplot['boxes'][0].set_alpha(0.45)
+                    ax.set_xlabel('Model')
+                    ax.set_ylabel('Mean Absolute Prediction Error per Run')
+                    ax.set_title(
+                        f'{self.instability_type} - {model_name} - 95% '
+                        f'Prediction Error - {eval_name} - Fold {fold_id}'
+                    )
+                    ax.autoscale(axis='y', tight=True)
+                    fig.tight_layout()
+                    individual_plot_path = (
+                        f'{pe_dir}/{metric_name}_{model_name}_'
+                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}_Boxplot.png'
+                    )
+                    fig.savefig(individual_plot_path, dpi=300, bbox_inches='tight')
+                    plt.close(fig)
                 csva.save_to_csv(summary_csv_path, data=summary_dict)
 
-            # Compare each model's per-run mean absolute errors within each fold.
-            comparison_dir = f'{self.metrics_dir}/{metric_name}/By_Fold'
+            # Compare per-run mean absolute errors across models and folds.
+            comparison_dir = f'{self.metrics_dir}/{metric_name}/By_Evaluation'
             dir.create_nested(comparison_dir)
-            for fold_id, errors_by_model in fold_model_errors.items():
-                plot_path = (
-                    f'{comparison_dir}/{metric_name}_{self.instability_type}_'
-                    f'{eval_name}_Fold_{fold_id}_Boxplot.png'
-                )
-                model_errors = [errors_by_model[model_name] for model_name in MODEL_NAMES]
+            fold_ids = list(fold_model_errors)
+            group_width = 0.8
+            model_spacing = group_width / len(MODEL_NAMES)
+            model_offsets = (
+                np.arange(len(MODEL_NAMES)) - (len(MODEL_NAMES) - 1) / 2
+            ) * model_spacing
+            box_positions = []
+            model_errors = []
 
-                plt.figure(figsize=(12, 6))
-                plt.boxplot(
-                    model_errors,
-                    tick_labels=MODEL_NAMES,
-                    whis=(2.5, 97.5),
-                    notch=True
-                )
-                plt.xlabel('Model')
-                plt.ylabel('Mean Absolute Prediction Error per Run')
-                plt.title(
-                    f'{self.instability_type} - 95% Prediction Error - '
-                    f'{eval_name} - Fold {fold_id}'
-                )
-                plt.tight_layout()
-                plt.autoscale(axis='y', tight=True)
-                plt.savefig(plot_path)
-                plt.close()
+            for fold_id in fold_ids:
+                errors_by_model = fold_model_errors[fold_id]
+                for model_index, model_name in enumerate(MODEL_NAMES):
+                    model_errors.append(errors_by_model[model_name])
+                    box_positions.append(fold_id + model_offsets[model_index])
+
+            fig, ax = plt.subplots(figsize=(max(10, 2.4 * len(fold_ids)), 6))
+            boxplot = ax.boxplot(
+                model_errors,
+                positions=box_positions,
+                widths=model_spacing * 0.8,
+                whis=(2.5, 97.5),
+                patch_artist=True,
+                showfliers=False,
+            )
+            colors = plt.get_cmap('tab10')
+            for i, box in enumerate(boxplot['boxes']):
+                box.set_facecolor(colors(i % len(MODEL_NAMES)))
+                box.set_alpha(0.45)
+
+            ax.set_xticks(fold_ids, [f'Fold {fold_id}' for fold_id in fold_ids])
+            ax.set_xlabel('Fold')
+            ax.set_ylabel('Mean Absolute Prediction Error per Run')
+            ax.set_title(
+                f'{self.instability_type} - 95% Prediction Error '
+                f'Across Folds - {eval_name}'
+            )
+            ax.legend(
+                handles=[
+                    Patch(facecolor=colors(i), alpha=0.45, label=model_name)
+                    for i, model_name in enumerate(MODEL_NAMES)
+                ],
+                title='Model',
+            )
+            ax.autoscale(axis='y', tight=True)
+            fig.tight_layout()
+            plot_path = (
+                f'{comparison_dir}/{metric_name}_{self.instability_type}_'
+                f'{eval_name}_Across_Folds_Boxplot.png'
+            )
+            fig.savefig(plot_path, dpi=300, bbox_inches='tight')
+            plt.close(fig)
             print()
                 
-    # Instability metric
-    def mean_absolute_prediction_error(self): 
+    # Instability metric: bootstrap predictions relative to the original-fit model.
+    def mean_absolute_prediction_error(self):
         print('[Metric] Mean Absolute Prediction Error (MAPE)')
         metric_name = 'MAPE'
             
@@ -562,21 +799,94 @@ class PostMetrics:
                 for fold_id in range(1, self.no_of_folds + 1):
                     self.print_metric_progress(eval_name, model_name, fold_id, 'Mean Absolute Prediction Error', 100)
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
-                        
-                    mape_per_defendant = predictions.sub(
-                        predictions.mean(axis=1), 
-                        axis=0
-                    ).abs().mean(axis=1)
-                    
+                    original_predictions = self.get_original_predictions(
+                        model_name, eval_name, fold_id
+                    ).to_numpy(dtype=float)
+                    mape_per_defendant = np.abs(
+                        predictions.to_numpy(dtype=float)
+                        - original_predictions[:, np.newaxis]
+                    ).mean(axis=1)
+
                     fold_csv_path = self.generate_csv_path(mape_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    csva.save_to_csv(fold_csv_path, 'Defendant_ID', self.get_defendant_ids(eval_name, fold_id))
-                    csva.save_to_csv(fold_csv_path, 'MAPE', mape_per_defendant)
+                    pd.DataFrame({
+                        'Defendant_ID': self.get_defendant_ids(eval_name, fold_id),
+                        'Original_Prediction': original_predictions,
+                        'MAPE': mape_per_defendant,
+                    }).to_csv(fold_csv_path, index=False)
                     
                     summary_dict['Mean_MAPE'].append(np.mean(mape_per_defendant))
                     print()
                     
                 summary_csv_path = self.generate_csv_path(mape_dir, model_name, metric_name, eval_name)
                 csva.save_to_csv(summary_csv_path, data=summary_dict)
+
+    # Riley and Collins-style instability scatter: original-fit prediction
+    # against each bootstrap-fit prediction for the same evaluation individual.
+    def prediction_instability_scatter(self):
+        print('[Metric] Prediction Instability Scatter')
+        metric_dir = f'{self.metrics_dir}/Prediction_Instability_Scatter'
+        dir.create_nested(metric_dir)
+
+        for eval_name in EVAL_NAMES:
+            for model_name in MODEL_NAMES:
+                model_dir = f'{metric_dir}/{model_name}'
+                dir.create_nested(model_dir)
+                for fold_id in range(1, self.no_of_folds + 1):
+                    predictions = self.get_predictions(
+                        model_name, eval_name, fold_id
+                    )
+                    original = self.get_original_predictions(
+                        model_name, eval_name, fold_id
+                    ).to_numpy(dtype=float)
+                    values = predictions.to_numpy(dtype=float)
+                    defendant_ids = np.asarray(
+                        self.get_defendant_ids(eval_name, fold_id)
+                    ).ravel()
+
+                    raw_records = []
+                    for run_index, run_name in enumerate(predictions.columns):
+                        raw_records.append(pd.DataFrame({
+                            'Defendant_ID': defendant_ids,
+                            'Bootstrap_Run': run_name,
+                            'Original_Prediction': original,
+                            'Bootstrap_Prediction': values[:, run_index],
+                        }))
+                    raw_df = pd.concat(raw_records, ignore_index=True)
+                    raw_df['Absolute_Difference'] = np.abs(
+                        raw_df['Bootstrap_Prediction']
+                        - raw_df['Original_Prediction']
+                    )
+                    raw_path = (
+                        f'{model_dir}/Prediction_Instability_Scatter_'
+                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}_Raw.csv'
+                    )
+                    raw_df.to_csv(raw_path, index=False)
+
+                    fig, ax = plt.subplots(figsize=(7, 7))
+                    ax.scatter(
+                        raw_df['Original_Prediction'],
+                        raw_df['Bootstrap_Prediction'],
+                        s=9,
+                        alpha=0.2,
+                        edgecolors='none',
+                    )
+                    ax.plot([0, 1], [0, 1], linestyle='--', color='black', linewidth=1)
+                    ax.set_xlim(0, 1)
+                    ax.set_ylim(0, 1)
+                    ax.set_aspect('equal', adjustable='box')
+                    ax.set_xlabel('Original Model Prediction')
+                    ax.set_ylabel('Bootstrap Model Prediction')
+                    ax.set_title(
+                        f'{self.instability_type} - {model_name} - '
+                        f'{eval_name} - Fold {fold_id} - Prediction Instability'
+                    )
+                    fig.tight_layout()
+                    plot_path = (
+                        f'{model_dir}/Prediction_Instability_Scatter_'
+                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}.png'
+                    )
+                    fig.savefig(plot_path, dpi=300, bbox_inches='tight')
+                    plt.close(fig)
             
     # Instability metric 
     def top_k_jaccard(self):
