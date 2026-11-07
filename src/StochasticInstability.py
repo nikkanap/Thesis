@@ -21,7 +21,7 @@ import directory as dir
 
 # Constant variables
 FIXED_RANDOM_SEED = 42
-NO_OF_FOLDS = 3
+NO_OF_FOLDS = 10
 NO_OF_RANDOM_SEEDS = 10
 INSTABILITY_TYPE = 'Stochastic'
 
@@ -281,6 +281,8 @@ class StochasticInstability:
         pm.brier_score()
         pm.calibration_curve()
         pm.supplementary_classification_metrics()
+        pm.per_defendant_prediction_variability()
+        pm.ninety_five_prediction_error()
         pm.ninety_five_prediction_error()
         pm.mean_absolute_prediction_error()
         pm.classification_instability_index()
