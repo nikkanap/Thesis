@@ -76,7 +76,7 @@ The evolution of these tools reflects a shift toward more data-driven and dynami
 
 Supervised learning models are trained using labeled data with known outcomes and are used to generate predictions. Supervised learning has been applied across multiple domains such as healthcare, finance, marketing, engineering, and criminal justice due to its ability to model complex relationships and efficiently process large volumes of data~\cite{duwe2017out,ozkan2017predicting}. In the context of criminal justice, supervised ML models are used in risk assessment to support decision-making processes, such as prioritizing limited resources toward higher-risk defendants and informing interventions for those assessed as lower risk.\\
 
-In contrast, unsupervised learning models are trained without a labeled outcome measure. Rather than predicting a specified target, they describe associations and patterns among the input variables; principal component analysis (PCA) is one example~\cite{duwe2017out}.\\
+In contrast, unsupervised learning models are trained without a labeled outcome measure. They describe associations and patterns among input variables rather than predicting a target~\cite{duwe2017out}. In a recidivism study, Cavus et al. combined k-means clustering with neural-network prediction: clustering identified groups of offenders with similar profiles, and group-specific neural networks estimated recidivism risk within each group~\cite{cavus2025transparent}.\\
 
 \subsubsection{Machine Learning For Recidivism Risk Prediction}
 \tabto{2em} Since the 1990s, ML-based recidivism risk assessment tools have been developed to predict the likelihood of reoffending. Examples include the Correctional Offender Management Profiling for Alternative Sanctions (COMPAS), developed by Northpointe in 1998 using statistical and ML methods~\cite{northpointe2015practitioner}, and the Minnesota Screening Tool Assessing Recidivism Risk (MnSTARR), developed by Duwe in 2014 which utilizes multiple logistic regression modeling due to its interpretability that allows researchers to discern exactly how much each variable contributes to a final prediction~\cite{duwe2014development}.\\
@@ -119,7 +119,7 @@ Beyond existing risk assessment tools, general supervised ML models have also be
  \item \textbf{Linear Support Vector Machines (SVMs)}\\
   \tabto{2em} Support vector machines are classification models that separate classes by finding a decision boundary that maximizes the margin between them. SVMs have been explored in RRP studies alongside other ML models, often demonstrating competitive performance across different evaluation settings~\cite{duwe2017out, tolan2019machine,ozkan2017predicting}. 
   
-  There are two types of SVMs explored in RRP studies: linear (where classes can be linearly separated) and nonlinear SVMS (using of complex boundaries to separate classes)~\cite{tollenaar2013method, duwe2017out, dressel2018accuracy}. For this paper, only linear SVM will be discussed further.
+  There are two types of SVMs explored in RRP studies: linear (where classes can be linearly separated) and nonlinear SVMS (using of complex boundaries to separate classes)~\cite{tollenaar2013method, duwe2017out, dressel2018accuracy}. For this paper, only linear SVM is discussed further.
 
   The decision function of a linear SVM can be expressed as \[ f(x_i) = w^T x_i + b \] where $ w $ is the weight vector, $ x_i $ is the feature vector for instance $i$, and $b$ is the bias term. This function defines a hyperplane that separates the classes in the feature space. The predicted class label is determined by the sign of the decision function, given by \[ \hat{y}_i = \text{sign}(w^T x_i + b) \] where positive and negative values correspond to different classes. The model is trained by solving an optimization problem that maximizes the margin while penalizing misclassifications, expressed as \[ \min_{w,b} \ \frac{1}{2} \|w\|^2 + C \sum_{i=1}^{n} \xi_i \] where $ \|w\|^2 $ controls the margin size, $ C $ is a regularization parameter, and $ \xi_i $ are slack variables that allow for some classification errors. This formulation ensures that the model balances margin maximization with classification accuracy. The resulting decision boundary is therefore the one that maximizes separation between classes while tolerating limited violations.
 
@@ -208,7 +208,7 @@ By empirically analyzing both dataset instability and stochastic instability acr
 
 Furthermore, the integration of instability, performance, and reliability metrics, including individual-level reliability assessment, advances current evaluation frameworks by demonstrating that high predictive accuracy does not necessarily imply consistent or trustworthy predictions. This is particularly valuable for researchers and practitioners seeking to develop more robust and dependable ML systems for RRP.\\
 
-The study also benefits policymakers and stakeholders in the criminal justice system as it raises awareness of the potential consequences of relying on unstable predictive models. SHAP analysis will provide feature contributions for selected validation and test defendants, helping show how model features influence their predictions.\\
+The study also benefits policymakers and stakeholders in the criminal justice system as it raises awareness of the potential consequences of relying on unstable predictive models. SHAP analysis provides feature contributions for selected validation and test defendants, helping show how model features influence their predictions.\\
 
 Ultimately, this study fills a critical gap in the literature by linking instability with predictive performance, fairness, and reliability in RRP models, promoting a more thorough approach to evaluating ML systems in high-risk applications.
 
@@ -222,7 +222,7 @@ The dataset used in this study is limited to the COMPAS recidivism dataset, spec
 This study assumes that the dataset is properly preprocessed by iModels and that model configurations are correctly implemented. It does not account for external factors such as data quality issues, feature engineering variations, or real-world deployment conditions. Additionally, while multiple instability metrics are used, they capture different aspects of variability and do not constitute a single unified measure of model instability.
 
 \section{Proposed Methodology}
-\tabto{2em} This study aims to evaluate the instability of models used in ML-RRP while contextualizing it through an analysis of its predictive performance, fairness, reliability, and feature contributions. The methodology will be conducted under two experimental regimes: (1) dataset instability experiments, where the model stochasticity is controlled through a fixed random seed $s = 0 $ to isolate the effect of data perturbations, and (2) stochastic instability experiments, where the dataset is held constant while model-internal randomness is varied through repeated runs using different random seeds  $ s = 1 \cdots 10 $. \\
+\tabto{2em} This study aims to evaluate the instability of models used in ML-RRP while contextualizing it through an analysis of its predictive performance, fairness, reliability, and feature contributions. The methodology is conducted under two experimental regimes: (1) dataset instability experiments, where the model stochasticity is controlled through a fixed random seed $s = 0 $ to isolate the effect of data perturbations, and (2) stochastic instability experiments, where the dataset is held constant while model-internal randomness is varied through repeated runs using different random seeds  $ s = 1 \cdots 10 $. \\
 
 The methodology is designed to ensure clarity, reproducibility, and controlled experimentation, allowing any variability in model outputs to be attributed specifically to either data perturbations or stochastic training processes. \\
 
@@ -231,7 +231,7 @@ The study does not intend to minimize dataset or stochastic instability, nor doe
 The section consists of subsections regarding the dataset, model selection and configurations, evaluation metrics, tools, and experiment implementation.
 
 \subsection{Dataset} 
-\tabto{2em} The dataset to be used will be a version of the ProPublica COMPAS Recidivism Dataset that has been one-hot encoded and split into training and testing sets by iModels, with 4.94k and 1.24k rows, respectively. The dataset is accessible on the HuggingFace website and can be directly imported into Python.\\
+\tabto{2em} The dataset to be used is a version of the ProPublica COMPAS Recidivism Dataset that has been one-hot encoded and split into training and testing sets by iModels, with 4.94k and 1.24k rows, respectively. The dataset is accessible on the HuggingFace website and can be directly imported into Python.\\
 
 The following table describes each feature within the dataset:
 \begin{longtable}{
@@ -273,25 +273,25 @@ is\_recid & BINARY & 1 if the defendant actually recidivated after the last COMP
 
 \begin{enumerate}
  \item \textbf{Statistical Model: Logistic Regression} \\
-  \tabto{2em} Logistic Regression (LR) is selected as the statistical model as it is the most explored model in ML-RRP literature~\cite{travaini2022machine} and will serve as the baseline model. It is fitting for binary classification tasks, and is both simple to implement and highly interpretable. 
+  \tabto{2em} Logistic Regression (LR) is selected as the statistical model as it is the most explored model in ML-RRP literature~\cite{travaini2022machine} and serves as the baseline model. It is fitting for binary classification tasks, and is both simple to implement and highly interpretable. 
 
  \item \textbf{Tree-Based Model: Random Forest}\\
   \tabto{2em} Random Forest (RF) is chosen as the tree-based model because it is it is the second most popular model studied in the literature of RRP~\cite{travaini2022machine}. The model has a high accuracy, is resistant to overfitting, and has the ability to handle high-dimensional data~\cite{kovalchuk2023prediction}.
 
  \item \textbf{Gradient-Boosted Tree: XGBoost}\\
-  \tabto{2em} XGBoost is selected as the gradient-boosted tree algorithm due to the model being explored in existing RRP literature~\cite{won2019recidivism,rajendran2021predicting}, where it shows competitive or superior predictive performance as compared to the other models. The model was also used in the winning solution of the National Institute of Justice (NIJ) Recidivism Forecasting Challenge~\cite{han2022xgboost}. Unlike the other models, XGBoost requires explicit parameter specification due to the absence of universally effective default settings. Hence, for this study, a set of predefined hyperparameters will be used to ensure stable and efficient training. 
+  \tabto{2em} XGBoost is selected as the gradient-boosted tree algorithm due to the model being explored in existing RRP literature~\cite{won2019recidivism,rajendran2021predicting}, where it shows competitive or superior predictive performance as compared to the other models. The model was also used in the winning solution of the National Institute of Justice (NIJ) Recidivism Forecasting Challenge~\cite{han2022xgboost}. Unlike the other models, XGBoost requires explicit parameter specification due to the absence of universally effective default settings. Hence, for this study, a set of predefined hyperparameters is used to ensure stable and efficient training. 
 
  \item \textbf{Support Vector Machine: LinearSVC}\\
-  \tabto{2em} Though SVMs have been explored in RRP studies alongside other ML models, often demonstrating competitive performance across different evaluation settings, these papers often do not explicitly state the type of SVM used~\cite{duwe2017out, tolan2019machine,ozkan2017predicting}. For this study, a linear SVM will be used rather than a nonlinear variant due to its lower model complexity and interpretability. A linear decision boundary allows for a clearer analysis of how input features influence predictions, which is significant for an instability analysis. 
+  \tabto{2em} Though SVMs have been explored in RRP studies alongside other ML models, often demonstrating competitive performance across different evaluation settings, these papers often do not explicitly state the type of SVM used~\cite{duwe2017out, tolan2019machine,ozkan2017predicting}. For this study, a linear SVM is used rather than a nonlinear variant due to its lower model complexity and interpretability. A linear decision boundary allows for a clearer analysis of how input features influence predictions, which is significant for an instability analysis. 
   
-  The specific implementation to be used is LinearSVC, which is available in scikit-learn. It is computationally efficient, making it suitable for the study as the experiment will require multiple model retrainings.
+  The specific implementation to be used is LinearSVC, which is available in scikit-learn. It is computationally efficient, making it suitable for the study as the experiment requires multiple model retrainings.
 
-  Unlike probabilistic models, LinearSVC does not inherently produce probability estimates, but instead outputs distance-based scores from the decision boundary. These scores can be transformed into probability estimates through post-hoc calibration methods such as Platt scaling or isotonic regression, which can be implemented using \texttt{CalibratedClassifierCV} in Python. This will allow the model to produce probability scores required for evaluation metrics.
+  Unlike probabilistic models, LinearSVC does not inherently produce probability estimates, but instead outputs distance-based scores from the decision boundary. These scores can be transformed into probability estimates through post-hoc calibration methods such as Platt scaling or isotonic regression, which can be implemented using \texttt{CalibratedClassifierCV} in Python. This allows the model to produce probability scores required for evaluation metrics.
 \end{enumerate}
 
-With regards to the inherent stochasticity of ensemble models such as Random Forest and XGBoost, care will be taken to distinguish dataset-induced instability. In particular, Random Forest introduces randomness through bootstrap sampling of the training data and random feature selection at each split, which can lead to variability in model outputs even under identical training conditions. For XGBoost, stochastic components such as subsampling and column sampling are likewise controlled or explicitly held constant when not part of the experimental design. This ensures that any measured variation in predictions reflects differences in data sampling rather than uncontrolled randomness within the learning algorithms themselves. \\
+With regards to the inherent stochasticity of ensemble models such as Random Forest and XGBoost, care is taken to distinguish dataset-induced instability. In particular, Random Forest introduces randomness through bootstrap sampling of the training data and random feature selection at each split, which can lead to variability in model outputs even under identical training conditions. For XGBoost, stochastic components such as subsampling and column sampling are likewise controlled or explicitly held constant when not part of the experimental design. This ensures that any measured variation in predictions reflects differences in data sampling rather than uncontrolled randomness within the learning algorithms themselves. \\
 
-Each model will be implemented using the following controlled baseline configurations which are fixed across all experiments for both instability types while avoiding extensive tuning to ensure that no additional uncontrolled source of instability is introduced and that the experiment is reproducible across all experimental runs.
+Each model is implemented using the following controlled baseline configurations which are fixed across all experiments for both instability types while avoiding extensive tuning to ensure that no additional uncontrolled source of instability is introduced and that the experiment is reproducible across all experimental runs.
 
 \begin{multicols}{2}
  \subsubsection*{1. Logistic Regression}
@@ -337,7 +337,7 @@ Each model will be implemented using the following controlled baseline configura
   \item random\_state = $s$
  \end{itemize}
 
- To obtain probability estimates, the model will be wrapped using:
+ To obtain probability estimates, the model is wrapped using:
  \begin{itemize}
   \item CalibratedClassifierCV
   \begin{itemize}
@@ -356,19 +356,19 @@ Each model will be implemented using the following controlled baseline configura
 Other MLPClassifier parameters use their library defaults.
 
 \subsection{Metrics for Instability}
-To evaluate dataset and stochastic instability in each model, multiple instability metrics will be used to measure different aspects of variability such as score distributions, labels, and ranking. Other metrics will also be used to measure different aspects of each model such as performance, fairness, reliability, and feature contribution. Each instability type will be measured separately using the metrics.\\
+To evaluate dataset and stochastic instability in each model, multiple instability metrics is used to measure different aspects of variability such as score distributions, labels, and ranking. Other metrics are also used to measure different aspects of each model such as performance, fairness, reliability, and feature contribution. Each instability type is measured separately using the metrics.\\
 
-Before presenting the metric formulations, the following notation will be used throughout the equations. Let: 
+Before presenting the metric formulations, the following notation is used throughout the equations. Let: 
 \begin{itemize}
   \item $ R $ denote the total number of model runs.
   \item $ D $ denote the total number of defendants in the dataset.
   \item $ K $ represent the size of the top-$K$ subset of defendants identified as highest risk.
 \end{itemize}
-\tabto{2em} These variables will be used consistently across all defined metrics.
+\tabto{2em} These variables is used consistently across all defined metrics.
 
 \begin{itemize}
   \item \textbf{Score Error Instability: 95\% Prediction Error}\\
-    \tabto{2em} This will visualize the range of which predicted scores for each defendants are expected to fall across repeated runs~\cite{riley2023stability}. Wider intervals will indicate greater instability in the scores. The range of the interval is described through the following formula: \\
+    \tabto{2em} This visualizes the range of which predicted scores for each defendants are expected to fall across repeated runs~\cite{riley2023stability}. Wider intervals indicate greater instability in the scores. The range of the interval is described through the following formula: \\
     \[
     \text{SI}_{95\%,d} =
     \left[
@@ -380,7 +380,7 @@ Before presenting the metric formulations, the following notation will be used t
     where $ Q_{0.025} $ and $ Q_{0.975} $ denote the 2.5th and 97.5th percentiles of the predicted scores $ \hat{p}_d^{(r)} $ across all runs $ r = 1, \dots, R $.
 
   \item \textbf{Bootstrapped vs Original Instability: Mean Absolute Prediction Error (MAPE)}\\
-    \tabto{2em} This metric is used to quantify the average absolute difference in predicted scores for each defendant across runs~\cite{riley2023stability}. Higher MAPE values for a model will indicate greater variability in predicted risk scores, suggesting higher instability.\\
+    \tabto{2em} This metric is used to quantify the average absolute difference in predicted scores for each defendant across runs~\cite{riley2023stability}. Higher MAPE values for a model indicate greater variability in predicted risk scores, suggesting higher instability.\\
 
     Each MAPE value per defendant $ d $ is calculated using the formula:
     \[ \text{MAPE}_d=\frac{1}{R}\sum_{r=1}^{R}|\hat{p}_{d}^{(r)}-\bar{p}_d| \]
@@ -390,7 +390,7 @@ Before presenting the metric formulations, the following notation will be used t
     \[ \overline{\text{MAPE}}=\frac{1}{D}\sum_{d=1}^{D}\text{MAPE}_d \]
 
   \item \textbf{Label-Level Instability: Classification Instability Index (CII)}\\ 
-    \tabto{2em} This metric is used to capture how often a defendant's predicted class label changes across repeated model runs. It measures the frequency with which a defendant's predicted classification (e.g., high-risk vs low-risk) changes across runs~\cite{riley2023stability}. Higher CII values will indicate greater instability in classification outcomes.\\
+    \tabto{2em} This metric is used to capture how often a defendant's predicted class label changes across repeated model runs. It measures the frequency with which a defendant's predicted classification (e.g., high-risk vs low-risk) changes across runs~\cite{riley2023stability}. Higher CII values indicate greater instability in classification outcomes.\\
 
     The following formula is used to calculate the CII per defendant $ d $:
     \[ \text{CII}_d = \frac{\text{flips}_d}{\binom{R}{2}} \]
@@ -404,7 +404,7 @@ Before presenting the metric formulations, the following notation will be used t
     \[ \binom{R}{2} = \frac{R(R-1)}{2} \] 
 
   \item \textbf{Ranking-Level Instability: Top-$ K$ Jaccard Similarity} \\
-    \tabto{2em} Evaluates whether the same defendants are consistently identified as high-risk across different model runs. It measures the overlap between the sets of defendants identified as highest risk (e.g., top 10\%) across different runs~\cite{lopez2022instability}. A lower Jaccard similarity will indicate greater inconsistency in identifying high-risk defendants.\\
+    \tabto{2em} Evaluates whether the same defendants are consistently identified as high-risk across different model runs. It measures the overlap between the sets of defendants identified as highest risk (e.g., top 10\%) across different runs~\cite{lopez2022instability}. A lower Jaccard similarity indicate greater inconsistency in identifying high-risk defendants.\\
 
     In this study, $K$ is defined as the top 10\% of defendants with the highest predicted risk scores. This threshold is fixed across all models and experiments to ensure consistent comparison of ranking instability. The number of defendants selected is $k=\max(1,\lfloor0.10n\rfloor)$, where $n$ is the number of defendants in the evaluation set. Thus, at least one defendant is selected, including when fewer than 10 defendants are evaluated.\\
 
@@ -417,7 +417,7 @@ Before presenting the metric formulations, the following notation will be used t
     $ X_r^K $ and $ X_s^K $ represent the sets of top-$ K$ highest-risk defendants identified in runs $ r $ and $ s $, respectively, and $ J $ is the average Jaccard similarity computed across all pairs of runs $ (r,s) $ such that $ r < s $.
 \end{itemize}
 
-In addition to instability metrics, the models will be evaluated based on their predictive performance, as stability alone is insufficient without acceptable model performance. The following metrics will be used to measure the model's performance: \\
+In addition to instability metrics, the models is evaluated based on their predictive performance, as stability alone is insufficient without acceptable model performance. The following metrics is used to measure the model's performance: \\
 
 \textbf{Performance:} 
 \begin{itemize}
@@ -471,7 +471,7 @@ In addition to instability metrics, the models will be evaluated based on their 
   \tabto{2em} This is the fold- and evaluation-set-specific sample standard deviation $\mathrm{SD}(\mathrm{AUC})_{e,f}$ defined above. It measures run-to-run variability in ROC-AUC within a fold; no across-fold standard deviation is calculated.
 \end{itemize}
 
-However, aggregated performance metrics alone do not reflect the reliability of  defendant predictions, which is critical in risk-sensitive applications. Thus, this study will also incorporate a fairness metric to contextualize the results with regards to racial groups, a reliability metric to assess the consistency and trustworthiness of model outputs, and a feature contribution analysis to examine how features contribute to predictions for selected defendants.
+However, aggregated performance metrics alone do not reflect the reliability of  defendant predictions, which is critical in risk-sensitive applications. Thus, this study also incorporates a fairness metric to contextualize the results with regards to racial groups, a reliability metric to assess the consistency and trustworthiness of model outputs, and a feature contribution analysis to examine how features contribute to predictions for selected defendants.
 
 \begin{itemize}
   \item \textbf{Fairness: Maximum False Positive Rate Difference Across Racial Groups}\\
@@ -520,7 +520,7 @@ However, aggregated performance metrics alone do not reflect the reliability of 
 \end{itemize}
 
 \subsection{Tools} 
-All experiments will be conducted on the following device specifications:
+All experiments is conducted on the following device specifications:
 
 \begin{table}[ht]
   \centering
@@ -542,21 +542,27 @@ All experiments will be conducted on the following device specifications:
   \end{tabular}\label{tab:laptop_specs}
 \end{table}
 
-Moreover, the study will use the programming language Python for the development of the program due to its simple syntax, and rich ecosystem of libraries and frameworks, many of which are designed for ML development. The following Python libraries will be used: \\
+Additionally, the study uses the programming language Python for the development of the program due to its simple syntax, and rich ecosystem of libraries and frameworks, many of which are designed for ML development. The following Python libraries is used: \\
 
-\textbf{\texttt{datasets:}} Datasets provides one-line methods for importing any of the over nine hundred thousand public datasets available on the HuggingFace Datasets Hub. This library will be used to import the imodel's one-hot encoded version of the ProPublica COMPAS Recidivism Dataset.\\
+\textbf{\texttt{datasets:}} Datasets provides one-line methods for importing any of the over nine hundred thousand public datasets available on the HuggingFace Datasets Hub. This library is used to import the imodel's one-hot encoded version of the ProPublica COMPAS Recidivism Dataset.\\
 
-\textbf{\texttt{pandas:}} Pandas provides data structure and data analysis tools that are easy to use, efficient, and high performing. The primary data structure to be used in the program will be the \texttt{DataFrame}, a two-dimensional table-like data structure consisting of rows and columns. This will be used for importing the training and test datasets, as well as storing and handling prediction outputs from csv files.\\
+\textbf{\texttt{itertools:}} The itertools module provides tools for working with iterators and generating combinations. In this study, its \texttt{combinations} function generates unique pairs of model runs for calculating pairwise Jaccard similarity.\\
 
-\textbf{\texttt{numpy:}} Numpy provides high-performance multidimensional arrays and tools used for efficient array operations. This will be used in the study for array-based computations, including operations involving the evaluation of instability in the models.\\
+\textbf{\texttt{joblib:}} Joblib provides tools for efficiently saving and loading Python objects, including models and large arrays. In this study, it saves trained models and serialized data to files and reloads them for prediction and evaluation.\\
 
-\textbf{\texttt{scikit-learn:}} Scikit-learn is an open-source library built for ML.\@ It provides tools for data preprocessing, model training, and data analysis. This will serve as the primary library for implementing the models such as Logistic Regression, Random Forest, and LinearSVC, as well as evaluation metrics such as accuracy, precision recall curve, and brier score loss.\\
+\textbf{\texttt{matplotlib:}} Matplotlib is a visualization library that is used to generate graphs and plots. In this study, it is used to visualize each model's behavior such as their 95\% Instability Percentile and Classification Instability Distribution.\\
 
-\textbf{\texttt{xgboost:}} The XGBoost Python library was built for high-efficiency implementation of gradient boosting. Because scikit-learn does not provide the XGBoost model and its methods, the study will source it from the xgboost library.\\
+\textbf{\texttt{numpy:}} Numpy provides high-performance multidimensional arrays and tools used for efficient array operations. This is used in the study for array-based computations, including operations involving the evaluation of instability in the models.\\
 
-\textbf{\texttt{matplotlib:}} Matplotlib is a visualization library that is used to generate graphs and plots. In this study, it will be used to visualize each model's behavior such as their 95\% Instability Percentile and Classification Instability Distribution.\\
+\textbf{\texttt{os:}} The os module provides functions for interacting with the operating system and managing files and directories. In this study, it is used to construct model file paths, check whether saved files exist, and create output directories.\\
 
-\textbf{\texttt{shap:}} The SHAP library provides tools for model interpretability through Shapley values. It will be used to compute per-run feature contributions for the selected validation and test defendants under dataset and stochastic instability.\\
+\textbf{\texttt{pandas:}} Pandas provides data structure and data analysis tools that are easy to use, efficient, and high performing. The primary data structure to be used in the program is the \texttt{DataFrame}, a two-dimensional table-like data structure consisting of rows and columns. This is used for importing the training and test datasets, as well as storing and handling prediction outputs from csv files.\\
+
+\textbf{\texttt{scikit-learn:}} Scikit-learn is an open-source library built for ML.\@ It provides tools for data preprocessing, model training, and data analysis. This serves as the primary library for implementing the models such as Logistic Regression, Random Forest, and LinearSVC, as well as evaluation metrics such as accuracy, precision recall curve, and brier score loss.\\
+
+\textbf{\texttt{shap:}} The SHAP library provides tools for model interpretability through Shapley values. It is used to compute per-run feature contributions for the selected validation and test defendants under dataset and stochastic instability.\\
+
+\textbf{\texttt{xgboost:}} The XGBoost Python library was built for high-efficiency implementation of gradient boosting. Because scikit-learn does not provide the XGBoost model and its methods, the study sources it from the xgboost library.\\
 
 \subsection{Implementation}
 \tabto{2em} Figure 1 presents the flow of the proposed methodology for analyzing the instability within ML models used in RRP.\@ 
@@ -569,57 +575,57 @@ Moreover, the study will use the programming language Python for the development
 
 \begin{enumerate}
   \item \textbf{Dataset Importing and Processing:}
-  The dataset is imported using the \texttt{datasets} library from HuggingFace. Since the source already contains separate training and test datasets, the program will import each dataset into panda DataFrames where the test dataset is fixed throughout all experiments and the training dataset is used for repeated model training.\\
+  The dataset is imported using the \texttt{datasets} library from HuggingFace. Since the source already contains separate training and test datasets, the program imports each dataset into panda DataFrames where the test dataset is fixed throughout all experiments and the training dataset is used for repeated model training.\\
 
-  Because the selected version of the COMPAS Recidivism Dataset has already been one-hot encoded and prepared for ML use, only minimal preprocessing is required, specifically Feature standardization using \texttt{StandardScaler}. The scaler will be fit on the training data and subsequently applied to the test data using the same parameters to prevent data leakage. This preprocessing step is performed prior to model training and remains fixed across all bootstrap and stochastic iterations.\\
+  Because the selected version of the COMPAS Recidivism Dataset has already been one-hot encoded and prepared for ML use, only minimal preprocessing is required, specifically Feature standardization using \texttt{StandardScaler}. The scaler is fit on the training data and subsequently applied to the test data using the same parameters to prevent data leakage. This preprocessing step is performed prior to model training and remains fixed across all bootstrap and stochastic iterations.\\
 
-  Before performing repeated training procedures, each model will be trained once on the original training dataset using a fixed random seed $s = 0$. The predictions generated from this baseline model will serve as a reference for evaluating instability metrics.
+  Before performing repeated training procedures, each model is trained once on the original training dataset using a fixed random seed $s = 0$. The predictions generated from this baseline model serve as a reference for evaluating instability metrics.
 
   \item \textbf{Model Training For Dataset Instability:}
-  To evaluate dataset instability, the study will employ bootstrap resampling approach~\cite{efron2000bootstrap}, which is a sampling method that generates proxy datasets by repeatedly drawing samples with replacement from the original dataset. This allows the study to simulate how model predictions may change under different possible versions of the same dataset. Moreover, bootstrapped resampling was also used by Riley and Collins~\cite{riley2023stability} in their study. The same hyperparameters will be held constant across all bootstrap iterations. \\
+  To evaluate dataset instability, the study employs bootstrap resampling approach~\cite{efron2000bootstrap}, which is a sampling method that generates proxy datasets by repeatedly drawing samples with replacement from the original dataset. This allows the study to simulate how model predictions may change under different possible versions of the same dataset. Moreover, bootstrapped resampling was also used by Riley and Collins~\cite{riley2023stability} in their study. The same hyperparameters is held constant across all bootstrap iterations. \\
 
-  A total of 1000 bootstrap samples will be generated from the original training dataset using sampling with replacement. This number is selected to ensure a stable estimation of prediction variability across runs while maintaining computational feasibility. Each bootstrapped dataset will maintain the same size as the original training set but will contain slight variations in data composition due to the resampling process. These variations will simulate realistic perturbations in the data, such as missing or duplicated observations. To ensure that dataset sources of instability are isolated from the stochastic sources, a fixed random seed $ s = 0 $ will be implemented for all dataset instability experiments.\\ 
+  A total of 1000 bootstrap samples is generated from the original training dataset using sampling with replacement. This number is selected to ensure a stable estimation of prediction variability across runs while maintaining computational feasibility. Each bootstrapped dataset maintains the same size as the original training set but contains slight variations in data composition due to the resampling process. These variations simulate realistic perturbations in the data, such as missing or duplicated observations. To ensure that dataset sources of instability are isolated from the stochastic sources, a fixed random seed $ s = 0 $ is implemented for all dataset instability experiments.\\ 
 
-  Each model will then be retrained independently on every bootstrapped sample with a fixed random seed of $ s = 0$. After training, predictions will be generated using the fixed test dataset and stored in structured CSV files with the filename $<model>\_bs\_pred.csv$, where each column represents the predicted scores from a specific training run. This organized storage will enable direct comparison of predictions across multiple runs for each individual.\\
+  Each model is then be retrained independently on every bootstrapped sample with a fixed random seed of $ s = 0$. After training, predictions is generated using the fixed test dataset and stored in structured CSV files with the filename $<model>\_bs\_pred.csv$, where each column represents the predicted scores from a specific training run. This organized storage enables direct comparison of predictions across multiple runs for each individual.\\
 
-  By repeating this process across all bootstrapped samples, the study will produce a distribution of predictions for each test instance which will serve as the basis for computing instability metrics in later stages of the methodology.
+  By repeating this process across all bootstrapped samples, the study produces a distribution of predictions for each test instance which serves as the basis for computing instability metrics in later stages of the methodology.
 
   \item \textbf{Model Training For Stochastic Instability:}
-  To evaluate stochastic instability, models will be trained multiple times with different random seeds while using the same fixed training dataset to ensure that the stochastic sources of instability are isolated from the dataset sources. The study will follow a similar approach by Lopez-Martinez et al.~\cite{lopez2022instability}.\\
+  To evaluate stochastic instability, the models are trained multiple times with different random seeds while using the same fixed training dataset to ensure that the stochastic sources of instability are isolated from the dataset sources. The study follows a similar approach by Lopez-Martinez et al.~\cite{lopez2022instability}.\\
 
-  Each model will be trained for 10 independent runs using the predefined seed set $S = \{1,\dots,10\}$. Each seed will control all stochastic components of the model training process, ensuring that variability is solely attributable to stochastic effects.\\
+  Each model is trained for 10 independent runs using the predefined seed set $S = \{1,\dots,10\}$. Each seed controls all stochastic components of the model training process, ensuring that variability is solely attributable to stochastic effects.\\
 
-  This variation in random seed will introduce controlled randomness into the training process, allowing the study to isolate the effects of stochasticity on model behavior. Despite using the same dataset and configuration, these stochastic factors may lead to differences in learned model parameters and, consequently, prediction outputs. It is noted, however, that stochastic variability may differ across models depending on their underlying training mechanisms. Models such as Random Forest and XGBoost incorporate inherent randomness during training, while models such as Logistic Regression and LinearSVC may exhibit limited stochastic variation under default deterministic settings.\\
+  This variation in random seed introduces a controlled randomness into the training process, allowing the study to isolate the effects of stochasticity on model behavior. Despite using the same dataset and configuration, these stochastic factors may lead to differences in learned model parameters and, consequently, prediction outputs. It is noted, however, that stochastic variability may differ across models depending on their underlying training mechanisms. Models such as Random Forest and XGBoost incorporate inherent randomness during training, while models such as Logistic Regression and LinearSVC may exhibit limited stochastic variation under default deterministic settings.\\
 
-  After each training run, predictions will be generated using the fixed test dataset. This will allow any observed differences in predictions to be attributed solely to stochastic variation rather than changes in the data. The predicted scores for each instance in the test dataset will be recorded for every run. \\
+  After each training run, predictions is generated using the fixed test dataset. This allows any observed differences in predictions to be attributed solely to stochastic variation rather than changes in the data. The predicted scores for each instance in the test dataset is recorded for every run. \\
 
-  Similar to the dataset instability procedure, all predictions will be stored in structured CSV files, where each column will correspond to a specific training run with a distinct random seed. This format will enable direct comparison of predictions across runs at the individual level.\\
+  Similar to the dataset instability procedure, all predictions is stored in structured CSV files, where each column corresponds to a specific training run with a distinct random seed. This format enables direct comparison of predictions across runs at the individual level.\\
 
-  By repeating this process across multiple random seeds, the study will generate a distribution of predictions for each test instance under stochastic conditions. These distributions will then be used in the later stages of the methodology.
+  By repeating this process across multiple random seeds, the study generates a distribution of predictions for each test instance under stochastic conditions. These distributions are then used in the later stages of the methodology.
 
   \item \textbf{Evaluating Model Instability, Performance, Fairness, and Reliability:}
-  Following the repeated training procedures for both dataset and stochastic instability, the study will evaluate each model using a combination of instability, performance, and reliability metrics for both dataset and stochastic instability.
+  Following the repeated training procedures for both dataset and stochastic instability, the study evaluates each model using a combination of instability, performance, and reliability metrics for both dataset and stochastic instability.
 
-  95\% Stability Intervals will be constructed by computing the percentile range of predictions for each instance, providing a visual representation of the spread and uncertainty in predicted scores.
+  95\% Stability Intervals is constructed by computing the percentile range of predictions for each instance, providing a visual representation of the spread and uncertainty in predicted scores.
 
-  To measure instability in predicted scores, the Mean Absolute Prediction Error (MAPE) will be computed for each test instance across all runs. This will quantify the average variation in predicted risk scores, where higher values indicate greater instability. 
+  To measure instability in predicted scores, the Mean Absolute Prediction Error (MAPE) is computed for each test instance across all runs. This quantifies the average variation in predicted risk scores, where higher values indicate greater instability. 
 
-  To assess instability in classification outcomes, the Classification Instability Index (CII) will be calculated. This metric will measure how frequently an individual's predicted class label changes across different runs. Higher CII values will indicate greater inconsistency in classification decisions, which is critical in applications such as RRP where classification outcomes directly influence decision-making. 
+  To assess instability in classification outcomes, the Classification Instability Index (CII) is calculated. This metric measures how frequently an individual's predicted class label changes across different runs. Higher CII values indicate greater inconsistency in classification decisions, which is critical in applications such as RRP where classification outcomes directly influence decision-making. 
 
-  The study will also evaluate ranking instability using the Top-K Jaccard Similarity. For each run, the top K\% of individuals with the highest predicted risk scores will be identified, and the overlap between these sets across runs will be measured. Lower similarity values will indicate greater inconsistency in identifying high-risk individuals.
+  The study also evaluates ranking instability using the Top-K Jaccard Similarity. For each run, the top K\% of individuals with the highest predicted risk scores is identified, and the overlap between these sets across runs is measured. Lower similarity values indicate greater inconsistency in identifying high-risk individuals.
 
-  The Brier Score and ROC-AUC will be computed for every run separately within each fold and evaluation set (Validation and Test). For each fold, the mean and sample standard deviation across that fold's runs will be reported. For Brier Score, the within-fold SD describes run-to-run variability in probabilistic error; calibration will be assessed from the reliability curves. Fold-level summaries will remain separate; no overall mean or standard deviation across folds will be calculated.
+  The Brier Score and ROC-AUC is computed for every run separately within each fold and evaluation set (Validation and Test). For each fold, the mean and sample standard deviation across that fold's runs is reported. For Brier Score, the within-fold SD describes run-to-run variability in probabilistic error; calibration is assessed from the reliability curves. Fold-level summaries remain separate; no overall mean or standard deviation across folds is calculated.
 
-  In addition to instability, model performance will be evaluated to ensure that stability is considered alongside predictive effectiveness. Higher within-fold run variability in ROC-AUC will indicate instability in model performance. Moreover, calibration plots will be generated separately for each fold to assess how well the predicted scores align with the observed outcomes. These plots compare predicted risk scores with actual recidivism frequencies, where a curve close to the diagonal indicates well-calibrated predictions. Deviations from this diagonal suggest overestimation or underestimation of risk. While primarily used as a visual diagnostic tool, calibration plots provide complementary insight into the reliability of probability estimates across different models and training conditions.
+  In addition to instability, model performance is evaluated to ensure that stability is considered alongside predictive effectiveness. Higher within-fold run variability in ROC-AUC indicate instability in model performance. Moreover, calibration plots is generated separately for each fold to assess how well the predicted scores align with the observed outcomes. These plots compare predicted risk scores with actual recidivism frequencies, where a curve close to the diagonal indicates well-calibrated predictions. Deviations from this diagonal suggest overestimation or underestimation of risk. While primarily used as a visual diagnostic tool, calibration plots provide complementary insight into the reliability of probability estimates across different models and training conditions.
 
-  The study will also incorporate a fairness metric based on false positive rate (FPR) differences across groups to assess potential disparities in error behavior among different demographic groups. Specifically, the False Positive Rate (FPR) will measure the proportion of individuals incorrectly classified as high risk among those who do not reoffend, and the difference in FPR between groups will be used to quantify disparity in misclassification rates. This will provide a group-level assessment of whether the model disproportionately produces false alarms for certain populations.
+  The study also incorporates a fairness metric based on false positive rate (FPR) differences across groups to assess potential disparities in error behavior among different demographic groups. Specifically, the False Positive Rate (FPR) measures the proportion of individuals incorrectly classified as high risk among those who do not reoffend, and the difference in FPR between groups is used to quantify disparity in misclassification rates. This provides a group-level assessment of whether the model disproportionately produces false alarms for certain populations.
 
-  Furthermore, the study will incorporate a reliability metric to assess the trustworthiness of individual predictions. The Model Reliability for Individual Prediction (MRIP) will be used to estimate the likelihood that a model's prediction error remains within an acceptable range for each instance. This will provide a more granular evaluation of reliability compared to aggregate performance metrics.
+  Furthermore, the study incorporate a reliability metric to assess the trustworthiness of individual predictions. The Model Reliability for Individual Prediction (MRIP) is used to estimate the likelihood that a model's prediction error remains within an acceptable range for each instance. This provides a more granular evaluation of reliability compared to aggregate performance metrics.
 
-  All computed metrics will be summarized and compared across models and across both types of instability. These analyses will enable the identification of patterns in instability behavior and provide a comprehensive assessment of how consistent, accurate, and reliable each model is under varying training conditions.
+  All computed metrics is summarized and compared across models and across both types of instability. These analyses enable the identification of patterns in instability behavior and provide a comprehensive assessment of how consistent, accurate, and reliable each model is under varying training conditions.
 
   \item \textbf{SHapley Additive exPlanations:}
-  SHAP values will be computed for the first validation defendant in each fold and for the first defendant in the fixed test set. The same test defendant is evaluated in every fold. For each selected case, SHAP is computed for every bootstrap run in the dataset-instability experiment and every random-seed run in the stochastic-instability experiment, for Logistic Regression (LR), LinearSVC (LSVC), XGBoost (XGB), Random Forest (RF), and MLP.\@
+  SHAP values is computed for the first validation defendant in each fold and for the first defendant in the fixed test set. The same test defendant is evaluated in every fold. For each selected case, SHAP is computed for every bootstrap run in the dataset-instability experiment and every random-seed run in the stochastic-instability experiment, for Logistic Regression (LR), LinearSVC (LSVC), XGBoost (XGB), Random Forest (RF), and MLP.\@
 
   The explainer and reference data vary by model. TreeExplainer is used for RF and XGB without a separate background dataset, so it uses its default tree-path-dependent reference based on training counts in tree leaves. LinearExplainer is used for LR with the run's training data as its reference data. For LSVC, shap.Explainer is given the model's predict\_proba function and the full training data. For MLP, KernelExplainer is given predict\_proba and a random sample of up to 50 training rows selected with random\_state=42; SHAP values are estimated using nsamples=10.
 
@@ -628,26 +634,26 @@ Moreover, the study will use the programming language Python for the development
   The explainers do not use a common output space. LR LinearExplainer values represent the logistic model's log-odds output, and the default raw XGB TreeExplainer values represent the positive-class raw margin (log odds). RF TreeExplainer values and the selected LSVC and MLP predict\_proba outputs represent the positive-class probability. SHAP magnitudes are consequently interpreted within each model and output scale, not compared directly across models.
 
   \item \textbf{Identifying Patterns and Relationships:}
-  After computing instability, performance, fairness, reliability, and SHAP-based feature contribution metrics,  the study will proceed with the analysis.
+  After computing instability, performance, fairness, reliability, and SHAP-based feature contribution metrics,  the study proceeds with the analysis.
   
-  First, instability metrics will be compared across all models to determine which models exhibit higher levels of dataset and stochastic instability. This will include examining differences in probability variability (MAPE and stability intervals), classification inconsistency (CII), and ranking instability (Top-K Jaccard Similarity). These comparisons will allow the study to identify whether certain model types are more sensitive to data perturbations or stochastic factors.
+  First, instability metrics is compared across all models to determine which models exhibit higher levels of dataset and stochastic instability. This includes examining differences in probability variability (MAPE and stability intervals), classification inconsistency (CII), and ranking instability (Top-K Jaccard Similarity). These comparisons allow the study to identify whether certain model types are more sensitive to data perturbations or stochastic factors.
 
-  % After computing instability, performance, fairness, reliability, and SHAP-based feature contribution metrics, the study will proceed with analyzing patterns and relationships observed from the computed metrics to better understand how instability, specifically dataset and stochastic, manifests in different models.
+  % After computing instability, performance, fairness, reliability, and SHAP-based feature contribution metrics, the study proceeds with analyzing patterns and relationships observed from the computed metrics to better understand how instability, specifically dataset and stochastic, manifests in different models.
 
-  Following the analysis of each model's instability sensitivity to dataset and stochastic factors, the study will contextualize the instability metrics of its corresponding instability type with its respective computed performance, fairness, reliability, and feature contribution metrics. 
+  Following the analysis of each model's instability sensitivity to dataset and stochastic factors, the study contextualizes the instability metrics of its corresponding instability type with its respective computed performance, fairness, reliability, and feature contribution metrics. 
 
-  Model instability will be compared to performance metrics to identify relationships and patterns between them such as  whether instability may affect model performance and accuracy. 
+  Model instability is compared to performance metrics to identify relationships and patterns between them such as  whether instability may affect model performance and accuracy. 
 
-  The study will also examine the relationship between instability and fairness in terms of the FPR differences across demographic groups. This will enable a group-level evaluation of whether the model generates disproportionately higher false positive predictions for specific demographics, providing a more nuanced perspective on fairness than what is captured by overall accuracy or other aggregate performance measures.
+  The study also examines the relationship between instability and fairness in terms of the FPR differences across demographic groups. This enables a group-level evaluation of whether the model generates disproportionately higher false positive predictions for specific demographics, providing a more nuanced perspective on fairness than what is captured by overall accuracy or other aggregate performance measures.
 
-  The study will also examine the relationship between instability and reliability by comparing instability metrics with MRIP values. This analysis will help determine whether increased prediction variability corresponds to lower reliability at the individual prediction level, which is critical in high-stakes applications such as RRP.\@
+  The study also examines the relationship between instability and reliability by comparing instability metrics with MRIP values. This analysis helps determine whether increased prediction variability corresponds to lower reliability at the individual prediction level, which is critical in high-stakes applications such as RRP.\@
 
-  Performance, fairness, and reliability metrics will also provide context to model instability, identifying whether a model with either high or low instability is valid for RRP when considering its performance, fairness, and reliability metrics.
+  Performance, fairness, and reliability metrics also provide context to model instability, identifying whether a model with either high or low instability is valid for RRP when considering its performance, fairness, and reliability metrics.
 
-  SHAP outputs will be reviewed for the selected validation and test defendants. The analysis will examine the per-run signed feature contributions and their signed mean within each fold, interpreting them on the output scale used by each model. It will not treat these values as global feature-importance or variability summaries, and raw magnitudes will not be compared directly across models.
+  SHAP outputs is reviewed for the selected validation and test defendants. The analysis examines the per-run signed feature contributions and their signed mean within each fold, interpreting them on the output scale used by each model. It does not treat these values as global feature-importance or variability summaries, and raw magnitudes are not compared directly across models.
 
   % the fuck is this lol edit it kay it's supposed to talk about the overal synthesis/explainability of the models
-  Finally, the results from all analyses will be synthesized to provide a comprehensive understanding of the overall instability of each model. 
+  Finally, the results from all analyses is synthesized to provide a comprehensive understanding of the overall instability of each model. 
 \end{enumerate}
 \newpage
 
