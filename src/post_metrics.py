@@ -19,6 +19,8 @@ import csv_actions as csva
 
 # Constant Variables
 DFPR_THRESHOLD = 0.5
+CII_THRESHOLD = 0.5
+DCA_THRESHOLDS = np.linspace(0.01, 0.99, 99)
 
 RACE_NAMES = [
     'race:African-American',
@@ -30,6 +32,28 @@ RACE_NAMES = [
 ]
 MODEL_NAMES = [ 'LR', 'RF', 'LSVC', 'XGB', 'MLP' ]
 EVAL_NAMES = [ 'Validation', 'Test'] 
+
+
+def _ordered_bin_summary(x_values, y_values, n_bins=10, percentiles=(25, 75)):
+    """Summarize y values across equally populated, x-ordered bins."""
+    x_values = np.asarray(x_values, dtype=float)
+    y_values = np.asarray(y_values, dtype=float)
+    finite = np.isfinite(x_values) & np.isfinite(y_values)
+    x_values = x_values[finite]
+    y_values = y_values[finite]
+    if not len(x_values):
+        return tuple(np.array([]) for _ in range(4))
+
+    order = np.argsort(x_values)
+    bins = np.array_split(order, min(n_bins, len(order)))
+    centers, medians, lowers, uppers = [], [], [], []
+    for indices in bins:
+        centers.append(float(np.median(x_values[indices])))
+        medians.append(float(np.median(y_values[indices])))
+        lower, upper = np.percentile(y_values[indices], percentiles)
+        lowers.append(float(lower))
+        uppers.append(float(upper))
+    return tuple(np.asarray(values) for values in (centers, medians, lowers, uppers))
 
 class PostMetrics:
     def __init__(
@@ -129,6 +153,16 @@ class PostMetrics:
             f'{eval_name}_{fold_id}.csv'
         )
         return csva.load_csv_data(csv_path)['Original']
+
+    def get_reference_predictions(
+        self, model_name, eval_name, fold_id, predictions=None
+    ):
+        """Get the comparison predictions for instability metrics."""
+        if self.instability_type == 'Stochastic':
+            if predictions is None:
+                predictions = self.get_predictions(model_name, eval_name, fold_id)
+            return predictions.mean(axis=1)
+        return self.get_original_predictions(model_name, eval_name, fold_id)
     
     # Gets the shap values
     def get_shap_values(self, shap_values_dir, model_name, eval_name, fold_id):
@@ -227,7 +261,7 @@ class PostMetrics:
                     
                     img_file_path = (
                         f'{roc_auc_dir}/{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}_{col}.png'
+                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}_Mean.png'
                     )
                     plt.savefig(
                         img_file_path,
@@ -495,21 +529,17 @@ class PostMetrics:
 
                 for fold_id in range(1, self.no_of_folds + 1):
                     predictions = self.get_predictions(model_name, eval_name, fold_id)
-                    defendant_ids = np.asarray(
-                        self.get_defendant_ids(eval_name, fold_id)
-                    ).ravel()
+                    defendant_ids = np.asarray(self.get_defendant_ids(eval_name, fold_id)).ravel()
                     run_values = predictions.to_numpy(dtype=float)
+                    
                     mean_predictions = np.mean(run_values, axis=1)
                     sd_predictions = (
                         np.std(run_values, axis=1, ddof=1)
                         if run_values.shape[1] > 1
                         else np.zeros(run_values.shape[0], dtype=float)
                     )
-                    lower_95, upper_95 = np.percentile(
-                        run_values,
-                        [2.5, 97.5],
-                        axis=1,
-                    )
+                    
+                    lower_95, upper_95 = np.percentile(run_values, [2.5, 97.5], axis=1)
                     interval_widths = upper_95 - lower_95
                     fold_model_instability[fold_id][model_name] = sd_predictions
 
@@ -517,17 +547,10 @@ class PostMetrics:
                     raw_records.insert(0, 'Defendant_ID', defendant_ids)
                     raw_records['Mean_Prediction'] = mean_predictions
                     raw_records['SD_Prediction'] = sd_predictions
-                    raw_records['P2_5_Prediction'] = lower_95
-                    raw_records['P97_5_Prediction'] = upper_95
+                    raw_records['Lower_95'] = lower_95
+                    raw_records['Upper_95'] = upper_95
                     raw_records['Prediction_Interval_Width'] = interval_widths
-                    raw_path = self.generate_csv_path(
-                        metric_dir,
-                        model_name,
-                        metric_name,
-                        eval_name,
-                        custom_title='Raw',
-                        fold_id=fold_id,
-                    )
+                    raw_path = self.generate_csv_path(metric_dir, model_name, metric_name, eval_name, custom_title='Raw', fold_id=fold_id)
                     raw_records.to_csv(raw_path, index=False)
 
                     summary_records.append({
@@ -541,41 +564,6 @@ class PostMetrics:
                         'Mean_95PI_Width': float(np.mean(interval_widths)),
                         'Median_95PI_Width': float(np.median(interval_widths)),
                     })
-
-                    fig, ax = plt.subplots(figsize=(6, 6))
-                    boxplot = ax.boxplot(
-                        [sd_predictions],
-                        tick_labels=[model_name],
-                        whis=(2.5, 97.5),
-                        patch_artist=True,
-                        showfliers=False,
-                    )
-                    boxplot['boxes'][0].set_facecolor(
-                        plt.get_cmap('tab10')(MODEL_NAMES.index(model_name))
-                    )
-                    boxplot['boxes'][0].set_alpha(0.45)
-                    ax.set_xlabel('Model')
-                    ax.set_ylabel('Per-Defendant SD Across Runs')
-                    ax.set_title(
-                        f'{self.instability_type} - {model_name} - {eval_name} '
-                        f'- Fold {fold_id} - All Defendants'
-                    )
-                    ax.text(
-                        0.02,
-                        0.98,
-                        'Each value is one defendant’s SD across runs',
-                        transform=ax.transAxes,
-                        verticalalignment='top',
-                        bbox=dict(facecolor='white', alpha=0.8),
-                    )
-                    ax.autoscale(axis='y', tight=True)
-                    fig.tight_layout()
-                    individual_plot_path = (
-                        f'{metric_dir}/{metric_name}_{model_name}_'
-                        f'{self.instability_type}_{eval_name}_Fold_{fold_id}_Boxplot.png'
-                    )
-                    fig.savefig(individual_plot_path, dpi=300, bbox_inches='tight')
-                    plt.close(fig)
 
                 summary_path = self.generate_csv_path(
                     metric_dir,
@@ -781,7 +769,7 @@ class PostMetrics:
             plt.close(fig)
             print()
                 
-    # Instability metric: bootstrap predictions relative to the original-fit model.
+    # Instability metric: run predictions relative to a reference prediction.
     def mean_absolute_prediction_error(self):
         print('[Metric] Mean Absolute Prediction Error (MAPE)')
         metric_name = 'MAPE'
@@ -799,18 +787,18 @@ class PostMetrics:
                 for fold_id in range(1, self.no_of_folds + 1):
                     self.print_metric_progress(eval_name, model_name, fold_id, 'Mean Absolute Prediction Error', 100)
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
-                    original_predictions = self.get_original_predictions(
-                        model_name, eval_name, fold_id
+                    reference_predictions = self.get_reference_predictions(
+                        model_name, eval_name, fold_id, predictions
                     ).to_numpy(dtype=float)
                     mape_per_defendant = np.abs(
                         predictions.to_numpy(dtype=float)
-                        - original_predictions[:, np.newaxis]
+                        - reference_predictions[:, np.newaxis]
                     ).mean(axis=1)
 
                     fold_csv_path = self.generate_csv_path(mape_dir, model_name, metric_name, eval_name, fold_id=fold_id)
                     pd.DataFrame({
                         'Defendant_ID': self.get_defendant_ids(eval_name, fold_id),
-                        'Original_Prediction': original_predictions,
+                        'Reference_Prediction': reference_predictions,
                         'MAPE': mape_per_defendant,
                     }).to_csv(fold_csv_path, index=False)
                     
@@ -820,8 +808,93 @@ class PostMetrics:
                 summary_csv_path = self.generate_csv_path(mape_dir, model_name, metric_name, eval_name)
                 csva.save_to_csv(summary_csv_path, data=summary_dict)
 
-    # Riley and Collins-style instability scatter: original-fit prediction
-    # against each bootstrap-fit prediction for the same evaluation individual.
+    def mape_instability_plot(self):
+        """Plot each defendant's MAPE against their reference prediction."""
+        print('[Plot] MAPE Instability Plot')
+        metric_name = 'MAPE'
+
+        for eval_name in EVAL_NAMES:
+            for model_name in MODEL_NAMES:
+                mape_dir = f'{self.metrics_dir}/{metric_name}/{model_name}'
+                for fold_id in range(1, self.no_of_folds + 1):
+                    csv_path = self.generate_csv_path(
+                        mape_dir,
+                        model_name,
+                        metric_name,
+                        eval_name,
+                        fold_id=fold_id,
+                    )
+                    mape_data = pd.read_csv(csv_path)
+                    x_values = mape_data['Reference_Prediction'].to_numpy(dtype=float)
+                    y_values = mape_data['MAPE'].to_numpy(dtype=float)
+                    bin_x, bin_median, bin_lower, bin_upper = _ordered_bin_summary(
+                        x_values, y_values, percentiles=(25, 75)
+                    )
+
+                    fig, ax = plt.subplots(figsize=(7, 6))
+                    ax.scatter(
+                        x_values,
+                        y_values,
+                        s=18,
+                        alpha=0.35,
+                        edgecolors='none',
+                        label='Defendants',
+                    )
+                    if len(bin_x):
+                        ax.fill_between(
+                            bin_x,
+                            bin_lower,
+                            bin_upper,
+                            color='darkorange',
+                            alpha=0.32,
+                            label='25th–75th percentile by risk bin',
+                        )
+                        ax.plot(
+                            bin_x,
+                            bin_median,
+                            color='darkorange',
+                            linewidth=2,
+                            marker='o',
+                            markersize=4,
+                            label='Median MAPE by risk bin',
+                        )
+                    x_range = float(np.ptp(x_values)) if len(x_values) else 0.0
+                    x_padding = max(0.01, x_range * 0.04)
+                    x_min = max(0.0, float(np.min(x_values)) - x_padding)
+                    x_max = min(1.0, float(np.max(x_values)) + x_padding)
+                    y_max = min(1.0, max(0.02, float(np.max(y_values)) * 1.12))
+                    ax.set_xlim(x_min, x_max if x_max > x_min else min(1.0, x_min + 0.02))
+                    ax.set_ylim(0, y_max)
+                    ax.set_xlabel('Reference Prediction')
+                    ax.set_ylabel('Per-Defendant Mean Absolute Prediction Error')
+                    ax.set_title(
+                        f'{self.instability_type} - {model_name} - {eval_name} '
+                        f'- Fold {fold_id} - MAPE Instability'
+                    )
+                    ax.text(
+                        0.98,
+                        0.97,
+                        f'Defendants: {len(y_values):,}\n'
+                        f'Mean MAPE: {np.mean(y_values):.4f}\n'
+                        f'Median MAPE: {np.median(y_values):.4f}\n'
+                        f'95th percentile: {np.percentile(y_values, 95):.4f}',
+                        transform=ax.transAxes,
+                        ha='right',
+                        va='top',
+                        bbox=dict(facecolor='white', edgecolor='0.8', alpha=0.9),
+                    )
+                    ax.legend(loc='best', fontsize=8)
+                    ax.grid(alpha=0.2)
+                    fig.tight_layout()
+
+                    plot_path = (
+                        f'{mape_dir}/MAPE_Instability_{self.instability_type}_'
+                        f'{eval_name}_Fold_{fold_id}.png'
+                    )
+                    fig.savefig(plot_path, dpi=300, bbox_inches='tight')
+                    plt.close(fig)
+
+    # Compare each run's prediction with the reference for each evaluation individual.
     def prediction_instability_scatter(self):
         print('[Metric] Prediction Instability Scatter')
         metric_dir = f'{self.metrics_dir}/Prediction_Instability_Scatter'
@@ -835,8 +908,8 @@ class PostMetrics:
                     predictions = self.get_predictions(
                         model_name, eval_name, fold_id
                     )
-                    original = self.get_original_predictions(
-                        model_name, eval_name, fold_id
+                    reference = self.get_reference_predictions(
+                        model_name, eval_name, fold_id, predictions
                     ).to_numpy(dtype=float)
                     values = predictions.to_numpy(dtype=float)
                     defendant_ids = np.asarray(
@@ -847,14 +920,14 @@ class PostMetrics:
                     for run_index, run_name in enumerate(predictions.columns):
                         raw_records.append(pd.DataFrame({
                             'Defendant_ID': defendant_ids,
-                            'Bootstrap_Run': run_name,
-                            'Original_Prediction': original,
-                            'Bootstrap_Prediction': values[:, run_index],
+                            'Run': run_name,
+                            'Reference_Prediction': reference,
+                            'Run_Prediction': values[:, run_index],
                         }))
                     raw_df = pd.concat(raw_records, ignore_index=True)
                     raw_df['Absolute_Difference'] = np.abs(
-                        raw_df['Bootstrap_Prediction']
-                        - raw_df['Original_Prediction']
+                        raw_df['Run_Prediction']
+                        - raw_df['Reference_Prediction']
                     )
                     raw_path = (
                         f'{model_dir}/Prediction_Instability_Scatter_'
@@ -862,24 +935,84 @@ class PostMetrics:
                     )
                     raw_df.to_csv(raw_path, index=False)
 
+                    bin_x, bin_median, bin_lower, bin_upper = _ordered_bin_summary(
+                        raw_df['Reference_Prediction'],
+                        raw_df['Run_Prediction'],
+                        percentiles=(25, 75),
+                    )
+                    per_defendant_mape = raw_df.groupby(
+                        'Defendant_ID'
+                    )['Absolute_Difference'].mean()
+                    per_defendant_sd = raw_df.groupby(
+                        'Defendant_ID'
+                    )['Run_Prediction'].std(ddof=1)
+
                     fig, ax = plt.subplots(figsize=(7, 7))
                     ax.scatter(
-                        raw_df['Original_Prediction'],
-                        raw_df['Bootstrap_Prediction'],
+                        raw_df['Reference_Prediction'],
+                        raw_df['Run_Prediction'],
                         s=9,
-                        alpha=0.2,
+                        alpha=0.12,
                         edgecolors='none',
+                        label='Run predictions',
                     )
-                    ax.plot([0, 1], [0, 1], linestyle='--', color='black', linewidth=1)
-                    ax.set_xlim(0, 1)
-                    ax.set_ylim(0, 1)
+                    if len(bin_x):
+                        ax.fill_between(
+                            bin_x,
+                            bin_lower,
+                            bin_upper,
+                            color='darkorange',
+                            alpha=0.32,
+                            label='25th–75th percentile by risk bin',
+                        )
+                        ax.plot(
+                            bin_x,
+                            bin_median,
+                            color='darkorange',
+                            linewidth=2,
+                            marker='o',
+                            markersize=4,
+                            label='Median run prediction by risk bin',
+                        )
+                    values_for_limits = np.concatenate([
+                        raw_df['Reference_Prediction'].to_numpy(dtype=float),
+                        raw_df['Run_Prediction'].to_numpy(dtype=float),
+                    ])
+                    data_range = float(np.ptp(values_for_limits))
+                    padding = max(0.01, data_range * 0.04)
+                    axis_min = max(0.0, float(np.min(values_for_limits)) - padding)
+                    axis_max = min(1.0, float(np.max(values_for_limits)) + padding)
+                    ax.plot(
+                        [axis_min, axis_max],
+                        [axis_min, axis_max],
+                        linestyle='--',
+                        color='black',
+                        linewidth=1,
+                        label='Agreement line',
+                    )
+                    ax.set_xlim(axis_min, axis_max)
+                    ax.set_ylim(axis_min, axis_max)
                     ax.set_aspect('equal', adjustable='box')
-                    ax.set_xlabel('Original Model Prediction')
+                    ax.set_xlabel('Reference Prediction')
                     ax.set_ylabel('Bootstrap Model Prediction')
                     ax.set_title(
                         f'{self.instability_type} - {model_name} - '
                         f'{eval_name} - Fold {fold_id} - Prediction Instability'
                     )
+                    ax.text(
+                        0.02,
+                        0.98,
+                        f'Defendants: {len(defendant_ids):,}\n'
+                        f'Bootstrap fits: {predictions.shape[1]:,}\n'
+                        f'Mean MAPE: {per_defendant_mape.mean():.4f}\n'
+                        f'Mean defendant SD: {per_defendant_sd.mean():.4f}',
+                        transform=ax.transAxes,
+                        ha='left',
+                        va='top',
+                        bbox=dict(facecolor='white', edgecolor='0.8', alpha=0.9),
+                    )
+                    ax.legend(loc='lower right', fontsize=8)
+                    ax.grid(alpha=0.2)
                     fig.tight_layout()
                     plot_path = (
                         f'{model_dir}/Prediction_Instability_Scatter_'
@@ -944,7 +1077,7 @@ class PostMetrics:
     # Instability metric 
     def classification_instability_index(self):
         print('[Metric] Classification Instability Index (CII)')
-        threshold = 0.5
+        threshold = CII_THRESHOLD
         metric_name = 'CII'
 
         for eval_name in EVAL_NAMES:
@@ -961,29 +1094,70 @@ class PostMetrics:
                 for fold_id in range(1, self.no_of_folds + 1):
                     self.print_metric_progress(eval_name, model_name, fold_id, 'Classification Instability Index', 100)
                     predictions = self.get_predictions(model_name, eval_name, fold_id=fold_id)
-                    
-                    labels = (predictions >= threshold).astype(int)
-                    n_1 = labels.sum(axis=1)
-                    n_0 = labels.shape[1] - n_1
-                    flips = n_0 * n_1
-                    
+                    reference_predictions = self.get_reference_predictions(
+                        model_name, eval_name, fold_id, predictions
+                    ).to_numpy(dtype=float)
+                    reference_labels = reference_predictions >= threshold
+                    bootstrap_labels = predictions.to_numpy(dtype=float) >= threshold
+                    cii_individual = np.mean(
+                        bootstrap_labels != reference_labels[:, np.newaxis],
+                        axis=1,
+                    )
+
                     fold_csv_path = self.generate_csv_path(cii_dir, model_name, metric_name, eval_name, fold_id=fold_id)
-                    
-                    defendant_ids = self.get_defendant_ids(eval_name, fold_id)
-                    csva.save_to_csv(fold_csv_path, 'Defendant_ID', defendant_ids)
-                    
-                    cii_individual = flips / (labels.shape[1] * (labels.shape[1] - 1) / 2)
-                    csva.save_to_csv(fold_csv_path, 'CII', cii_individual)
-                                  
+                    defendant_ids = np.asarray(
+                        self.get_defendant_ids(eval_name, fold_id)
+                    ).ravel()
+                    pd.DataFrame({
+                        'Defendant_ID': defendant_ids,
+                        'Reference_Prediction': reference_predictions,
+                        'Reference_Class': reference_labels.astype(int),
+                        'CII': cii_individual,
+                        'Threshold': threshold,
+                    }).to_csv(fold_csv_path, index=False)
+
                     summary_dict[f'Mean_{metric_name}'].append(np.mean(cii_individual))
                     summary_dict[f'STD_{metric_name}'].append(np.std(cii_individual, ddof=1))
-                    
-                    plt.hist(cii_individual, bins=20)
-                    plt.xlabel('CII per Individual')
-                    plt.ylabel('Count')
-                    plt.title(f'Classification Instability Distribution ({self.instability_type} - {model_name}, Fold {fold_id})')
-                    plt.savefig(fold_csv_path.replace('csv', 'png'))
-                    plt.close()
+
+                    fig, ax = plt.subplots(figsize=(7, 6))
+                    ax.scatter(
+                        reference_predictions,
+                        cii_individual,
+                        s=18,
+                        alpha=0.45,
+                        edgecolors='none',
+                    )
+                    ax.axvline(
+                        threshold,
+                        color='black',
+                        linestyle='--',
+                        linewidth=1,
+                        label=f'Classification threshold ({threshold:.2f})',
+                    )
+                    ax.set_xlim(0, 1)
+                    ax.set_ylim(0, 1)
+                    ax.set_xlabel('Reference Prediction')
+                    ax.set_ylabel('Per-Defendant Classification Instability Index')
+                    ax.set_title(
+                        f'{self.instability_type} - {model_name} - {eval_name} '
+                        f'- Fold {fold_id} - CII'
+                    )
+                    ax.text(
+                        0.98,
+                        0.97,
+                        f'Defendants: {len(cii_individual):,}\n'
+                        f'Bootstrap fits: {predictions.shape[1]:,}\n'
+                        f'Mean CII: {np.mean(cii_individual):.4f}',
+                        transform=ax.transAxes,
+                        ha='right',
+                        va='top',
+                        bbox=dict(facecolor='white', edgecolor='0.8', alpha=0.9),
+                    )
+                    ax.legend(loc='best', fontsize=8)
+                    ax.grid(alpha=0.2)
+                    fig.tight_layout()
+                    fig.savefig(fold_csv_path.replace('.csv', '.png'), dpi=300, bbox_inches='tight')
+                    plt.close(fig)
                     print()
                     
                 summary_csv_path = self.generate_csv_path(cii_dir, model_name, metric_name, eval_name)
