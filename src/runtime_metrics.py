@@ -6,7 +6,7 @@ from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler
 
 # Constant variables
-MRIP_EPSILON = 0.1
+MRIP_EPSILON = 0.15
 MRIP_DELTA = 0.5
 
 # ==================================================
