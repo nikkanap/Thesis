@@ -718,24 +718,25 @@ Figure 4 shows the ROC curves of the evaluated models at bootstrap sample 20 und
 \endhead
 
 Obj. 1
-& Generate bootstrapped samples from the training dataset and retrain the models to assess dataset instability.
+& Assess dataset instability by retraining models on bootstrapped, K-fold training samples.
 &
-(1) Generate bootstrapped samples from the dataset.\newline
-(2) Train each model once on the original dataset, then all bootstrapped samples.\newline
-(3) Save generated predictions from the fixed test dataset in a csv file.
+(1) Generate K-fold splits from the training dataset, and generate bootstrapped samples from the split data, using the excluded split fold as the validation for each fold.\newline
+(2) Train each model on the original fold, then on its bootstrapped samples.\newline
+(3) Save the generated predictions from the fixed test and validation datasets in csv files separated by folds.
 & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & & & & \\
 \midrule
 
 Obj. 2
-& Retrain models on the same dataset with different random seeds to assess stochastic instability.
+& Assess stochastic instability by retraining models with different random seeds across K-fold training partitions.
 &
-(1) Train each model multiple times using different random seeds, while using the same dataset and model parameters.\newline
-(2) Save generated predictions from the fixed test dataset in a csv file.
+(1) Generate K-fold splits from the training dataset and use the excluded split fold as the validation for each fold.\newline
+(2) Train each model multiple times on the training data by fold using different random seeds using default model parameters.\newline
+(3) Save the generated predictions from the fixed test and validation datasets in csv files separated by folds.
 & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & & & & \\
 \midrule
 
 Obj. 3
-& Evaluate each model for each type of instability using metrics for instability, performance, fairness, reliability, and feature contributions using the prediction values obtained. 
+& Evaluate instability, performance, fairness, reliability, and feature contributions using validation and official test predictions.
 &
 (1) Measure model instability using instability metrics.\newline
 (2) Measure model predictive performance using performance metrics.\newline
@@ -747,7 +748,7 @@ Obj. 3
 \midrule
 
 Obj. 4
-& Analyze how results obtained from metrics evaluating each type of instability and model structure influences overall model instability. 
+& Analyze how instability, model structure, and feature contributions relate to predictive inconsistency.
 &
 (1) Compare results from instability metrics across all models to identify which models exhibit higher dataset and stochastic instability.\newline
 (2) Compare results from performance, fairness, and reliability metrics to instability metrics to identify patterns and relationships.\newline
