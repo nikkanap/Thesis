@@ -255,7 +255,7 @@ The dataset used in this study is limited to the COMPAS recidivism dataset, spec
 
 This study assumes that the dataset is properly preprocessed by iModels and that model configurations are correctly implemented. It does not account for external factors such as data quality issues, feature engineering variations, or real-world deployment conditions. Additionally, while multiple instability metrics are used, they capture different aspects of variability and do not constitute a single unified measure of model instability.
 
-\section{Proposed Methodology}
+\section{Methodology}
 \tabto{2em} This study aims to evaluate the instability of models used in ML-RRP while contextualizing it through an analysis of its predictive performance, fairness, reliability, and feature contributions. The methodology is conducted under two experimental regimes: (1) dataset instability experiments, where the model stochasticity is controlled through a fixed random seed $s = 0 $ to isolate the effect of data perturbations, and (2) stochastic instability experiments, where the dataset is held constant while model-internal randomness is varied through repeated runs using different random seeds  $ s = 1 \cdots 10 $. \\
 
 The methodology is designed to ensure clarity, reproducibility, and controlled experimentation, allowing any variability in model outputs to be attributed specifically to either data perturbations or stochastic training processes. \\
