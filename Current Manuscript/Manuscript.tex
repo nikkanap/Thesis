@@ -92,9 +92,9 @@ Beyond existing risk assessment tools, general supervised ML models have also be
 
   The way it works is by producing probability values between 0 and 1 for an outcome by inputting a linear combination of input features into a sigmoid (or logistic) function. \\
   
-  The model estimates the probability of an event occurring using the equation \[ P(Y_i)=\frac{1}{1+e^{-(b_0+\sum_{j=1}^{p} b_j X_{ji})}} \] where the entire fraction represents the sigmoid function that maps any real-valued input into the ([0,1]) range. The term $ b_0 + b_1X_{1i} $ inside the exponent is the linear predictor, which combines the input feature $ X_{1i} $ with its corresponding coefficient $ b_1 $, along with the intercept $ b_0 $, The exponential constant $ e $ ensures a smooth, non-linear transformation of this linear predictor, allowing the model to produce probabilities rather than unbounded outputs.\\
+  The model estimates the probability of an event occurring using the equation \[ \hat{p}_i=P(Y_i=1\mid\mathbf{x}_i)=\frac{1}{1+e^{-(b_0+\sum_{j=1}^{p} b_j X_{ji})}} \] where the entire fraction represents the sigmoid function that maps any real-valued input into the ([0,1]) range. The term $ b_0 + b_1X_{1i} $ inside the exponent is the linear predictor, which combines the input feature $ X_{1i} $ with its corresponding coefficient $ b_1 $, along with the intercept $ b_0 $, The exponential constant $ e $ ensures a smooth, non-linear transformation of this linear predictor, allowing the model to produce probabilities rather than unbounded outputs.\\
   
-  The predicted value $ P(Y_i) $ represents the probability that the outcome $ Y $ is true for a given instance $ i $, which can then be converted into a class label using a decision threshold (commonly 0.5).\\
+  The predicted value $\hat{p}_i=P(Y_i=1\mid\mathbf{x}_i)$ represents the probability of the positive outcome for instance $i$ and can be converted into a class label using a decision threshold (commonly 0.5).\\
   
   Each coefficient $ b_1 $ reflects the strength and direction of the relationship between the feature $ X $ and the log-odds of the outcome. This is what attributes LR's interpretability as each coefficient can be directly linked to changes in the predicted probability.\\
 
@@ -103,14 +103,14 @@ Beyond existing risk assessment tools, general supervised ML models have also be
   
   Despite being less interpretable than simpler models like LR, RF is widely used in RRP due to its high accuracy, resistance to overfitting, and ability to handle high-dimensional data~\cite{kovalchuk2023prediction}, making it well-suited for real-world datasets, hence, why it is the second most popular model studied in the literature of RRP~\cite{travaini2022machine}.\\
 
-  The prediction of the model can be expressed as \[\hat{y} = \text{mode}\{T_1(x), T_2(x), \dots, T_B(x)\} \] where each $ T_b(x) $ represents the prediction of the $b$-th decision tree and $B$ is the total number of trees in the forest. The function $\text{mode}(\cdot)$ corresponds to the majority voting scheme used in classification tasks, selecting the class most frequently predicted across all trees. Each individual tree is trained on a randomly sampled subset of the data (with replacement), a process known as bootstrap sampling, which introduces diversity among the trees. Additionally, at each split in a tree, only a random subset of features is considered, further reducing correlation between trees and improving generalization. The final prediction $\hat{y}$ is therefore more robust than that of a single decision tree, as it averages out errors and reduces variance. This ensemble approach allows RF to capture complex, nonlinear relationships in the data while mitigating the risk of overfitting.\\  
+  The prediction of the model can be expressed as \[ \widehat{P}(Y_i=k\mid\mathbf{x}_i)=\frac{1}{B}\sum_{b=1}^{B}\widehat{P}_b(Y_i=k\mid\mathbf{x}_i),\qquad \hat{y}_i=\underset{k\in\{0,1\}}{\arg\max}\;\widehat{P}(Y_i=k\mid\mathbf{x}_i) \] where $\widehat{P}_b(Y_i=k\mid\mathbf{x}_i)$ is the probability assigned to class $k$ by tree $b$, and $B$ is the number of trees. The predicted class is the one with the greatest mean probability across the trees. Each individual tree is trained on a randomly sampled subset of the data (with replacement), a process known as bootstrap sampling, which introduces diversity among the trees. Additionally, at each split in a tree, only a random subset of features is considered, further reducing correlation between trees and improving generalization. The final prediction $\hat{y}$ is therefore more robust than that of a single decision tree, as it averages out errors and reduces variance. This ensemble approach allows RF to capture complex, nonlinear relationships in the data while mitigating the risk of overfitting.\\  
 
  \item \textbf{XGBoost}\\
   \tabto{2em} XGBoost is a gradient-boosted tree algorithm that builds the model sequentially by correcting the errors of previous trees. It constructs an additive model where each new tree is trained to minimize the residual errors of the existing ensemble.\\
   
   Multiple studies have explored XGBoost in RRP, with results showing it yielded competitive or superior performance as compared to other models~\cite{won2019recidivism,rajendran2021predicting}. The model, combined with extensive feature engineering and hyperparameter tuning, was also used in the winning solution of the National Institute of Justice (NIJ) Recidivism Forecasting Challenge~\cite{han2022xgboost}. 
   
-  The prediction of the model can be expressed as \[ \hat{y}_i = \sum_{t=1}^{T} f_t(x_i) \] where each $f_t(x_i)$ represents the prediction of the $ t$ -th decision tree and (T) is the total number of trees. Each function $ f_t $ belongs to the space of regression trees, and is added sequentially to improve the overall model performance. The training process minimizes an objective function defined as \[ \mathcal{L} = \sum_{i=1}^{n} l(y_i, \hat{y}_i) + \sum_{t=1}^{T} \Omega(f_t) \] where $ l(y_i, \hat{y}_i) $ is the loss function that measures the difference between the true value and the predicted value, and $ \Omega(f_t) $ is a regularization term that penalizes model complexity. This regularization component helps prevent overfitting by controlling the depth and structure of each tree.\\
+  The prediction of the model can be expressed as \[ \hat{y}_i=\frac{1}{1+\exp\!\left[-\left(\underbrace{b_0}_{\text{base-score margin}}+\sum_{t=1}^{T}f_t(x_i)\right)\right]},\qquad T=100 \] where each $f_t(x_i)$ represents the prediction of the $ t$ -th decision tree and (T) is the total number of trees. Each function $ f_t $ belongs to the space of regression trees, and is added sequentially to improve the overall model performance. The training process minimizes an objective function defined as \[ \mathcal{L} = \sum_{i=1}^{n} l(y_i, \hat{y}_i) + \sum_{t=1}^{T} \Omega(f_t) \] where $ l(y_i, \hat{y}_i) $ is the loss function that measures the difference between the true value and the predicted value, and $ \Omega(f_t) $ is a regularization term that penalizes model complexity. This regularization component helps prevent overfitting by controlling the depth and structure of each tree.\\
   
   Unlike Random Forest, which builds trees independently, XGBoost builds trees sequentially, with each new tree focusing on correcting the errors made by previous ones. This boosting mechanism allows the model to capture complex patterns and improve predictive accuracy. The final prediction $ \hat{y}_i $ is therefore a weighted combination of all trees in the ensemble.\\
   
@@ -121,7 +121,7 @@ Beyond existing risk assessment tools, general supervised ML models have also be
   
   There are two types of SVMs explored in RRP studies: linear (where classes can be linearly separated) and nonlinear SVMS (using of complex boundaries to separate classes)~\cite{tollenaar2013method, duwe2017out, dressel2018accuracy}. For this paper, only linear SVM is discussed further.
 
-  The decision function of a linear SVM can be expressed as \[ f(x_i) = w^T x_i + b \] where $ w $ is the weight vector, $ x_i $ is the feature vector for instance $i$, and $b$ is the bias term. This function defines a hyperplane that separates the classes in the feature space. The predicted class label is determined by the sign of the decision function, given by \[ \hat{y}_i = \text{sign}(w^T x_i + b) \] where positive and negative values correspond to different classes. The model is trained by solving an optimization problem that maximizes the margin while penalizing misclassifications, expressed as \[ \min_{w,b} \ \frac{1}{2} \|w\|^2 + C \sum_{i=1}^{n} \xi_i \] where $ \|w\|^2 $ controls the margin size, $ C $ is a regularization parameter, and $ \xi_i $ are slack variables that allow for some classification errors. This formulation ensures that the model balances margin maximization with classification accuracy. The resulting decision boundary is therefore the one that maximizes separation between classes while tolerating limited violations.
+  The decision function of a linear SVM can be expressed as \[ f(x_i) = w^T x_i + b \] where $ w $ is the weight vector, $ x_i $ is the feature vector for instance $i$, and $b$ is the bias term. This function defines a hyperplane that separates the classes in the feature space. The predicted class label is determined by the sign of the decision function, given by \[ \hat{y}_i = \text{sign}(w^T x_i + b) \] where positive and negative values correspond to different classes. The model is trained by solving an optimization problem that maximizes the margin while penalizing misclassifications, expressed as \[ \begin{aligned} \min_{w,b,\boldsymbol{\xi}}\quad &\frac{1}{2}\|w\|_2^2+\frac{b^2}{2}+C\sum_{i=1}^{n}\xi_i^2 \\ \text{subject to}\quad & (2Y_i-1)(w^T x_i+b)\ge 1-\xi_i,\quad \xi_i\ge0,\quad i=1,\ldots,n. \end{aligned} \] where $ \|w\|^2 $ controls the margin size, $ C $ is a regularization parameter, and $ \xi_i $ are slack variables that allow for some classification errors. This formulation ensures that the model balances margin maximization with classification accuracy. The resulting decision boundary is therefore the one that maximizes separation between classes while tolerating limited violations. The calibrated positive-class probability is \[ \hat{p}_{i,\mathrm{cal}}=\frac{1}{5}\sum_{q=1}^{5}\frac{1}{1+\exp\!\left(A_q f_i^{(q)}+B_q\right)}, \] as returned by \texttt{CalibratedClassifierCV} using five folds and sigmoid calibration.
 
  \item \textbf{Multilayer Perceptron (MLP)}\\
   \tabto{2em} A Multilayer Perceptron (MLP) is a feedforward neural network that learns nonlinear relationships by passing input features through interconnected layers of units. Neural networks, including MLPs, have been evaluated in recidivism risk prediction alongside other supervised learning algorithms~\cite{duwe2017out,travaini2022machine}. Unlike linear models, an MLP can represent nonlinear relationships between features through its hidden layers and activation functions.\\
@@ -133,8 +133,6 @@ Beyond existing risk assessment tools, general supervised ML models have also be
   where $\mathbf{x}_i$ is the feature vector for instance $i$, $\mathbf{h}_i^{(\ell)}$ is the vector of unit outputs at layer $\ell$, $W^{(\ell)}$ is the matrix of weights connecting the previous layer to the current layer, $\mathbf{b}^{(\ell)}$ is the bias vector, and $\phi^{(\ell)}$ is the layer activation function. The hidden layers transform the input into increasingly useful representations, while the nonlinear activation functions allow the network to capture patterns that a linear model cannot represent.\\
 
   For binary classification, the final layer produces the predicted probability $\hat{p}_i = P(Y_i=1\mid\mathbf{x}_i)$, which can be converted into a class label using a decision threshold. During training, the network adjusts its weights and biases through backpropagation to reduce prediction error. The layered structure allows the MLP to model complex feature relationships, although its learned parameters are less directly interpretable than the coefficients of LR.\\
-  % In this study, the MLP uses two hidden layers with 64 and 32 units, respectively.
-  % General layer equation adapted from Goodfellow, Bengio, and Courville (2016), Chapter 6: https://www.deeplearningbook.org/contents/mlp.html
 \end{enumerate}
 
 \subsubsection{Concerns in Machine Learning-Based Risk Assessment}
@@ -291,69 +289,55 @@ is\_recid & BINARY & 1 if the defendant actually recidivated after the last COMP
 
 With regards to the inherent stochasticity of ensemble models such as Random Forest and XGBoost, care is taken to distinguish dataset-induced instability. In particular, Random Forest introduces randomness through bootstrap sampling of the training data and random feature selection at each split, which can lead to variability in model outputs even under identical training conditions. For XGBoost, stochastic components such as subsampling and column sampling are likewise controlled or explicitly held constant when not part of the experimental design. This ensures that any measured variation in predictions reflects differences in data sampling rather than uncontrolled randomness within the learning algorithms themselves. \\
 
-Each model is implemented using the following controlled baseline configurations which are fixed across all experiments for both instability types while avoiding extensive tuning to ensure that no additional uncontrolled source of instability is introduced and that the experiment is reproducible across all experimental runs.
+The table summarizes the settings passed by the program and the relevant library defaults. \textbf{Project-set} identifies arguments explicitly passed by the study code; \textbf{Library default} identifies settings omitted from the constructor and therefore supplied by the library. Values in the random-state rows vary by experiment: the dataset-instability runs use the configured dataset seed, while stochastic-instability runs use the run index. The scikit-learn defaults correspond to version 1.9.0 and the XGBoost defaults to version 3.4.1 used in the project environment. The defaults are checked against the official \href{https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html}{LogisticRegression}, \href{https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html}{RandomForestClassifier}, \href{https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVC.html}{LinearSVC}, \href{https://scikit-learn.org/stable/modules/generated/sklearn.calibration.CalibratedClassifierCV.html}{CalibratedClassifierCV}, and \href{https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html}{MLPClassifier} API documentation, and the \href{https://xgboost.readthedocs.io/en/stable/parameter.html}{XGBoost parameter documentation}.
 
-\begin{multicols}{2}
- \subsubsection*{1. Logistic Regression}
- \begin{itemize}
-  \item penalty = L2
-  \item solver = lbfgs
-  \item max\_iter = 1000
-  \item C = 1.0
-  \item random\_state = $s$
- \end{itemize}
+\begin{longtable}{@{}p{2cm}p{3.75cm}p{5.1cm}p{3.45cm}@{}}
+\caption{Model configuration and parameter source}\label{tab:model-configurations}\\
+\toprule
+\textbf{Model} & \textbf{Parameter} & \textbf{Value or behavior} & \textbf{Source} \\
+\midrule
+\endfirsthead
+\toprule
+\textbf{Model} & \textbf{Parameter} & \textbf{Value or behavior} & \textbf{Source} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+Logistic Regression & Regularization & L2 behavior & Library default \\
+& $C$ & 1.0 & Library default \\
+& solver & \texttt{lbfgs} & Library default \\
+& \texttt{max\_iter} & 1000 (API default: 100) & Project-set \\
+& \texttt{random\_state} & Dataset seed or stochastic run index & Project-set \\
+\midrule
+Random Forest & \texttt{n\_estimators} & 100 (same as API default) & Project-set \\
+& \texttt{max\_depth} & \texttt{None} & Library default \\
+& \texttt{bootstrap} & \texttt{True} & Library default \\
+& \texttt{max\_features} & \texttt{sqrt} & Library default \\
+& \texttt{random\_state} & Dataset seed or stochastic run index & Project-set \\
+\midrule
+XGBoost & \texttt{objective} & \texttt{binary:logistic} & Project-set (same as API default) \\
+& \texttt{max\_depth} & 3 & Project-set \\
+& \texttt{learning\_rate} & 0.1 & Project-set \\
+& \texttt{n\_estimators} & 100 & Project-set \\
+& \texttt{enable\_categorical} & \texttt{False} & Project-set \\
+& \texttt{subsample} & 1.0 (effective default) & Library default \\
+& \texttt{colsample\_by\_tree} & 1.0 (effective default) & Library default \\
+& \texttt{random\_state} & Dataset seed or stochastic run index & Project-set \\
+\midrule
+LinearSVC & $C$ & 1.0 & Library default \\
+& \texttt{loss} & \texttt{squared\_hinge} & Library default \\
+& \texttt{max\_iter} & 1000 & Library default \\
+& \texttt{random\_state} & Dataset seed or stochastic run index & Project-set \\
+Probability calibration & \texttt{method} & \texttt{sigmoid} & Project-set (same as API default) \\
+& \texttt{cv} & 5 folds & Project-set (same effective default) \\
+\midrule
+Multilayer Perceptron & \texttt{hidden\_layer\_sizes} & (64, 32) & Project-set \\
+& \texttt{max\_iter} & 1000 (API default: 200) & Project-set \\
+& \texttt{random\_state} & Dataset seed or stochastic run index & Project-set \\
+\bottomrule
+\end{longtable}
 
- \columnbreak
-
- \subsubsection*{2. Random Forest}
- \begin{itemize}
-  \item n\_estimators = 100
-  \item max\_depth = None
-  \item bootstrap = True
-  \item max\_features = sqrt
-  \item random\_state = $s$
- \end{itemize}
-\end{multicols}
-
-\begin{multicols}{2}
- \subsubsection*{3. XGBoost}
- \begin{itemize}
-  \item objective = binary:logistic
-  \item max\_depth = 3
-  \item learning\_rate = 0.1
-  \item n\_estimators = 100
-  \item subsample = 1.0 (default)
-  \item colsample\_bytree = 1.0 (default)
-  \item random\_state = $s$
- \end{itemize}
-
- \columnbreak
-
- \subsubsection*{4. LinearSVC}
- \begin{itemize}
-  \item C = 1.0
-  \item loss = squared\_hinge
-  \item max\_iter = 1000
-  \item random\_state = $s$
- \end{itemize}
-
- To obtain probability estimates, the model is wrapped using:
- \begin{itemize}
-  \item CalibratedClassifierCV
-  \begin{itemize}
-    \item method = sigmoid
-    \item cv = 5
-  \end{itemize}
- \end{itemize}
-\end{multicols}
-
-\subsubsection*{5. Multilayer Perceptron}
-\begin{itemize}
-  \item hidden\_layer\_sizes = (64, 32)
-  \item max\_iter = 1000
-  \item random\_state = $s$
-\end{itemize}
-Other MLPClassifier parameters use their library defaults.
+Other constructor arguments not listed in the table are not explicitly set by the program and retain their library defaults. For \texttt{CalibratedClassifierCV}, the program explicitly requests five folds; this is equivalent to scikit-learn's current \texttt{cv=None} default, which uses five-fold cross-validation for classification.
 
 \subsection{Metrics for Instability}
 To evaluate dataset and stochastic instability in each model, multiple instability metrics is used to measure different aspects of variability such as score distributions, labels, and ranking. Other metrics are also used to measure different aspects of each model such as performance, fairness, reliability, and feature contribution. Each instability type is measured separately using the metrics.\\
@@ -527,17 +511,17 @@ All experiments is conducted on the following device specifications:
   \caption{Laptop Specifications Used in the Study}
   \begin{tabular}{ll}
     \toprule
-    \textbf{Component} & \textbf{Specification} 
+    \textbf{Component} & \textbf{Specification} \\
     \midrule
-    Model & Acer Aspire A315-44P 
-    Operating System & Linux Mint 22.3 (Ubuntu 24.04 base) 
-    Kernel & 6.17.0-19-generic (64-bit) 
-    Processor (CPU) & AMD Ryzen 7 5700U (8 cores, 16 threads) 
-    Graphics (GPU) & Integrated AMD Radeon Graphics 
-    Memory (RAM) & 16 GB 
-    Storage & 512 GB NVMe SSD (Samsung) 
-    Display & 1920 $\times$ 1080 @ 60Hz 
-    Desktop Environment & Cinnamon 6.6.7
+    Model & Acer Aspire A315-44P \\
+    Operating System & Linux Mint 22.3 (Ubuntu 24.04 base) \\
+    Kernel & 6.17.0-19-generic (64-bit) \\
+    Processor (CPU) & AMD Ryzen 7 5700U (8 cores, 16 threads) \\
+    Graphics (GPU) & Integrated AMD Radeon Graphics \\
+    Memory (RAM) & 16 GB \\
+    Storage & 512 GB NVMe SSD (Samsung) \\
+    Display & 1920 $\times$ 1080 @ 60Hz \\
+    Desktop Environment & Cinnamon 6.6.7 \\
     \bottomrule
   \end{tabular}\label{tab:laptop_specs}
 \end{table}
