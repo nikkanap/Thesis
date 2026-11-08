@@ -88,51 +88,85 @@ Beyond existing risk assessment tools, general supervised ML models have also be
 % EDIT THIS PART
 \begin{enumerate}
  \item \textbf{Logistic Regression} \\
-  \tabto{2em} Logistic Regression (LR) is a statistical model used for binary classification tasks and is the most used baseline model in RRP studies due to its simplicity and interpretability~\cite{travaini2022machine}, which makes it particularly suitable for high-stakes domains such as criminal justice, where understanding model decisions is important. LR was also used in the development of the MnSTARR~\cite{duwe2014development}.\\
+  \tabto{2em} Logistic Regression (LR) is a statistical classification model that estimates the probability of an outcome from a linear combination of input features. It is widely used as a baseline in recidivism risk prediction because its coefficients offer a relatively direct way to interpret how features relate to the outcome~\cite{travaini2022machine}. Logistic regression was also used in developing the Minnesota Screening Tool Assessing Recidivism Risk (MnSTARR)~\cite{duwe2014development}.\\
 
-  The way it works is by producing probability values between 0 and 1 for an outcome by inputting a linear combination of input features into a sigmoid (or logistic) function. \\
-  
-  The model estimates the probability of an event occurring using the equation \[ \hat{p}_i=P(Y_i=1\mid\mathbf{x}_i)=\frac{1}{1+e^{-(b_0+\sum_{j=1}^{p} b_j X_{ji})}} \] where the entire fraction represents the sigmoid function that maps any real-valued input into the ([0,1]) range. The term $ b_0 + b_1X_{1i} $ inside the exponent is the linear predictor, which combines the input feature $ X_{1i} $ with its corresponding coefficient $ b_1 $, along with the intercept $ b_0 $, The exponential constant $ e $ ensures a smooth, non-linear transformation of this linear predictor, allowing the model to produce probabilities rather than unbounded outputs.\\
-  
-  The predicted value $\hat{p}_i=P(Y_i=1\mid\mathbf{x}_i)$ represents the probability of the positive outcome for instance $i$ and can be converted into a class label using a decision threshold (commonly 0.5).\\
-  
-  Each coefficient $ b_1 $ reflects the strength and direction of the relationship between the feature $ X $ and the log-odds of the outcome. This is what attributes LR's interpretability as each coefficient can be directly linked to changes in the predicted probability.\\
+  For a binary outcome, the model represents the log-odds of the positive outcome as a linear function of the features:
+  \[
+  \log\!\left(\frac{P(Y_i=1\mid\mathbf{x}_i)}{1-P(Y_i=1\mid\mathbf{x}_i)}\right)
+  = b_0+\sum_{j=1}^{p}b_jx_{ij}.
+  \]
+  Applying the inverse logit, or sigmoid, function gives the positive-class probability:
+  \[
+  \hat{p}_i=P(Y_i=1\mid\mathbf{x}_i)
+  =\frac{1}{1+\exp\!\left[-\left(b_0+\sum_{j=1}^{p}b_jx_{ij}\right)\right]}.
+  \]
+  Here, $\mathbf{x}_i$ is the feature vector for instance $i$, $x_{ij}$ is feature $j$, $b_j$ is its coefficient, and $b_0$ is the intercept. A coefficient $b_j$ gives the change in log-odds associated with a one-unit increase in feature $j$, holding other features fixed; equivalently, the odds are multiplied by $e^{b_j}$. The resulting probability can be assigned to a class using a decision threshold.\\
 
  \item \textbf{Random Forest}\\
-  \tabto{2em} Random Forest (RF) is an ensemble learning method that constructs multiple decision trees and combines their predictions to form a robust model~\cite{kovalchuk2023prediction}. It operates by generating a collection of decision trees trained on different bootstrap samples of the dataset and aggregating their outputs through a voting mechanism.\\
-  
-  Despite being less interpretable than simpler models like LR, RF is widely used in RRP due to its high accuracy, resistance to overfitting, and ability to handle high-dimensional data~\cite{kovalchuk2023prediction}, making it well-suited for real-world datasets, hence, why it is the second most popular model studied in the literature of RRP~\cite{travaini2022machine}.\\
+  \tabto{2em} Random Forest (RF) is an ensemble of decision trees. It builds trees using bootstrap samples of the training data and considers randomly selected subsets of features when splitting nodes. These sources of randomness make the trees less alike; combining their predictions can reduce the variance of an individual tree~\cite{kovalchuk2023prediction}. Random forests have been applied to recidivism risk prediction and are among the commonly examined models in this literature~\cite{travaini2022machine}.\\
 
-  The prediction of the model can be expressed as \[ \widehat{P}(Y_i=k\mid\mathbf{x}_i)=\frac{1}{B}\sum_{b=1}^{B}\widehat{P}_b(Y_i=k\mid\mathbf{x}_i),\qquad \hat{y}_i=\underset{k\in\{0,1\}}{\arg\max}\;\widehat{P}(Y_i=k\mid\mathbf{x}_i) \] where $\widehat{P}_b(Y_i=k\mid\mathbf{x}_i)$ is the probability assigned to class $k$ by tree $b$, and $B$ is the number of trees. The predicted class is the one with the greatest mean probability across the trees. Each individual tree is trained on a randomly sampled subset of the data (with replacement), a process known as bootstrap sampling, which introduces diversity among the trees. Additionally, at each split in a tree, only a random subset of features is considered, further reducing correlation between trees and improving generalization. The final prediction $\hat{y}$ is therefore more robust than that of a single decision tree, as it averages out errors and reduces variance. This ensemble approach allows RF to capture complex, nonlinear relationships in the data while mitigating the risk of overfitting.\\  
+  For classification, the forest can average the class probabilities estimated by its $B$ trees and select the class with the largest average:
+  \[
+  \hat{P}(Y_i=k\mid\mathbf{x}_i)=\frac{1}{B}\sum_{b=1}^{B}\hat{P}_b(Y_i=k\mid\mathbf{x}_i),
+  \qquad
+  \hat{y}_i=\underset{k\in\{0,1\}}{\arg\max}\;\hat{P}(Y_i=k\mid\mathbf{x}_i).
+  \]
+  Here, $\hat{P}_b(Y_i=k\mid\mathbf{x}_i)$ is the probability assigned to class $k$ by tree $b$. This probability-averaging description distinguishes the forest's prediction from majority voting over hard class labels.\\
 
  \item \textbf{XGBoost}\\
-  \tabto{2em} XGBoost is a gradient-boosted tree algorithm that builds the model sequentially by correcting the errors of previous trees. It constructs an additive model where each new tree is trained to minimize the residual errors of the existing ensemble.\\
+  \tabto{2em} XGBoost is a gradient-boosted decision tree method. It builds an additive ensemble sequentially: each new tree is chosen to improve the objective given the predictions of the trees already added. This is often described informally as correcting previous errors; more generally, the improvement is guided by gradient information from the chosen loss function. XGBoost has been studied for recidivism prediction, including work using it to forecast recidivism and as part of a winning solution to the National Institute of Justice forecasting challenge~\cite{won2019recidivism,rajendran2021predicting,han2022xgboost}.\\
   
-  Multiple studies have explored XGBoost in RRP, with results showing it yielded competitive or superior performance as compared to other models~\cite{won2019recidivism,rajendran2021predicting}. The model, combined with extensive feature engineering and hyperparameter tuning, was also used in the winning solution of the National Institute of Justice (NIJ) Recidivism Forecasting Challenge~\cite{han2022xgboost}. 
-  
-  The prediction of the model can be expressed as \[ \hat{y}_i=\frac{1}{1+\exp\!\left[-\left(\underbrace{b_0}_{\text{base-score margin}}+\sum_{t=1}^{T}f_t(x_i)\right)\right]},\qquad T=100 \] where each $f_t(x_i)$ represents the prediction of the $ t$ -th decision tree and (T) is the total number of trees. Each function $ f_t $ belongs to the space of regression trees, and is added sequentially to improve the overall model performance. The training process minimizes an objective function defined as \[ \mathcal{L} = \sum_{i=1}^{n} l(y_i, \hat{y}_i) + \sum_{t=1}^{T} \Omega(f_t) \] where $ l(y_i, \hat{y}_i) $ is the loss function that measures the difference between the true value and the predicted value, and $ \Omega(f_t) $ is a regularization term that penalizes model complexity. This regularization component helps prevent overfitting by controlling the depth and structure of each tree.\\
-  
-  Unlike Random Forest, which builds trees independently, XGBoost builds trees sequentially, with each new tree focusing on correcting the errors made by previous ones. This boosting mechanism allows the model to capture complex patterns and improve predictive accuracy. The final prediction $ \hat{y}_i $ is therefore a weighted combination of all trees in the ensemble.\\
-  
-  Due to its optimization techniques, such as gradient-based learning and regularization, XGBoost is both computationally efficient and highly accurate. 
+  For binary classification, the trees produce an additive raw score, which is transformed into a probability by the sigmoid function:
+  \[
+  F(\mathbf{x}_i)=b_0+\sum_{t=1}^{T}f_t(\mathbf{x}_i),
+  \qquad
+  \hat{p}_i=P(Y_i=1\mid\mathbf{x}_i)=\frac{1}{1+e^{-F(\mathbf{x}_i)}}.
+  \]
+  Here, $f_t$ is the score produced by tree $t$, $T$ is the number of trees, and $b_0$ is an initial score. The training objective combines prediction loss with a penalty on tree complexity:
+  \[
+  \mathcal{L}=\sum_{i=1}^{n}\ell(y_i,\hat{p}_i)+\sum_{t=1}^{T}\Omega(f_t),
+  \]
+  where $\ell$ is the binary logistic loss, $\ell(y_i,\hat{p}_i)=-y_i\log\hat{p}_i-(1-y_i)\log(1-\hat{p}_i)$, and $\Omega$ penalizes tree complexity. A common tree penalty is
+  \[
+  \Omega(f_t)=\gamma J_t+\frac{\lambda}{2}\sum_{j=1}^{J_t}w_{tj}^{2},
+  \]
+  where $J_t$ is the number of leaves in tree $t$, $w_{tj}$ is the score assigned to leaf $j$, and $\gamma$ and $\lambda$ control the penalties. Each new tree is added to reduce this regularized objective, so the final score is an additive sum of tree outputs rather than a vote among trees.\\
 
  \item \textbf{Linear Support Vector Machines (SVMs)}\\
-  \tabto{2em} Support vector machines are classification models that separate classes by finding a decision boundary that maximizes the margin between them. SVMs have been explored in RRP studies alongside other ML models, often demonstrating competitive performance across different evaluation settings~\cite{duwe2017out, tolan2019machine,ozkan2017predicting}. 
-  
-  There are two types of SVMs explored in RRP studies: linear (where classes can be linearly separated) and nonlinear SVMS (using of complex boundaries to separate classes)~\cite{tollenaar2013method, duwe2017out, dressel2018accuracy}. For this paper, only linear SVM is discussed further.
+  \tabto{2em} Support Vector Machines (SVMs) are classification models that seek a decision boundary with a large margin between classes. SVMs have been examined in recidivism risk prediction alongside other supervised learning methods~\cite{duwe2017out,tolan2019machine,ozkan2017predicting}. A linear SVM uses a linear boundary in the feature space; nonlinear SVMs can represent more complex boundaries through other formulations~\cite{tollenaar2013method,duwe2017out,dressel2018accuracy}. Only linear SVMs are discussed here.\\
 
-  The decision function of a linear SVM can be expressed as \[ f(x_i) = w^T x_i + b \] where $ w $ is the weight vector, $ x_i $ is the feature vector for instance $i$, and $b$ is the bias term. This function defines a hyperplane that separates the classes in the feature space. The predicted class label is determined by the sign of the decision function, given by \[ \hat{y}_i = \text{sign}(w^T x_i + b) \] where positive and negative values correspond to different classes. The model is trained by solving an optimization problem that maximizes the margin while penalizing misclassifications, expressed as \[ \begin{aligned} \min_{w,b,\boldsymbol{\xi}}\quad &\frac{1}{2}\|w\|_2^2+\frac{b^2}{2}+C\sum_{i=1}^{n}\xi_i^2 \\ \text{subject to}\quad & (2Y_i-1)(w^T x_i+b)\ge 1-\xi_i,\quad \xi_i\ge0,\quad i=1,\ldots,n. \end{aligned} \] where $ \|w\|^2 $ controls the margin size, $ C $ is a regularization parameter, and $ \xi_i $ are slack variables that allow for some classification errors. This formulation ensures that the model balances margin maximization with classification accuracy. The resulting decision boundary is therefore the one that maximizes separation between classes while tolerating limited violations. The calibrated positive-class probability is \[ \hat{p}_{i,\mathrm{cal}}=\frac{1}{5}\sum_{q=1}^{5}\frac{1}{1+\exp\!\left(A_q f_i^{(q)}+B_q\right)}, \] as returned by \texttt{CalibratedClassifierCV} using five folds and sigmoid calibration.
+  With labels encoded as $y_i\in\{-1,+1\}$, the linear SVM decision function and predicted class are
+  \[
+  f(\mathbf{x}_i)=\mathbf{w}^{\mathsf T}\mathbf{x}_i+b,
+  \qquad
+  \hat{y}_i=\operatorname{sign}\!\left(f(\mathbf{x}_i)\right),
+  \]
+  where $\mathbf{w}$ determines the boundary's orientation and $b$ its offset. A common soft-margin formulation is
+  \[
+  \min_{\mathbf{w},b,\boldsymbol{\xi}}\quad
+  \frac{1}{2}\|\mathbf{w}\|_2^2+C\sum_{i=1}^{n}\xi_i
+  \quad\text{subject to}\quad
+  y_i(\mathbf{w}^{\mathsf T}\mathbf{x}_i+b)\geq 1-\xi_i,\quad \xi_i\geq0.
+  \]
+  The slack variables $\xi_i$ allow points to fall within the margin or be misclassified; $C$ controls the trade-off between a wide margin and violations. An SVM's decision function is a signed score rather than a probability, so probability estimates require a separate calibration procedure.\\
 
  \item \textbf{Multilayer Perceptron (MLP)}\\
-  \tabto{2em} A Multilayer Perceptron (MLP) is a feedforward neural network that learns nonlinear relationships by passing input features through interconnected layers of units. Neural networks, including MLPs, have been evaluated in recidivism risk prediction alongside other supervised learning algorithms~\cite{duwe2017out,travaini2022machine}. Unlike linear models, an MLP can represent nonlinear relationships between features through its hidden layers and activation functions.\\
+  \tabto{2em} A Multilayer Perceptron (MLP) is a feedforward neural network in which each layer transforms the outputs of the previous layer. Its learned weights and nonlinear activation functions allow it to represent nonlinear relationships among input features. Neural networks, including MLPs, have been evaluated in recidivism risk prediction alongside other supervised learning methods~\cite{duwe2017out,travaini2022machine}.\\
 
-  The output of each layer can be expressed as
+  The transformation at hidden layer $\ell$ is
   \[
-  \mathbf{h}_i^{(\ell)} = \phi^{(\ell)}\!\left( W^{(\ell)}\mathbf{h}_i^{(\ell-1)} + \mathbf{b}^{(\ell)} \right), \qquad \mathbf{h}_i^{(0)} = \mathbf{x}_i,
+  \mathbf{h}_i^{(0)}=\mathbf{x}_i,
+  \qquad
+  \mathbf{h}_i^{(\ell)}=\phi^{(\ell)}\!\left(W^{(\ell)}\mathbf{h}_i^{(\ell-1)}+\mathbf{b}^{(\ell)}\right),
+  \quad \ell=1,\ldots,L,
   \]
-  where $\mathbf{x}_i$ is the feature vector for instance $i$, $\mathbf{h}_i^{(\ell)}$ is the vector of unit outputs at layer $\ell$, $W^{(\ell)}$ is the matrix of weights connecting the previous layer to the current layer, $\mathbf{b}^{(\ell)}$ is the bias vector, and $\phi^{(\ell)}$ is the layer activation function. The hidden layers transform the input into increasingly useful representations, while the nonlinear activation functions allow the network to capture patterns that a linear model cannot represent.\\
-
-  For binary classification, the final layer produces the predicted probability $\hat{p}_i = P(Y_i=1\mid\mathbf{x}_i)$, which can be converted into a class label using a decision threshold. During training, the network adjusts its weights and biases through backpropagation to reduce prediction error. The layered structure allows the MLP to model complex feature relationships, although its learned parameters are less directly interpretable than the coefficients of LR.\\
+  where $\mathbf{x}_i$ is the input vector, $W^{(\ell)}$ and $\mathbf{b}^{(\ell)}$ are the weights and biases for layer $\ell$, and $\phi^{(\ell)}$ is its activation function. For binary classification, the output layer maps the final hidden representation to a probability:
+  \[
+  \hat{p}_i=P(Y_i=1\mid\mathbf{x}_i)
+  =\sigma\!\left(\mathbf{w}_{o}^{\mathsf T}\mathbf{h}_i^{(L)}+b_o\right),
+  \qquad \sigma(z)=\frac{1}{1+e^{-z}}.
+  \]
+  The model's weights and biases are learned by minimizing a prediction loss, commonly binary cross-entropy, using gradients computed through backpropagation. A decision threshold can then convert the predicted probability into a class label. Compared with LR's single linear predictor, hidden layers with nonlinear activations can represent more complex feature relationships, though their learned parameters are less directly interpretable.\\
 \end{enumerate}
 
 \subsubsection{Concerns in Machine Learning-Based Risk Assessment}
