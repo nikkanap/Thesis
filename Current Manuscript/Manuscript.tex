@@ -17,7 +17,7 @@
 \usepackage{multicol}
 \usepackage{subcaption}
 
-% ----TITLE PAGE DETAILS----
+% ✅ ----TITLE PAGE DETAILS---- 
 \title{\bfseries An Empirical Analysis of Dataset and Stochastic Instability in Classification Models for Recidivism Risk Prediction Using the COMPAS Dataset}
 \author{\bfseries 
  Nikka Angela E. Naputo\\
@@ -28,15 +28,15 @@
 }
 \date{\today}
 
-% ----START THE DOCUMENT----
+% ✅ ----START THE DOCUMENT----
 \begin{document}
 \sloppy % Prevent text from extending to other columns
 
-% ----DISPLAY TITLE----
+% ✅ ----DISPLAY TITLE----
 \maketitle 
 \newpage 
 
-% ----DISPLAY TABLE OF CONTENTS----
+% ✅ ----DISPLAY TABLE OF CONTENTS----
 \tableofcontents 
 \newpage
 
@@ -60,7 +60,7 @@ Therefore, examining the instability of ML models in RRP is essential, as it add
 \subsubsection{Recidivism Risk Assessment} 
 \tabto{2em} Recidivism risk assessment is the use of statistical or algorithmic tools to predict the likelihood an individual will re-engage in criminal behavior after being punished or released~\cite{ozkan2017predicting}. These tools help judges, administrators, and correctional officers make informed decisions about a defendant with regards to their pretrial detention, sentencing, and inmate placement~\cite{corbett2017algorithmic}.\\
 
-% Talks about the four generations of risk assessment tools
+% ✅ Talks about the four generations of risk assessment tools
 \textbf{There are four generations of risk assessment tools:}
 \begin{enumerate}
  \item \textbf{First Generation (Pre-1950s):} Offender risk assessment was primarily based on subjective, professional judgements made by correctional staff~\cite{duwe2017out,ozkan2017predicting}. However, these assessments were often vulnerable to individual bias and inconsistency.
@@ -85,6 +85,7 @@ These tools are used to support criminal justice decisions such as sentencing, p
 
 Beyond existing risk assessment tools, general supervised ML models have also been explored for RRP such as logistic regression, random forests, gradient-boosted trees, and support vector machines~\cite{duwe2017out,ozkan2017predicting,ngo2018traditional}.
 
+% ✅ Model Descriptions, Definitions, and Formulas
 \begin{enumerate}
  \item \textbf{Logistic Regression} \\
   \tabto{2em} Logistic Regression (LR) is a statistical classification model that estimates the probability of an outcome from a linear combination of input features. It is widely used as a baseline in recidivism risk prediction because its coefficients offer a relatively direct way to interpret how features relate to the outcome~\cite{travaini2022machine}. Logistic regression was also used in developing the Minnesota Screening Tool Assessing Recidivism Risk (MnSTARR)~\cite{duwe2014development}.\\
@@ -168,6 +169,7 @@ Beyond existing risk assessment tools, general supervised ML models have also be
   The model's weights and biases are learned by minimizing a prediction loss, commonly binary cross-entropy, using gradients computed through backpropagation. A decision threshold can then convert the predicted probability into a class label. Compared with LR's single linear predictor, hidden layers with nonlinear activations can represent more complex feature relationships, though their learned parameters are less directly interpretable.\\
 \end{enumerate}
 
+% ✅ Concerns in ML used in RRP
 \subsubsection{Concerns in Machine Learning-Based Risk Assessment}
 \tabto{2em} With the increasing use of ML models in criminal justice decision-making, several concerns have been raised regarding their application.\\
 
@@ -180,8 +182,7 @@ Predictive inconsistency is a less extensively explored concern within the ML-RR
 
 An unstable model undermines reliability, as its predictions may not be consistent or dependable~\cite{riley2023stability}. This becomes particularly critical in risk-sensitive contexts, where inconsistent predictions may lead to harmful or high-cost outcomes~\cite{zhang2024reliability}. In the domain of criminal justice, the use of unstable models for recidivism risk assessment could result in unfair legal outcomes for defendants~\cite{greene2022forks}.
 
-% ----2. RELATED WORKS----
-
+% ✅ ----2. RELATED WORKS----
 \section{Related Works}
 \tabto{2em} A large volume of work in RRP focuses on evaluating the overall predictive performance of different ML approaches, particularly comparing traditional models with modern ones.\\
 
@@ -201,12 +202,10 @@ Predictive inconsistency is a less explored aspect within the ML-RRP literature 
 
 The variability described by Greene et al.\ can be understood in relation to model instability, the formal term used within ML literature that refers to the variability of predictions that are caused by small perturbations in the training data or stochastic elements in the training process. This connects to algorithmic stability explored by Sun~\cite{sun2015stability} where it is defined as the consistency of a model's predictions under small perturbations in the training data. Through both theoretical analysis and empirical experiments, Sun demonstrated that models with similar predictive accuracy can exhibit significantly different levels of stability, highlighting that accuracy alone is insufficient to evaluate model behavior. The findings emphasize that unstable models may undermine reproducibility and user trust, especially in applications where consistent predictions are critical. \\
 
-% dataset and stochastic instability
 Model instability has been explored in other domains, such as in healthcare. Riley and Collins~\cite{riley2023stability} proposed a comprehensive framework for evaluating instability in clinical prediction models across multiple levels. Their approach uses bootstrap resampling to repeatedly reconstruct models from the same dataset, allowing the assessment of how predictions vary under small perturbations in the training data. The study defines several levels of instability, including variability in overall estimated risk, changes in the distribution of predictions, subgroup-level instability, and instability at the individual prediction level. To quantify these effects, they introduced measures such as the mean absolute prediction error (MAPE), which captures the deviation between predictions from bootstrap models and the original model. Their findings demonstrate that even small changes in the dataset can lead to noticeable variability in model predictions, particularly in small sample sizes or high-dimensional settings, despite stable overall performance metrics. This variability was especially evident at the individual level, where predictions for the same individual could differ significantly across models. These results highlight how small changes in the dataset can influence model instability in clinical settings, potentially affecting clinical decision-making, and emphasize the need to evaluate models beyond traditional performance metrics. \\
 
 Beyond dataset-related sources of variability, instability can also arise from the stochastic nature of model training itself. Lopez-Martinez et al.~\cite{lopez2022instability} further examined instability in clinical risk prediction models, particularly focusing on deep learning approaches used for risk stratification. Using electronic health record (EHR) data, they conducted repeated training runs of identical models with different random seeds and showed that model predictions can vary significantly at the individual level despite similar aggregate performance metrics such as ROC-AUC and PR-AUC.\@ To quantify this variability, they introduced metrics such as the Top-K Jaccard similarity, which measures the consistency of high-risk individuals selected across model runs, and rank correlation measures to assess stability in prediction ordering. Their results demonstrate that deep learning models tend to exhibit greater instability compared to simpler models such as logistic regression, particularly in scenarios involving resource allocation where only top-risk individuals are considered. Additionally, the study showed that instability can lead to inconsistent decision-making and variability in subgroup representation, raising concerns about fairness and reliability in deployment settings.\\
 
-% model reliability
 While stability focuses on variability in predictions, a closely related concern is the reliability of individual predictions. Zhang and Bose~\cite{zhang2024reliability} introduced Model Reliability for Individual Prediction (MRIP), which estimates the probability that a model's prediction error for an individual falls within a tolerance when considering nearby inputs. When outcomes for synthetic perturbations are unavailable, their method estimates this probability using observed neighboring examples. Their study develops and evaluates MRIP for numerical prediction; applying the indicator to binary classification, as in this thesis, is an adaptation. MRIP provides a local reliability measure that complements aggregate performance metrics, which may not reveal large errors for specific individuals. Similarly, Biddle~\cite{biddle2022predicting} examined the epistemic risks inherent in ML systems, particularly in the context of RRP.\@ Drawing from philosophy of science, the study argues that predictive models are inherently value-laden, as their design involves trade-offs between different types of errors and uncertainties that can disproportionately impact individuals. In high-stakes domains such as criminal justice, these epistemic risks translate into real-world consequences, where unreliable predictions may lead to unjust or harmful decisions. Together, these works highlight that beyond accuracy and fairness, understanding and quantifying the reliability of individual predictions is crucial for the responsible deployment of ML systems.\\
 
 Despite the growing body of work focusing on predictive performance and fairness, there are still limited empirical studies on instability in ML-based RRP literature. One notable study by Helmus and Thornton~\cite{helmus2015stability} examined the stability of actuarial risk assessment tools by analyzing the predictive accuracy of individual items across multiple samples. Their findings showed that while most items were generally predictive, roughly half exhibited significant cross-sample variability in predictive accuracy, often in the magnitude rather than the direction of their predictive association. This indicates variation in how strongly individual items predicted sexual recidivism across samples; it does not directly establish instability in individuals' risk estimates. However, this line of work focuses on traditional actuarial instruments such as Static-99R and Static-2002R, and does not extend to modern ML-based approaches.\\
@@ -214,14 +213,14 @@ Despite the growing body of work focusing on predictive performance and fairness
 Overall, the existing literature demonstrates that while substantial progress has been made in evaluating RRP models in terms of predictive performance and fairness, these perspectives alone are insufficient to fully understand model behavior. Studies on model instability highlight that models with similar aggregate performance can produce significantly different predictions at the individual level, influenced by factors such as data perturbations and stochastic training processes. Furthermore, research in other domains, particularly healthcare, shows that such instability is not merely theoretical but can have practical consequences for decision-making, reinforcing the importance of evaluating prediction variability. Despite these insights, the application of instability and reliability analysis to ML-based RRP remains limited, with existing work focusing on traditional actuarial tools. This gap motivates the present study, which aims to empirically analyze the instability of ML models in RRP, considering both dataset and stochastic sources of variability, and to assess how such instability affects individual-level predictions while also evaluating model predictive performance, fairness, and reliability.
 
 % ----3. STATEMENT OF THE PROBLEM----
-
 \section{Statement of the Problem} 
 \tabto{2em} ML models are increasingly used in RRP to support decision-making processes within the criminal justice system, particularly in assessing a defendant's risk of reoffending. While numerous studies have focused on evaluating the predictive performance and fairness of these models, comparatively limited attention has been given to their stability. Model instability, which refers to the variability of predictions under small changes in training data or stochastic processes, may result in different predictions for the same individual across model runs or different modeling conditions. This phenomenon is closely related to the broad concept of predictive inconsistency, where equally valid modeling choices can yield divergent outcomes. In high-stakes domains such as criminal justice, such inconsistencies raise concerns regarding the reliability and trustworthiness of algorithmic risk assessments, as they may influence decisions that affect a defendant's personal freedom and legal status.\\
 
-Although prior research has explored instability in traditional actuarial risk assessment tools or conducted a conceptual analysis on the forking paths that cause predictive inconsistency, there remains a lack of empirical studies examining instability in ML-based RRP models. In particular, it is unclear to what extent these models exhibit instability when subjected to variations in training data and stochastic factors during training. Furthermore, the manner in which instability manifests across different evaluation dimensions, such as predicted scores, ranking of individuals, classification outcomes, contextualized with predictive performance, fairness, and reliability, remains underexplored. It is also not well understood how instability varies across different model types or which input features contribute most to unstable predictions.\\
+Although prior research has examined instability in traditional actuarial risk assessment tools and conceptually explored the modeling choices that can lead to predictive inconsistency, empirical evidence on instability in ML-based RRP models remains limited. It is therefore unclear how much predictions vary under training-data perturbations and stochastic training conditions, how this variability differs across model types and prediction dimensions such as scores, classifications, and rankings, and how it relates to predictive performance, fairness, and reliability.\\
 
-This study addresses these gaps by empirically analyzing the instability of classification models used in RRP.\@ Specifically, it examines how model predictions vary under perturbations in the training data and stochastic training conditions, evaluates instability alongside predictive performance, fairness, and reliability metrics, and identifies key factors that contribute to variability in predictions.
+This study addresses these gaps by assessing dataset-induced and stochastic instability across classification models for RRP.\@ It compares instability across models and prediction dimensions, evaluates performance, fairness, and reliability alongside instability, and synthesizes these results with model structure and SHAP feature contributions for selected cases to characterize patterns of predictive inconsistency.
 
+% ✅ General Objective and Specific Objectives
 \section{Objectives of the Study} 
 \subsection{General Objective} Evaluate dataset and stochastic instability  in classification models for recidivism risk prediction alongside its performance, fairness, and reliability, and feature contribution.
 \subsection{Specific Objectives}
@@ -536,6 +535,7 @@ However, aggregated performance metrics alone do not reflect the reliability of 
   where $m$ denotes the model and explainer, $ \mathbb{E}_{m}[f_m(X)] $ is the expected output under that explainer's reference data, and $ \phi_{j,m}(x) $ represents the contribution of feature $ j $ to the explained output for input $ x $. The output scale depends on the model and explainer used.
 \end{itemize}
 
+% GOOD ✅
 \subsection{Tools} 
 All experiments is conducted on the following device specifications:
 
@@ -601,7 +601,7 @@ Additionally, the study uses the programming language Python for the development
   \item \textbf{Model Training For Dataset Instability:}
   To evaluate dataset instability, the study employs bootstrap resampling approach~\cite{efron2000bootstrap}, which is a sampling method that generates proxy datasets by repeatedly drawing samples with replacement from the original dataset. This allows the study to simulate how model predictions may change under different possible versions of the same dataset. Moreover, bootstrapped resampling was also used by Riley and Collins~\cite{riley2023stability} in their study. The same hyperparameters is held constant across all bootstrap iterations. \\
 
-  A total of 1000 bootstrap samples is generated from the original training dataset using sampling with replacement. This number is selected to ensure a stable estimation of prediction variability across runs while maintaining computational feasibility. Each bootstrapped dataset maintains the same size as the original training set but contains slight variations in data composition due to the resampling process. These variations simulate realistic perturbations in the data, such as missing or duplicated observations. To ensure that dataset sources of instability are isolated from the stochastic sources, a fixed random seed $ s = 0 $ is implemented for all dataset instability experiments.\\ 
+  A total of 100 bootstrap samples is generated from the original training dataset using sampling with replacement. This number is selected to ensure a stable estimation of prediction variability across runs while maintaining computational feasibility. Each bootstrapped dataset maintains the same size as the original training set but contains slight variations in data composition due to the resampling process. These variations simulate realistic perturbations in the data, such as missing or duplicated observations. To ensure that dataset sources of instability are isolated from the stochastic sources, a fixed random seed $ s = 0 $ is implemented for all dataset instability experiments.\\ 
 
   Each model is then be retrained independently on every bootstrapped sample with a fixed random seed of $ s = 0$. After training, predictions is generated using the fixed test dataset and stored in structured CSV files with the filename $<model>\_bs\_pred.csv$, where each column represents the predicted scores from a specific training run. This organized storage enables direct comparison of predictions across multiple runs for each individual.\\
 
@@ -669,7 +669,6 @@ Additionally, the study uses the programming language Python for the development
 
   SHAP outputs is reviewed for the selected validation and test defendants. The analysis examines the per-run signed feature contributions and their signed mean within each fold, interpreting them on the output scale used by each model. It does not treat these values as global feature-importance or variability summaries, and raw magnitudes are not compared directly across models.
 
-  % the fuck is this lol edit it kay it's supposed to talk about the overal synthesis/explainability of the models
   Finally, the results from all analyses is synthesized to provide a comprehensive understanding of the overall instability of each model. 
 \end{enumerate}
 \newpage
@@ -772,7 +771,7 @@ Obj. 3
 & Compare instability across the selected models and evaluate performance, fairness, and reliability using validation and test predictions.
 &
 (1) Compare instability metrics across the selected models and perturbation conditions.\newline
-(2) Evaluate predictive performance, fairness, and reliability using the selected metrics.\newline
+(2) Evaluate predictive performance, fairness, and reliability on the validation and test predictions using the selected metrics.\newline
 (3) Save computed metric results and generated visualizations for analysis.
 & & & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & & & \\
 \midrule
