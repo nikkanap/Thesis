@@ -18,7 +18,7 @@
 \usepackage{subcaption}
 
 % ----TITLE PAGE DETAILS----
-\title{\bfseries Dataset and Stochastic Instability in Classification Models for Recidivism Risk Prediction}
+\title{\bfseries An Empirical Analysis of Dataset and Stochastic Instability in Classification Models for Recidivism Risk Prediction Using the COMPAS Dataset}
 \author{\bfseries 
  Nikka Angela E. Naputo\\
  CMSC 199.2 Research in Computer Science II\\
@@ -226,10 +226,10 @@ This study addresses these gaps by empirically analyzing the instability of clas
 \subsection{General Objective} Evaluate dataset and stochastic instability  in classification models for recidivism risk prediction alongside its performance, fairness, and reliability, and feature contribution.
 \subsection{Specific Objectives}
 \begin{enumerate}
- \item Assess dataset instability by retraining models on bootstrapped, K-fold training samples.
+ \item Assess dataset-induced instability using bootstrap samples within K-fold training partitions.
  \item Assess stochastic instability by retraining models with different random seeds across K-fold training partitions.
- \item Evaluate instability, performance, fairness, reliability, and feature contributions using validation and official test predictions.
- \item Analyze how instability, model structure, and feature contributions relate to predictive inconsistency.
+ \item Compare instability across the selected models and evaluate performance, fairness, and reliability using validation and test predictions.
+ \item Synthesize dataset and stochastic instability, performance, fairness, reliability, model structure, and selected-case SHAP findings to explain patterns of predictive inconsistency.
 \end{enumerate}
 
 \section{Significance of the Study}
@@ -751,7 +751,7 @@ Figure 4 shows the ROC curves of the evaluated models at bootstrap sample 20 und
 \endhead
 
 Obj. 1
-& Assess dataset instability by retraining models on bootstrapped, K-fold training samples.
+& Assess dataset-induced instability using bootstrap samples within K-fold training partitions.
 &
 (1) Generate K-fold splits from the training dataset, and generate bootstrapped samples from the split data, using the excluded split fold as the validation for each fold.\newline
 (2) Train each model on the original fold, then on its bootstrapped samples.\newline
@@ -769,26 +769,20 @@ Obj. 2
 \midrule
 
 Obj. 3
-& Evaluate instability, performance, fairness, reliability, and feature contributions using validation and official test predictions.
+& Compare instability across the selected models and evaluate performance, fairness, and reliability using validation and test predictions.
 &
-(1) Measure model instability using instability metrics.\newline
-(2) Measure model predictive performance using performance metrics.\newline
-(3) Measure model fairness using fairness metrics.\newline
-(4) Measure model reliability using a reliability metric.\newline
-(5) Save per-run SHAP contributions and their signed means for selected validation and test defendants. \newline
-(6) Save all computed instability, performance, fairness, reliability, and feature contribution results and generated visualizations for analysis.
+(1) Compare instability metrics across the selected models and perturbation conditions.\newline
+(2) Evaluate predictive performance, fairness, and reliability using the selected metrics.\newline
+(3) Save computed metric results and generated visualizations for analysis.
 & & & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & & & \\
 \midrule
 
 Obj. 4
-& Analyze how instability, model structure, and feature contributions relate to predictive inconsistency.
+& Synthesize dataset and stochastic instability, performance, fairness, reliability, model structure, and selected-case SHAP findings to explain patterns of predictive inconsistency.
 &
-(1) Compare results from instability metrics across all models to identify which models exhibit higher dataset and stochastic instability.\newline
-(2) Compare results from performance, fairness, and reliability metrics to instability metrics to identify patterns and relationships.\newline
-(3) Contextualize model viability using instability metrics with performance, fairness, and reliability metrics.\newline
-(4) Review signed mean SHAP contributions for selected defendants within each model and fold.\newline
-(5) Interpret SHAP contributions in light of each model's explained output scale.\newline
-(6) Synthesize the results to explain overall model instability.
+(1) Relate dataset and stochastic instability results to model structure, performance, fairness, and reliability.\newline
+(2) Review per-run and mean SHAP contributions for selected validation and test cases.\newline
+(3) Interpret SHAP contributions on each model's output scale and synthesize the findings to explain patterns of predictive inconsistency.
 & & & & & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} & \cellcolor{gray!30} \\
 \bottomrule
 
